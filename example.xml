@@ -1,0 +1,36 @@
+<?xml version='1.0' encoding='utf-8'?>
+<SuperMemoCollection>
+	<Count>1</Count>
+	<SuperMemoElement>
+		<ID>1</ID>
+		<Title>书籍名称</Title>
+		<Type>Concept</Type>
+		<SuperMemoElement>
+			<ID>2</ID>
+			<Title>标题</Title>
+			<Type>Topic</Type>
+			<Content>
+				<Question>问题</Question>
+				<Answer>答案</Answer>
+			</Content>
+		</SuperMemoElement>
+		<SuperMemoElement>
+			<ID>3</ID>
+			<Title>标题</Title>
+			<Type>Topic</Type>
+			<Content>
+				<Question>问题</Question>
+				<Answer>答案</Answer>
+			</Content>
+			<SuperMemoElement>
+				<ID>4</ID>
+				<Title>标题</Title>
+				<Type>Topic</Type>
+				<Content>
+					<Question>问题</Question>
+					<Answer>答案</Answer>
+				</Content>
+			</SuperMemoElement>
+		</SuperMemoElement>
+	</SuperMemoElement>
+</SuperMemoCollection>
