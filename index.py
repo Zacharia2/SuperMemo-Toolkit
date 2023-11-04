@@ -109,7 +109,7 @@ def write_imgfile(ebook, img_root_folder_name):
             f.write(image.content)
 
 
-def get_documents(chapters, foldername, Id=1):
+def get_documents(book, chapters, foldername, Id=1):
     mList = []
     for chapter in chapters:
         # 把这一层处理好，再去处理下一层。
@@ -156,20 +156,27 @@ def get_documents(chapters, foldername, Id=1):
                 mList.append(element)
             # 当元组的第二个元素有子元素的时候。
             if isinstance(chapter[1], list):
-                SubElementList = get_documents(chapter[1], foldername)
+                SubElementList = get_documents(book, chapter[1], foldername)
                 element["SuperMemoElement"] = SubElementList
     return mList
 
 
-book = epub.read_epub("epubs/心理学与生活.epub")
+def create_sm_book(book_path):
+    """
+    docstring
+    """
+    book = epub.read_epub(book_path)
+    book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
 
-mbookname = makeNameSafe(trans_pinyin(book.title))
+    res = get_documents(book, book.toc, book_img_folder_name)
 
-res = get_documents(book.toc, mbookname)
+    data = []
+    data.append(
+        {"ID": 1, "Title": book.title, "Type": "Concept", "SuperMemoElement": res}
+    )
 
-data = []
-data.append({"ID": 1, "Title": book.title, "Type": "Concept", "SuperMemoElement": res})
+    create_xml(data)
+    write_imgfile(book, book_img_folder_name)
 
-create_xml(data)
 
-write_imgfile(book, mbookname)
+create_sm_book("epubs/心理学与生活.epub")
