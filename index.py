@@ -1,3 +1,4 @@
+import shutil
 import os
 import re
 import xml.etree.ElementTree as ET
@@ -161,14 +162,8 @@ def get_documents(book, chapters, foldername, Id=1):
     return mList
 
 
-def create_sm_book(book_path):
-    """
-    docstring
-    """
-    book = epub.read_epub(book_path)
-    book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
-
-    res = get_documents(book, book.toc, book_img_folder_name)
+def create_sm_book(book,img_folder_name):
+    res = get_documents(book, book.toc, img_folder_name)
 
     data = []
     data.append(
@@ -176,7 +171,39 @@ def create_sm_book(book_path):
     )
 
     create_xml(data)
-    write_imgfile(book, book_img_folder_name)
+    write_imgfile(book, img_folder_name)
 
 
-create_sm_book("epubs/心理学与生活.epub")
+def get_collections_primaryStorage(sm_location):
+    """
+    docstring
+    """
+    collection_primaryStorage = []
+    collection = []
+    systems = os.path.join(sm_location, "systems")
+    dir_list = os.listdir(systems)
+    for current in dir_list:
+        path = os.path.join(systems, current)
+        # if os.path.isfile(path):
+        if os.path.isdir(path):
+            collection.append(current)
+            collection_primaryStorage.append(os.path.join(path, "elements"))
+    return (collection, collection_primaryStorage)
+
+
+book = epub.read_epub("epubs/心理学与生活.epub")
+book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
+
+# 需要填写sm的位置
+sm_location = "C:/Users/Snowy/Desktop/sm18"
+# create_sm_book("epubs/心理学与生活.epub",book_img_folder_name)
+
+collection = get_collections_primaryStorage(sm_location)
+
+# 先在sm导入xml书籍。
+# 等待上一步完成。
+# 列出collection，选择后移动文件夹。
+# 完成导入。
+
+
+shutil.move(book_img_folder_name,collection[1][0])
