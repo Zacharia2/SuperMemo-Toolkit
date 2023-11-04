@@ -1,7 +1,4 @@
-from datetime import date
-from unittest import result
 import xml.etree.ElementTree as ET
-import ebooklib
 from ebooklib import epub
 
 
@@ -26,14 +23,26 @@ def create_xml(data):
     root = ET.Element("SuperMemoCollection")
 
     count = ET.SubElement(root, "Count")
-    count.text = str(len(data))
+    count.text = str(count_ids(data))
 
     for element_data in data:
         create_supermemo_element(root, element_data)
 
     tree = ET.ElementTree(root)
-    tree.write("example.xml", encoding="utf-8", xml_declaration=True)
+    tree.write("output/example.xml", encoding="utf-8", xml_declaration=True)
 
+
+def count_ids(data):
+    count = 0
+    
+    for item in data:
+        if 'ID' in item:
+            count += 1
+        
+        if 'SuperMemoElement' in item:
+            count += count_ids(item['SuperMemoElement'])
+    
+    return count
 
 datab = [
     {
@@ -65,7 +74,7 @@ datab = [
     }
 ]
 
-book = epub.read_epub("聪明人的个人成长.epub")
+book = epub.read_epub("epubs/聪明人的个人成长.epub")
 toc = book.toc
 
 
