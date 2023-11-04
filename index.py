@@ -1,5 +1,8 @@
 import xml.etree.ElementTree as ET
+import ebooklib
 from ebooklib import epub
+from bs4 import BeautifulSoup
+import pypinyin
 
 
 def create_supermemo_element(parent_element, element_data):
@@ -40,6 +43,36 @@ def count_ids(data):
         if "SuperMemoElement" in item:
             count += count_ids(item["SuperMemoElement"])
     return count
+
+
+def trans_pinyin(str):
+    trans_list = []
+    for pinyin_name in pypinyin.pinyin(str, style=pypinyin.NORMAL):
+        for pinyin_name_ in pinyin_name:
+            pinyin_name__ = pinyin_name_.capitalize()
+            trans_list.append(pinyin_name__)
+    return "".join(trans_list)
+
+
+def modify_img_url(data, foldername):
+    for item in data:
+        if "Content" in item:
+            page = item["Content"]["Question"]
+            print(
+                "这里有内容哦。",
+            )
+            soup = BeautifulSoup(page, "html.parser")
+            imgs = soup.find_all("img")
+            for img in imgs:
+                # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
+                mbookname = trans_pinyin(foldername)
+                print(mbookname)
+                # new_img_url = img.attrs['src'].split('/')
+                img.attrs["src"] = "file:///[PrimaryStorage]"
+            page = str(soup)
+            print(page)
+        if "SuperMemoElement" in item:
+            modify_img_url(item["SuperMemoElement"])
 
 
 def get_documents(chapters, Id=1):
@@ -90,10 +123,17 @@ def get_documents(chapters, Id=1):
 
 book = epub.read_epub("epubs/心理学与生活.epub")
 
+for image in book.get_items_of_type(ebooklib.ITEM_IMAGE):
+    image
+    # 可以得到image.file_name 和 image.content二进制数据、image.media_type
+
 res = get_documents(book.toc)
 
 data = []
 
 data.append({"ID": 1, "Title": book.title, "Type": "Concept", "SuperMemoElement": res})
 
-create_xml(data)
+# 迭代获取所有Question的内容，对这些内容进行处理，修改图片路径。
+# modify_img_url(data, book.title)
+
+# create_xml(data)
