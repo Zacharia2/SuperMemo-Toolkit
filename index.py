@@ -1,8 +1,17 @@
+import os
+import re
 import xml.etree.ElementTree as ET
 import ebooklib
 from ebooklib import epub
 from bs4 import BeautifulSoup
 import pypinyin
+
+
+def mkdir(path):
+    folder = os.path.exists(path)
+    if not folder:
+        os.makedirs(path)
+        print("new folder:" + path)
 
 
 def create_supermemo_element(parent_element, element_data):
@@ -45,37 +54,62 @@ def count_ids(data):
     return count
 
 
+def makeNameSafe(name):
+    illegalFilenameCharacters = r"/<|>|\:|\"|\/|\\|\||\?|\*|\^|\s/g"
+    fixedTitle = re.sub(illegalFilenameCharacters, "_", name)
+    return fixedTitle
+
+
+# 全角转半角
+def full_to_half(text: str):  # 输入为一个句子
+    _text = ""
+    for char in text:
+        inside_code = ord(
+            char
+        )  # 以一个字符（长度为1的字符串）作为参数，返回对应的 ASCII 数值
+        if inside_code == 12288:  # 全角空格直接转换
+            inside_code = 32
+        elif 65281 <= inside_code <= 65374:  # 全角字符（除空格）根据关系转化
+            inside_code -= 65248
+        _text += chr(inside_code)
+    return _text
+
+
 def trans_pinyin(str):
     trans_list = []
-    for pinyin_name in pypinyin.pinyin(str, style=pypinyin.NORMAL):
+    half_text = full_to_half(str)
+    for pinyin_name in pypinyin.pinyin(half_text, style=pypinyin.NORMAL):
         for pinyin_name_ in pinyin_name:
             pinyin_name__ = pinyin_name_.capitalize()
             trans_list.append(pinyin_name__)
     return "".join(trans_list)
 
 
-def modify_img_url(data, foldername):
-    for item in data:
-        if "Content" in item:
-            page = item["Content"]["Question"]
-            print(
-                "这里有内容哦。",
-            )
-            soup = BeautifulSoup(page, "html.parser")
-            imgs = soup.find_all("img")
-            for img in imgs:
-                # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
-                mbookname = trans_pinyin(foldername)
-                print(mbookname)
-                # new_img_url = img.attrs['src'].split('/')
-                img.attrs["src"] = "file:///[PrimaryStorage]"
-            page = str(soup)
-            print(page)
-        if "SuperMemoElement" in item:
-            modify_img_url(item["SuperMemoElement"])
+def modify_img_url(doc, foldername):
+    soup = BeautifulSoup(doc, "html.parser")
+    imgs = soup.find_all("img")
+    for img in imgs:
+        # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
+        img_name = img.attrs["src"].split("/")[-1]
+        img.attrs["src"] = "file:///[PrimaryStorage]" + foldername + "/" + img_name
+    return str(soup)
 
 
-def get_documents(chapters, Id=1):
+def write_imgfile(ebook, img_root_folder_name):
+    for image in ebook.get_items_of_type(ebooklib.ITEM_IMAGE):
+        # 可以得到image.file_name 和 image.content二进制数据、image.media_type
+        folder_path = os.path.join(os.path.abspath("."), img_root_folder_name)
+        mkdir(folder_path)
+        if (image.file_name).find("/") != -1:
+            filename = image.file_name.split("/")[-1]
+            file_path = os.path.join(folder_path, filename)
+        else:
+            file_path = os.path.join(folder_path, image.file_name)
+        with open(file_path, "wb") as f:
+            f.write(image.content)
+
+
+def get_documents(chapters, foldername, Id=1):
     mList = []
     for chapter in chapters:
         # 把这一层处理好，再去处理下一层。
@@ -86,7 +120,9 @@ def get_documents(chapters, Id=1):
             href = chapter.href
             doc = book.get_item_with_href(href)
             if doc:
-                Content = {"Question": doc.content.decode("utf-8")}  # 获取文档内容
+                Content = {
+                    "Question": modify_img_url(doc.content.decode("utf-8"), foldername)
+                }  # 获取文档内容
             else:
                 Content = {"Question": ""}
             mList.append(
@@ -103,7 +139,11 @@ def get_documents(chapters, Id=1):
                 doc = book.get_item_with_href(href)
                 # 暂时忽略锚点的情况:'Text/Section0001_0012.xhtml#toc_1
                 if doc:
-                    Content = {"Question": doc.content.decode("utf-8")}  # 获取文档内容
+                    Content = {
+                        "Question": modify_img_url(
+                            doc.content.decode("utf-8"), foldername
+                        )
+                    }  # 获取文档内容
                 else:
                     Content = {"Question": ""}
                 element = {
@@ -116,24 +156,20 @@ def get_documents(chapters, Id=1):
                 mList.append(element)
             # 当元组的第二个元素有子元素的时候。
             if isinstance(chapter[1], list):
-                SubElementList = get_documents(chapter[1])
+                SubElementList = get_documents(chapter[1], foldername)
                 element["SuperMemoElement"] = SubElementList
     return mList
 
 
 book = epub.read_epub("epubs/心理学与生活.epub")
 
-for image in book.get_items_of_type(ebooklib.ITEM_IMAGE):
-    image
-    # 可以得到image.file_name 和 image.content二进制数据、image.media_type
+mbookname = makeNameSafe(trans_pinyin(book.title))
 
-res = get_documents(book.toc)
+res = get_documents(book.toc, mbookname)
 
 data = []
-
 data.append({"ID": 1, "Title": book.title, "Type": "Concept", "SuperMemoElement": res})
 
-# 迭代获取所有Question的内容，对这些内容进行处理，修改图片路径。
-# modify_img_url(data, book.title)
+create_xml(data)
 
-# create_xml(data)
+write_imgfile(book, mbookname)

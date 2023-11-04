@@ -57,8 +57,6 @@ toc = book.toc
 doc_dict = defaultdict(list)
 
 
-
-
 def create_supermemo_element(parent_element, element_data):
     supermemo_element = ET.SubElement(parent_element, "SuperMemoElement")
 
@@ -89,3 +87,22 @@ def create_xml(data):
     root = tree.getroot()  # 得到根元素，Element类
     prettyXml(root, "\t", "\n")  # 执行美化方法
     tree.write("example.xml", encoding="utf-8", xml_declaration=True)
+
+
+def modify_img_url(data, foldername):
+    # 迭代获取所有Question的内容，对这些内容进行处理，修改图片路径。
+    for item in data:
+        if "Content" in item:
+            page = item["Content"]["Question"]
+            soup = BeautifulSoup(page, "html.parser")
+            imgs = soup.find_all("img")
+            for img in imgs:
+                # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
+                img_name = img.attrs["src"].split("/")[-1]
+                img.attrs["src"] = (
+                    "file:///[PrimaryStorage]" + foldername + "/" + img_name
+                )
+            page = str(soup)
+            print(page)
+        if "SuperMemoElement" in item:
+            modify_img_url(item["SuperMemoElement"], foldername)
