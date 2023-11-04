@@ -61,6 +61,7 @@ def get_documents(chapters, Id=1):
             )
         # 是元组的时候就说明是有子集的数据。这个元组代表当前的数据。元组的内容代表下一层数据。
         # 在元组中，其中第一个元素是本层的数据，第二个元素是下一层的数据，也是入口。
+        # 这个的子元素的入口、以及超子集元素之间的关联位点。
         if isinstance(chapter, tuple):
             Id += 1
             if isinstance(chapter[0], epub.Section):
