@@ -120,6 +120,6 @@ res = get_documents(book.toc)
 
 data = []
 
-data.append({"ID": 1, "Title": "书籍名称", "Type": "Concept", "SuperMemoElement": res})
+data.append({"ID": 1, "Title": book.get_metadata("DC", "title")[0][0], "Type": "Concept", "SuperMemoElement": res})
 
 create_xml(data)

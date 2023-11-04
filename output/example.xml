@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<SuperMemoCollection><Count>12</Count><SuperMemoElement><ID>1</ID><Title>书籍名称</Title><Type>Concept</Type><SuperMemoElement><Title>扉页</Title><ID>2</ID><Type>Topic</Type><Content><Question>&lt;?xml version='1.0' encoding='utf-8'?&gt;
+<SuperMemoCollection><Count>12</Count><SuperMemoElement><ID>1</ID><Title>聪明人的个人成长</Title><Type>Concept</Type><SuperMemoElement><Title>扉页</Title><ID>2</ID><Type>Topic</Type><Content><Question>&lt;?xml version='1.0' encoding='utf-8'?&gt;
 &lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
 &lt;head&gt;
   &lt;title&gt;&lt;/title&gt;
@@ -81,202 +81,104 @@
 &lt;p class="newContentCR"&gt;版权所有 · 侵权必究&lt;/p&gt;
 
 &lt;/body&gt;
-&lt;/html&gt;</Question></Content></SuperMemoElement><SuperMemoElement><Title>作者简介</Title><ID>4</ID><Type>Topic</Type><Content><Question>&lt;?xml version="1.0" encoding="utf-8" standalone="no"?&gt;
-
-&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
-
-  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"&gt;
-
-
-
-&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
-
-&lt;head&gt;
-
-  &lt;title&gt;&lt;/title&gt;
-
-  &lt;link href="../Styles/stylesheets.css" rel="stylesheet" type="text/css" /&gt;
-
-&lt;/head&gt;
-
-
-
-&lt;body&gt;
-
-  &lt;h1 class="firstTitle"&gt;作者简介&lt;/h1&gt;
-
-
-
-  &lt;p class="content"&gt;&lt;span class="bold"&gt;史蒂夫·帕弗利纳（Steve Pavlina）&lt;/span&gt;&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;美国知名个人成长导师，美国加州州立大学计算机、数学双学位学士，曾经营游戏公司，后来转向个人成长领域的研究和实践。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;史蒂夫·帕弗利纳建立了一家个人成长网站，在网站上，他累计分享了700多篇原创文章、20多条音频，内容涵盖效率、关系、心灵等个人成长领域的诸多主题。他每周都会发布新的内容，被全球150 多个国家和地区的读者访问学习。&lt;/p&gt;
-
-&lt;chapterlast&gt;&lt;/chapterlast&gt;&lt;/body&gt;
-
-&lt;/html&gt;
-
-</Question></Content></SuperMemoElement><SuperMemoElement><Title>译者简介</Title><ID>5</ID><Type>Topic</Type><Content><Question>&lt;?xml version="1.0" encoding="utf-8" standalone="no"?&gt;
-
-&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
-
-  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"&gt;
-
-
-
-&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
-
-&lt;head&gt;
-
-  &lt;title&gt;&lt;/title&gt;
-
-  &lt;link href="../Styles/stylesheets.css" rel="stylesheet" type="text/css" /&gt;
-
-&lt;/head&gt;
-
-
-
-&lt;body&gt;
-
-  &lt;h1 class="firstTitle"&gt;译者简介&lt;/h1&gt;
-
-
-
-  &lt;p class="content"&gt;&lt;span class="bold"&gt;一炜&lt;/span&gt;&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;华为前海外财务经理，现自由创业者；知乎百万阅读答主；公众号“个人成长之行”主理人。长期专注于个人成长相关创作与分享，在该领域有着广泛的影响力。闲暇时热衷于写作、翻译，译著有《聪明人的个人成长》《自律修炼手册》。&lt;/p&gt;
-
-&lt;/body&gt;
-
-&lt;/html&gt;
-
-</Question></Content></SuperMemoElement><SuperMemoElement><Title>译者序</Title><ID>6</ID><Type>Topic</Type><Content><Question>&lt;?xml version="1.0" encoding="utf-8" standalone="no"?&gt;
-
-&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
-
-  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"&gt;
-
-
-
-&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
-
-&lt;head&gt;
-
-  &lt;title&gt;&lt;/title&gt;
-
-  &lt;link href="../Styles/stylesheets.css" rel="stylesheet" type="text/css" /&gt;
-
-&lt;/head&gt;
-
-
-
-&lt;body&gt;
-
-  &lt;h1 class="firstTitle"&gt;译者序&lt;/h1&gt;
-
-
-
-  &lt;p class="content"&gt;这本书能在国内翻译出版，还真是一个巧合。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;作者史蒂夫·帕弗利纳，是全球个人成长领域的一个“大神”。他的个人网站访问量过亿，每天都有来自世界各地的读者阅读他的文章。然而，国内知道他的人并不多。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;我是在2017年读到他写的这本书的，当时颇费周折买到了进口纸质书。读完觉得，此乃“神器”啊！我甚至在2017年11月12日给作者史蒂夫发了一封邮件，表示希望将这本书翻译成中文出版。最终由于版权原因没有实现，这件事就搁下了。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;一晃就是三年多。2021年2月20日，我偶然在知乎上看到一个提问：你读过的最冷门但“含金量极高”的书是什么？&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;我一下子就想到了这本书。含金量高却又实在冷门，我非常希望能有更多的人知道它。于是，我洋洋洒洒写了6000多字，认真回答了这个问题，但之后就忙自己的事去了。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;出乎意料的是，点赞量迅速攀升。这篇回答，在一年多的时间里积累了超过7万点赞量、22万收藏量，不断有读者在下面留言：哪里能买到这本书？什么时候能有中文版？&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;机械工业出版社华章分社的石美华编辑看到了这篇回答，一番周折，最终联系国外出版社把版权买了下来，并邀请我来翻译。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;就是这样的机缘巧合，让这本书最终呈现在大家面前。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;这本书的核心内容很简单，就讲一件事：个人成长。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;如今大家经常讲个人成长，但个人成长到底是怎样的事？读书算吗？健身算吗？工作算吗？&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;我曾经在很多年里，都对这个问题感到困惑。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;我们在日常生活中取得的每一个小改进，其实都是一次个人成长。也正因此，我们有时会觉得个人成长是一件有点散乱、不成系统的事情。好像感觉什么都能算个人成长，却又好像从来都没见过真正成体系的阐述。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;实际上，个人成长是一件系统性的事情，这件事有它的基本原则。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;这本书的厉害之处，就是它用一种结构化的思维模式，给“个人成长”这件事搭建了一个完整的系统：这个系统由七条原则组成，各条原则之间相互关联，又能两两组合，既有理论也有实践方法，最终形成一套完整的个人成长指南。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;在读这本书的过程中，一开始你可能会感到有些抽象，有些摸不着头脑，有些模糊。没关系，继续往下读，你会逐渐形成越来越清晰的概念，找到越来越清晰的结构。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;史蒂夫是一个计算机专业和数学专业出身的理工男。所以，在这本书里，有时你会看到也许是理工男特有的那种理想主义，甚至有点偏执和绝对。比如，他想要建立一个满足“通用性”“完整性”“不可再分性”等一系列标准的原则系统（见引言）。同时，史蒂夫也是一个热衷于心灵探索的人。于是在一些地方，你可能发现他又有一点“神神道道”（比如爱原则和一体原则）。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;史蒂夫就是一个具有这样风格的作者。如果你有不认同的地方，没关系，先跳过去，然后去寻找书中那些能给你带来启发的内容。相信我，你一定能找到。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;在我看来，史蒂夫给出的答案其实并不完美，有些内容并没有足够环环相扣，因为个人成长的原则毕竟不是数学公式。但是，耐心读下去你会发现，书中经常会出现某个段落让你恍然大悟，让你感到无比震撼。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;我自己在很大程度上是受这本书的启发，离开华为，创建“个人成长之行”公众号，做自由译者，完成了一个又一个重要的人生转变。在个人成长的道路上，我认识了越来越多的朋友，也看到了越来越精彩的世界。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;希望这本书也能给你带来启发，让你的生活变得比以前更好，哪怕只是一点点。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;这才是最重要的。&lt;/p&gt;
-
-
-
-  &lt;p class="right-info"&gt;一炜&lt;/p&gt;
-
-
-
-  &lt;p class="right-info"&gt;2022年5月30日&lt;/p&gt;
-
-&lt;chapterlast&gt;&lt;/chapterlast&gt;&lt;/body&gt;
-
-&lt;/html&gt;
-
+&lt;/html&gt;</Question></Content></SuperMemoElement><SuperMemoElement><Title>作者简介</Title><ID>4</ID><Type>Topic</Type><Content><Question>&lt;?xml version="1.0" encoding="utf-8" standalone="no"?&gt;
+&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"&gt;
+
+&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+&lt;head&gt;
+  &lt;title&gt;&lt;/title&gt;
+  &lt;link href="../Styles/stylesheets.css" rel="stylesheet" type="text/css" /&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+  &lt;h1 class="firstTitle"&gt;作者简介&lt;/h1&gt;
+
+  &lt;p class="content"&gt;&lt;span class="bold"&gt;史蒂夫·帕弗利纳（Steve Pavlina）&lt;/span&gt;&lt;/p&gt;
+
+  &lt;p class="content"&gt;美国知名个人成长导师，美国加州州立大学计算机、数学双学位学士，曾经营游戏公司，后来转向个人成长领域的研究和实践。&lt;/p&gt;
+
+  &lt;p class="content"&gt;史蒂夫·帕弗利纳建立了一家个人成长网站，在网站上，他累计分享了700多篇原创文章、20多条音频，内容涵盖效率、关系、心灵等个人成长领域的诸多主题。他每周都会发布新的内容，被全球150 多个国家和地区的读者访问学习。&lt;/p&gt;
+&lt;chapterlast&gt;&lt;/chapterlast&gt;&lt;/body&gt;
+&lt;/html&gt;
+</Question></Content></SuperMemoElement><SuperMemoElement><Title>译者简介</Title><ID>5</ID><Type>Topic</Type><Content><Question>&lt;?xml version="1.0" encoding="utf-8" standalone="no"?&gt;
+&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"&gt;
+
+&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+&lt;head&gt;
+  &lt;title&gt;&lt;/title&gt;
+  &lt;link href="../Styles/stylesheets.css" rel="stylesheet" type="text/css" /&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+  &lt;h1 class="firstTitle"&gt;译者简介&lt;/h1&gt;
+
+  &lt;p class="content"&gt;&lt;span class="bold"&gt;一炜&lt;/span&gt;&lt;/p&gt;
+
+  &lt;p class="content"&gt;华为前海外财务经理，现自由创业者；知乎百万阅读答主；公众号“个人成长之行”主理人。长期专注于个人成长相关创作与分享，在该领域有着广泛的影响力。闲暇时热衷于写作、翻译，译著有《聪明人的个人成长》《自律修炼手册》。&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</Question></Content></SuperMemoElement><SuperMemoElement><Title>译者序</Title><ID>6</ID><Type>Topic</Type><Content><Question>&lt;?xml version="1.0" encoding="utf-8" standalone="no"?&gt;
+&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"&gt;
+
+&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+&lt;head&gt;
+  &lt;title&gt;&lt;/title&gt;
+  &lt;link href="../Styles/stylesheets.css" rel="stylesheet" type="text/css" /&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+  &lt;h1 class="firstTitle"&gt;译者序&lt;/h1&gt;
+
+  &lt;p class="content"&gt;这本书能在国内翻译出版，还真是一个巧合。&lt;/p&gt;
+
+  &lt;p class="content"&gt;作者史蒂夫·帕弗利纳，是全球个人成长领域的一个“大神”。他的个人网站访问量过亿，每天都有来自世界各地的读者阅读他的文章。然而，国内知道他的人并不多。&lt;/p&gt;
+
+  &lt;p class="content"&gt;我是在2017年读到他写的这本书的，当时颇费周折买到了进口纸质书。读完觉得，此乃“神器”啊！我甚至在2017年11月12日给作者史蒂夫发了一封邮件，表示希望将这本书翻译成中文出版。最终由于版权原因没有实现，这件事就搁下了。&lt;/p&gt;
+
+  &lt;p class="content"&gt;一晃就是三年多。2021年2月20日，我偶然在知乎上看到一个提问：你读过的最冷门但“含金量极高”的书是什么？&lt;/p&gt;
+
+  &lt;p class="content"&gt;我一下子就想到了这本书。含金量高却又实在冷门，我非常希望能有更多的人知道它。于是，我洋洋洒洒写了6000多字，认真回答了这个问题，但之后就忙自己的事去了。&lt;/p&gt;
+
+  &lt;p class="content"&gt;出乎意料的是，点赞量迅速攀升。这篇回答，在一年多的时间里积累了超过7万点赞量、22万收藏量，不断有读者在下面留言：哪里能买到这本书？什么时候能有中文版？&lt;/p&gt;
+
+  &lt;p class="content"&gt;机械工业出版社华章分社的石美华编辑看到了这篇回答，一番周折，最终联系国外出版社把版权买了下来，并邀请我来翻译。&lt;/p&gt;
+
+  &lt;p class="content"&gt;就是这样的机缘巧合，让这本书最终呈现在大家面前。&lt;/p&gt;
+
+  &lt;p class="content"&gt;这本书的核心内容很简单，就讲一件事：个人成长。&lt;/p&gt;
+
+  &lt;p class="content"&gt;如今大家经常讲个人成长，但个人成长到底是怎样的事？读书算吗？健身算吗？工作算吗？&lt;/p&gt;
+
+  &lt;p class="content"&gt;我曾经在很多年里，都对这个问题感到困惑。&lt;/p&gt;
+
+  &lt;p class="content"&gt;我们在日常生活中取得的每一个小改进，其实都是一次个人成长。也正因此，我们有时会觉得个人成长是一件有点散乱、不成系统的事情。好像感觉什么都能算个人成长，却又好像从来都没见过真正成体系的阐述。&lt;/p&gt;
+
+  &lt;p class="content"&gt;实际上，个人成长是一件系统性的事情，这件事有它的基本原则。&lt;/p&gt;
+
+  &lt;p class="content"&gt;这本书的厉害之处，就是它用一种结构化的思维模式，给“个人成长”这件事搭建了一个完整的系统：这个系统由七条原则组成，各条原则之间相互关联，又能两两组合，既有理论也有实践方法，最终形成一套完整的个人成长指南。&lt;/p&gt;
+
+  &lt;p class="content"&gt;在读这本书的过程中，一开始你可能会感到有些抽象，有些摸不着头脑，有些模糊。没关系，继续往下读，你会逐渐形成越来越清晰的概念，找到越来越清晰的结构。&lt;/p&gt;
+
+  &lt;p class="content"&gt;史蒂夫是一个计算机专业和数学专业出身的理工男。所以，在这本书里，有时你会看到也许是理工男特有的那种理想主义，甚至有点偏执和绝对。比如，他想要建立一个满足“通用性”“完整性”“不可再分性”等一系列标准的原则系统（见引言）。同时，史蒂夫也是一个热衷于心灵探索的人。于是在一些地方，你可能发现他又有一点“神神道道”（比如爱原则和一体原则）。&lt;/p&gt;
+
+  &lt;p class="content"&gt;史蒂夫就是一个具有这样风格的作者。如果你有不认同的地方，没关系，先跳过去，然后去寻找书中那些能给你带来启发的内容。相信我，你一定能找到。&lt;/p&gt;
+
+  &lt;p class="content"&gt;在我看来，史蒂夫给出的答案其实并不完美，有些内容并没有足够环环相扣，因为个人成长的原则毕竟不是数学公式。但是，耐心读下去你会发现，书中经常会出现某个段落让你恍然大悟，让你感到无比震撼。&lt;/p&gt;
+
+  &lt;p class="content"&gt;我自己在很大程度上是受这本书的启发，离开华为，创建“个人成长之行”公众号，做自由译者，完成了一个又一个重要的人生转变。在个人成长的道路上，我认识了越来越多的朋友，也看到了越来越精彩的世界。&lt;/p&gt;
+
+  &lt;p class="content"&gt;希望这本书也能给你带来启发，让你的生活变得比以前更好，哪怕只是一点点。&lt;/p&gt;
+
+  &lt;p class="content"&gt;这才是最重要的。&lt;/p&gt;
+
+  &lt;p class="right-info"&gt;一炜&lt;/p&gt;
+
+  &lt;p class="right-info"&gt;2022年5月30日&lt;/p&gt;
+&lt;chapterlast&gt;&lt;/chapterlast&gt;&lt;/body&gt;
+&lt;/html&gt;
 </Question></Content></SuperMemoElement><SuperMemoElement><Title>引言</Title><ID>7</ID><Type>Topic</Type><Content><Question>&lt;?xml version='1.0' encoding='utf-8'?&gt;
 &lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
 &lt;head&gt;
@@ -1130,200 +1032,102 @@
   &lt;p class="content"&gt;改变习惯是艰难的，但好习惯也能给你带来巨大的助力。一个好的习惯，很可能就永久地改变了你未来生活的轨迹。总而言之，努力是值得的。好习惯能在生活的各个方面给你提供支持，包括健康、关系，当然还有下一章要讲的——职业。&lt;/p&gt;
 
 &lt;chapterlast&gt;&lt;/chapterlast&gt;&lt;/body&gt;
-&lt;/html&gt;</Question></Content></SuperMemoElement><SuperMemoElement><Title>后记</Title><ID>10</ID><Type>Topic</Type><Content><Question>&lt;?xml version="1.0" encoding="utf-8" standalone="no"?&gt;
-
-&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
-
-  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"&gt;
-
-
-
-&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
-
-&lt;head&gt;
-
-  &lt;title&gt;&lt;/title&gt;
-
-  &lt;link href="../Styles/stylesheets.css" rel="stylesheet" type="text/css" /&gt;
-
-&lt;/head&gt;
-
-
-
-&lt;body&gt;
-
-  &lt;h1 class="firstTitle"&gt;后记&lt;/h1&gt;
-
-
-
-  &lt;p class="content"&gt;正如本书开头所讲，“聪明人的个人成长”指的是：让你的人生在更高程度上遵循真实、爱与能量的基础原则（以及进一步的衍生原则）。当你的信念和行动真实、有爱又充满能量时，你也就是在清醒自主地生活。生而为人，这也许是我们最明智的选择。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;我非常希望把这本书中的理念分享给你，同时，这也是我自己最需要读的一本书。每当我遵循个人成长的七条原则时，生活就会运转得更好：我能够专注于创造性的自我表达，有效地为他人提供价值，获得丰厚的财富，内心也感到快乐和满足。然而，每当我偏离原则时，生活就开始出现问题：我会做出错误的选择，遇到各种难题与阻碍，陷入艰难生存的状态，内心感到孤独而压力重重。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;如果要总结出这本书传递的最核心信息，那就是：&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;&lt;span class="bold"&gt;保持开放，去探索生活的真相。&lt;/span&gt;勇敢接纳你发现的真相，还有随之而来的结果。摒弃虚假、否认和恐惧。让真相成为你的朋友，而不是敌人。这并不容易，却是正确的选择。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;&lt;span class="bold"&gt;分享你的爱。&lt;/span&gt;与真实自我，也与他人建立联结，其实那些联结本就存在。在爱的联结面前，被拒绝的风险不值一提。无论何时你感到孤独，请向外探索，与他人建立联结。要记得，你永远是被爱的。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;&lt;span class="bold"&gt;最大程度地发展你生而为人的能力，发挥你的能量，为这个世界带来积极的改变。&lt;/span&gt;虚假的能量会随时间消逝，而真正的能量必会升起。你越遵循真实与爱，就越能有智慧地驾驭自己的能量。如果你选择退缩，这世上没有人会因此受益。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;&lt;span class="bold"&gt;拥抱属于你自己的成长之路。&lt;/span&gt;用心智与直觉作为指引，清醒自主地追寻真实、爱与能量的方向。通过创造性的自我表达，去给予，去贡献；你收获的将会是富足，而不是贫乏。你给这个世界送上的最丰厚礼物，就是充分展示出真实的自己。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;&lt;span class="bold"&gt;享受这奇妙的人生旅途。&lt;/span&gt;坦然接纳这一路上的起起落落，你最深的悲伤中也隐藏着最深的快乐。把你的故事分享给更多人，知道自己并不孤独。对于生命这场盛宴中的每一分每一秒，心怀感恩。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;清醒自主地活着。&lt;/p&gt;
-
-&lt;chapterlast&gt;&lt;/chapterlast&gt;&lt;/body&gt;
-
-&lt;/html&gt;
-
-</Question></Content></SuperMemoElement><SuperMemoElement><Title>资源</Title><ID>11</ID><Type>Topic</Type><Content><Question>&lt;?xml version="1.0" encoding="utf-8" standalone="no"?&gt;
-
-&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
-
-  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"&gt;
-
-
-
-&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
-
-&lt;head&gt;
-
-  &lt;title&gt;&lt;/title&gt;
-
-  &lt;link href="../Styles/stylesheets.css" rel="stylesheet" type="text/css" /&gt;
-
-&lt;/head&gt;
-
-
-
-&lt;body&gt;
-
-  &lt;h1 class="firstTitle"&gt;资源&lt;/h1&gt;
-
-
-
-  &lt;p class="content"&gt;以下是一些免费资源，也许能让你在个人成长的道路上获得帮助。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;&lt;span class="bold"&gt;本书辅助信息：&lt;/span&gt;&lt;a href="http://www.StevePavlina.com/smart"&gt;www.StevePavlina.com/smart&lt;/a&gt;&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;充分利用这些免费资源，协助自己更好地运用个人成长的七条原则。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;&lt;span class="bold"&gt;史蒂夫的博客：&lt;/span&gt;&lt;a href="http://www.StevePavlina.com/blog"&gt;www.StevePavlina.com/blog&lt;/a&gt;&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;这里有很多个人成长相关的深度文章，经常更新。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;&lt;span class="bold"&gt;史蒂夫的音频：&lt;/span&gt;&lt;a href="http://www.StevePavlina.com/audio"&gt;www.StevePavlina.com/audio&lt;/a&gt;&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;这里有免费音频文件，涵盖个人成长领域的很多主题。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;&lt;span class="bold"&gt;论坛：&lt;/span&gt;&lt;a href="http://www.StevePavlina.com/forums"&gt;www.StevePavlina.com/forums&lt;/a&gt;&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;在这里你可以见到很多追求成长的朋友，大家来自世界各地。这是一个可以提供很多支持的社区，你可以在这里寻求帮助。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;&lt;span class="bold"&gt;联系史蒂夫：&lt;/span&gt;&lt;a href="http://www.StevePavlina.com/contact"&gt;www.StevePavlina.com/contact&lt;/a&gt;&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;你可以给史蒂夫发送信息，包括分享阅读这本书的感受。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;&lt;span class="bold"&gt;欢迎访问：&lt;/span&gt;&lt;a href="http://www.hayhouseradio.com"&gt;www.hayhouseradio.com&lt;/a&gt;&lt;/p&gt;
-
-&lt;chapterlast&gt;&lt;/chapterlast&gt;&lt;/body&gt;
-
-&lt;/html&gt;
-
-</Question></Content></SuperMemoElement><SuperMemoElement><Title>关于作者</Title><ID>12</ID><Type>Topic</Type><Content><Question>&lt;?xml version="1.0" encoding="utf-8" standalone="no"?&gt;
-
-&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
-
-  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"&gt;
-
-
-
-&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
-
-&lt;head&gt;
-
-  &lt;title&gt;&lt;/title&gt;
-
-  &lt;link href="../Styles/stylesheets.css" rel="stylesheet" type="text/css" /&gt;
-
-&lt;/head&gt;
-
-
-
-&lt;body&gt;
-
-  &lt;h1 class="firstTitle"&gt;关于作者&lt;/h1&gt;
-
-
-
-  &lt;p class="content"&gt;史蒂夫·帕弗利纳，全球知名个人成长网站&lt;a href="http://www.Steve-Pavlina.com"&gt;www.Steve-Pavlina.com&lt;/a&gt;主理人。在网站上，他累计分享了700多篇原创文章、20多条音频，内容涵盖效率、关系、心灵等个人成长领域的诸多主题。他每周都会发布新的内容，网站每个月都被来自150多个国家和地区的200多万人浏览。在创建这个网站之前，史蒂夫经营着一家名叫Dexterity Software的公司，主要从事游戏开发和推广，他在这个领域工作了十几年。他同时兼任一家非营利性软件开发者协会的主席，并入选了协会的名人堂。2004年，他主动选择离开游戏行业，转向个人成长这个全新的领域，这个选择最终改变了他的人生。截至本书出版时，他和妻子以及两个孩子一起生活在拉斯维加斯。&lt;/p&gt;
-
-
-
-  &lt;p class="content"&gt;史蒂夫的人生使命：&lt;/p&gt;
-
-
-
-  &lt;p class="quotation"&gt;清醒自主、充满勇气地生活；&lt;/p&gt;
-
-
-
-  &lt;p class="quotation"&gt;享受，增益，分享平静、能量、热情与富足；&lt;/p&gt;
-
-
-
-  &lt;p class="quotation"&gt;与爱和悲悯之心共鸣；&lt;/p&gt;
-
-
-
-  &lt;p class="quotation"&gt;唤醒他人内在的伟大灵魂；&lt;/p&gt;
-
-
-
-  &lt;p class="quotation"&gt;全然拥抱当下时刻。&lt;/p&gt;
-
-&lt;chapterlast&gt;&lt;/chapterlast&gt;&lt;/body&gt;
-
-&lt;/html&gt;
-
+&lt;/html&gt;</Question></Content></SuperMemoElement><SuperMemoElement><Title>后记</Title><ID>10</ID><Type>Topic</Type><Content><Question>&lt;?xml version="1.0" encoding="utf-8" standalone="no"?&gt;
+&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"&gt;
+
+&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+&lt;head&gt;
+  &lt;title&gt;&lt;/title&gt;
+  &lt;link href="../Styles/stylesheets.css" rel="stylesheet" type="text/css" /&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+  &lt;h1 class="firstTitle"&gt;后记&lt;/h1&gt;
+
+  &lt;p class="content"&gt;正如本书开头所讲，“聪明人的个人成长”指的是：让你的人生在更高程度上遵循真实、爱与能量的基础原则（以及进一步的衍生原则）。当你的信念和行动真实、有爱又充满能量时，你也就是在清醒自主地生活。生而为人，这也许是我们最明智的选择。&lt;/p&gt;
+
+  &lt;p class="content"&gt;我非常希望把这本书中的理念分享给你，同时，这也是我自己最需要读的一本书。每当我遵循个人成长的七条原则时，生活就会运转得更好：我能够专注于创造性的自我表达，有效地为他人提供价值，获得丰厚的财富，内心也感到快乐和满足。然而，每当我偏离原则时，生活就开始出现问题：我会做出错误的选择，遇到各种难题与阻碍，陷入艰难生存的状态，内心感到孤独而压力重重。&lt;/p&gt;
+
+  &lt;p class="content"&gt;如果要总结出这本书传递的最核心信息，那就是：&lt;/p&gt;
+
+  &lt;p class="content"&gt;&lt;span class="bold"&gt;保持开放，去探索生活的真相。&lt;/span&gt;勇敢接纳你发现的真相，还有随之而来的结果。摒弃虚假、否认和恐惧。让真相成为你的朋友，而不是敌人。这并不容易，却是正确的选择。&lt;/p&gt;
+
+  &lt;p class="content"&gt;&lt;span class="bold"&gt;分享你的爱。&lt;/span&gt;与真实自我，也与他人建立联结，其实那些联结本就存在。在爱的联结面前，被拒绝的风险不值一提。无论何时你感到孤独，请向外探索，与他人建立联结。要记得，你永远是被爱的。&lt;/p&gt;
+
+  &lt;p class="content"&gt;&lt;span class="bold"&gt;最大程度地发展你生而为人的能力，发挥你的能量，为这个世界带来积极的改变。&lt;/span&gt;虚假的能量会随时间消逝，而真正的能量必会升起。你越遵循真实与爱，就越能有智慧地驾驭自己的能量。如果你选择退缩，这世上没有人会因此受益。&lt;/p&gt;
+
+  &lt;p class="content"&gt;&lt;span class="bold"&gt;拥抱属于你自己的成长之路。&lt;/span&gt;用心智与直觉作为指引，清醒自主地追寻真实、爱与能量的方向。通过创造性的自我表达，去给予，去贡献；你收获的将会是富足，而不是贫乏。你给这个世界送上的最丰厚礼物，就是充分展示出真实的自己。&lt;/p&gt;
+
+  &lt;p class="content"&gt;&lt;span class="bold"&gt;享受这奇妙的人生旅途。&lt;/span&gt;坦然接纳这一路上的起起落落，你最深的悲伤中也隐藏着最深的快乐。把你的故事分享给更多人，知道自己并不孤独。对于生命这场盛宴中的每一分每一秒，心怀感恩。&lt;/p&gt;
+
+  &lt;p class="content"&gt;清醒自主地活着。&lt;/p&gt;
+&lt;chapterlast&gt;&lt;/chapterlast&gt;&lt;/body&gt;
+&lt;/html&gt;
+</Question></Content></SuperMemoElement><SuperMemoElement><Title>资源</Title><ID>11</ID><Type>Topic</Type><Content><Question>&lt;?xml version="1.0" encoding="utf-8" standalone="no"?&gt;
+&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"&gt;
+
+&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+&lt;head&gt;
+  &lt;title&gt;&lt;/title&gt;
+  &lt;link href="../Styles/stylesheets.css" rel="stylesheet" type="text/css" /&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+  &lt;h1 class="firstTitle"&gt;资源&lt;/h1&gt;
+
+  &lt;p class="content"&gt;以下是一些免费资源，也许能让你在个人成长的道路上获得帮助。&lt;/p&gt;
+
+  &lt;p class="content"&gt;&lt;span class="bold"&gt;本书辅助信息：&lt;/span&gt;&lt;a href="http://www.StevePavlina.com/smart"&gt;www.StevePavlina.com/smart&lt;/a&gt;&lt;/p&gt;
+
+  &lt;p class="content"&gt;充分利用这些免费资源，协助自己更好地运用个人成长的七条原则。&lt;/p&gt;
+
+  &lt;p class="content"&gt;&lt;span class="bold"&gt;史蒂夫的博客：&lt;/span&gt;&lt;a href="http://www.StevePavlina.com/blog"&gt;www.StevePavlina.com/blog&lt;/a&gt;&lt;/p&gt;
+
+  &lt;p class="content"&gt;这里有很多个人成长相关的深度文章，经常更新。&lt;/p&gt;
+
+  &lt;p class="content"&gt;&lt;span class="bold"&gt;史蒂夫的音频：&lt;/span&gt;&lt;a href="http://www.StevePavlina.com/audio"&gt;www.StevePavlina.com/audio&lt;/a&gt;&lt;/p&gt;
+
+  &lt;p class="content"&gt;这里有免费音频文件，涵盖个人成长领域的很多主题。&lt;/p&gt;
+
+  &lt;p class="content"&gt;&lt;span class="bold"&gt;论坛：&lt;/span&gt;&lt;a href="http://www.StevePavlina.com/forums"&gt;www.StevePavlina.com/forums&lt;/a&gt;&lt;/p&gt;
+
+  &lt;p class="content"&gt;在这里你可以见到很多追求成长的朋友，大家来自世界各地。这是一个可以提供很多支持的社区，你可以在这里寻求帮助。&lt;/p&gt;
+
+  &lt;p class="content"&gt;&lt;span class="bold"&gt;联系史蒂夫：&lt;/span&gt;&lt;a href="http://www.StevePavlina.com/contact"&gt;www.StevePavlina.com/contact&lt;/a&gt;&lt;/p&gt;
+
+  &lt;p class="content"&gt;你可以给史蒂夫发送信息，包括分享阅读这本书的感受。&lt;/p&gt;
+
+  &lt;p class="content"&gt;&lt;span class="bold"&gt;欢迎访问：&lt;/span&gt;&lt;a href="http://www.hayhouseradio.com"&gt;www.hayhouseradio.com&lt;/a&gt;&lt;/p&gt;
+&lt;chapterlast&gt;&lt;/chapterlast&gt;&lt;/body&gt;
+&lt;/html&gt;
+</Question></Content></SuperMemoElement><SuperMemoElement><Title>关于作者</Title><ID>12</ID><Type>Topic</Type><Content><Question>&lt;?xml version="1.0" encoding="utf-8" standalone="no"?&gt;
+&lt;!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd"&gt;
+
+&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt;
+&lt;head&gt;
+  &lt;title&gt;&lt;/title&gt;
+  &lt;link href="../Styles/stylesheets.css" rel="stylesheet" type="text/css" /&gt;
+&lt;/head&gt;
+
+&lt;body&gt;
+  &lt;h1 class="firstTitle"&gt;关于作者&lt;/h1&gt;
+
+  &lt;p class="content"&gt;史蒂夫·帕弗利纳，全球知名个人成长网站&lt;a href="http://www.Steve-Pavlina.com"&gt;www.Steve-Pavlina.com&lt;/a&gt;主理人。在网站上，他累计分享了700多篇原创文章、20多条音频，内容涵盖效率、关系、心灵等个人成长领域的诸多主题。他每周都会发布新的内容，网站每个月都被来自150多个国家和地区的200多万人浏览。在创建这个网站之前，史蒂夫经营着一家名叫Dexterity Software的公司，主要从事游戏开发和推广，他在这个领域工作了十几年。他同时兼任一家非营利性软件开发者协会的主席，并入选了协会的名人堂。2004年，他主动选择离开游戏行业，转向个人成长这个全新的领域，这个选择最终改变了他的人生。截至本书出版时，他和妻子以及两个孩子一起生活在拉斯维加斯。&lt;/p&gt;
+
+  &lt;p class="content"&gt;史蒂夫的人生使命：&lt;/p&gt;
+
+  &lt;p class="quotation"&gt;清醒自主、充满勇气地生活；&lt;/p&gt;
+
+  &lt;p class="quotation"&gt;享受，增益，分享平静、能量、热情与富足；&lt;/p&gt;
+
+  &lt;p class="quotation"&gt;与爱和悲悯之心共鸣；&lt;/p&gt;
+
+  &lt;p class="quotation"&gt;唤醒他人内在的伟大灵魂；&lt;/p&gt;
+
+  &lt;p class="quotation"&gt;全然拥抱当下时刻。&lt;/p&gt;
+&lt;chapterlast&gt;&lt;/chapterlast&gt;&lt;/body&gt;
+&lt;/html&gt;
 </Question></Content></SuperMemoElement></SuperMemoElement></SuperMemoCollection>
