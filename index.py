@@ -13,8 +13,6 @@ def mkdir(path):
     if not folder:
         os.makedirs(path)
         print("新建文件夹:" + path)
-    else:
-        print("文件夹已存在")
 
 
 def create_supermemo_element(parent_element, element_data):
@@ -34,7 +32,14 @@ def create_supermemo_element(parent_element, element_data):
             sub_element.text = str(value)
 
 
-def create_xml(data, target_folder):
+def create_xml(data, target_file):
+    """输入data, 创建SuperMemo-XML-Book
+
+    Args:
+        data (_type_): _description_
+        target_file (_type_): SuperMemo-XML书籍文件的绝对路径
+    """
+
     root = ET.Element("SuperMemoCollection")
 
     count = ET.SubElement(root, "Count")
@@ -44,7 +49,7 @@ def create_xml(data, target_folder):
         create_supermemo_element(root, element_data)
 
     tree = ET.ElementTree(root)
-    tree.write(target_folder, encoding="utf-8", xml_declaration=True)
+    tree.write(target_file, encoding="utf-8", xml_declaration=True)
 
 
 def count_ids(data):
@@ -98,7 +103,14 @@ def modify_img_url(doc, foldername):
     return str(soup)
 
 
-def write_imgfile(ebook, imgs_folder_name, target_folder):
+def write_imgfile(ebook, target_folder, imgs_folder_name):
+    """写出img文件到SuperMemo-XML-Book文件旁边的文件夹中。
+
+    Args:
+        ebook (_type_): epub实例
+        target_folder (str): 目标文件夹
+        imgs_folder_name (str): SuperMemo-XML-Book文件旁边的文件夹。
+    """
     for image in ebook.get_items_of_type(ebooklib.ITEM_IMAGE):
         # 可以得到image.file_name 和 image.content二进制数据、image.media_type
         # os.path.abspath(".")
@@ -165,16 +177,19 @@ def get_documents(book, chapters, foldername, Id=1):
     return mList
 
 
-def create_sm_book(book, img_folder_name, target_folder=os.path.abspath(".")):
-    res = get_documents(book, book.toc, img_folder_name)
+def create_sm_book(book, book_f_name, target_folder=os.getcwd()):
+    res = get_documents(book, book.toc, book_f_name)
 
     data = []
     data.append(
         {"ID": 1, "Title": book.title, "Type": "Concept", "SuperMemoElement": res}
     )
 
-    create_xml(data, target_folder)
-    write_imgfile(book, img_folder_name, target_folder)
+    sm_book_file_path = os.path.join(target_folder, book_f_name + ".xml")
+    create_xml(data, sm_book_file_path)
+
+    img_folder_name = book_f_name
+    write_imgfile(book, target_folder, img_folder_name)
 
 
 def get_collections_primaryStorage(sm_location):
@@ -199,6 +214,8 @@ book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
 
 # 需要填写sm的位置
 sm_location = "C:/Users/Snowy/Desktop/sm18"
+
+# 可以自定义输出路径。
 create_sm_book(book, book_img_folder_name)
 
 collection = get_collections_primaryStorage(sm_location)
@@ -209,4 +226,4 @@ collection = get_collections_primaryStorage(sm_location)
 # 完成导入。
 
 
-shutil.move(book_img_folder_name, collection[1][0])
+# shutil.move(book_img_folder_name, collection[1][0])
