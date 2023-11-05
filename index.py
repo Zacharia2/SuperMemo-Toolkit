@@ -146,6 +146,56 @@ def write_imgfile(ebook, target_folder, imgs_folder_name):
             f.write(image.content)
 
 
+def split_section(html, doc_id):
+    soup = BeautifulSoup(html, "html.parser")
+    elements_with_id = soup.find(id=doc_id)
+    tag_name = elements_with_id.name
+    # 获取带有id属性的元素
+    element_with_id = soup.find(tag_name, id=doc_id)
+    # 提取这一节内容
+    content = ""
+    if element_with_id is not None:
+        for sibling in element_with_id.find_next_siblings():
+            if sibling.name == tag_name:
+                break
+            else:
+                content += str(sibling)
+
+    return content
+
+
+def getContent(href):
+    """输入文件href路径, 返回文件, 或者文件的节选。
+
+    Args:
+        href (str): 文件href路径
+
+    Returns:
+        str: 文件 或者 文件的节选。
+    """
+    # 若有锚点。说明是一个文件中的一节。
+    # 用id属性的元素对应的tag分割文档。
+    # resolve ：暂时忽略锚点的情况:'Text/Section0001_0012.xhtml#toc_1
+    if href.find("#") != -1:
+        doc_id = href.split("#")[-1]
+        doc_href = href.split("#")[0]
+        doc = book.get_item_with_href(doc_href)
+        # 分割文本
+        section = split_section(doc.content.decode("utf-8"), doc_id)
+        # SuperMemo接受任意的超文本。
+        return section
+    else:
+        # 没有锚点。说明是一个文件。
+        doc = book.get_item_with_href(href)
+        if doc:
+            Content = doc.content.decode("utf-8")
+        else:
+            Content = ""
+    return Content
+
+
+# {"Question": modify_img_url(section, foldername)}
+# {"Question": ""}
 def get_documents(book, chapters, foldername):
     mList = []
     for chapter in chapters:
@@ -154,14 +204,9 @@ def get_documents(book, chapters, foldername):
         if isinstance(chapter, epub.Link):
             title = chapter.title
             href = chapter.href
-            doc = book.get_item_with_href(href)
-            if doc:
-                Content = {
-                    "Question": modify_img_url(doc.content.decode("utf-8"), foldername)
-                }  # 获取文档内容
-            else:
-                Content = {"Question": ""}
-            mList.append({"Title": title, "Type": "Topic", "Content": Content})
+            Content = {"Question": modify_img_url(getContent(href), foldername)}
+            element = {"Title": title, "Type": "Topic", "Content": Content}
+            mList.append(element)
         # 是元组的时候就说明是有子集的数据。这个元组代表当前的数据。元组的内容代表下一层数据。
         # 在元组中，其中第一个元素是本层的数据，第二个元素是下一层的数据，也是入口。
         # 这个的子元素的入口、以及超子集元素之间的关联位点。
@@ -169,16 +214,7 @@ def get_documents(book, chapters, foldername):
             if isinstance(chapter[0], epub.Section):
                 title = chapter[0].title
                 href = chapter[0].href
-                doc = book.get_item_with_href(href)
-                # 暂时忽略锚点的情况:'Text/Section0001_0012.xhtml#toc_1
-                if doc:
-                    Content = {
-                        "Question": modify_img_url(
-                            doc.content.decode("utf-8"), foldername
-                        )
-                    }  # 获取文档内容
-                else:
-                    Content = {"Question": ""}
+                Content = {"Question": modify_img_url(getContent(href), foldername)}
                 element = {
                     "Title": title,
                     "Type": "Topic",
