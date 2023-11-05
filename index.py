@@ -146,7 +146,6 @@ def write_imgfile(ebook, target_folder, imgs_folder_name):
             f.write(image.content)
 
 
-# 还有不足之处。
 def split_section(html, doc_id):
     soup = BeautifulSoup(html, "html.parser")
     elements_with_id = soup.find(id=doc_id)
@@ -154,7 +153,8 @@ def split_section(html, doc_id):
     # 获取带有id属性的元素
     element_with_id = soup.find(tag_name, id=doc_id)
     # 提取这一节内容
-    content = ""
+    # 把它自己（分割标记）也放进去。
+    content = str(element_with_id)
     if element_with_id is not None:
         for sibling in element_with_id.find_next_siblings():
             if sibling.name == tag_name:
