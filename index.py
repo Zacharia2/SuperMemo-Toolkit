@@ -62,6 +62,27 @@ def count_ids(data):
     return count
 
 
+def set_unique_id(data):
+    """为SuperMemo元素设置id
+
+    Args:
+        data (_type_): _description_
+    """
+    count = 1
+
+    def recursively_set_id(element):
+        nonlocal count
+        element["ID"] = count
+        count += 1
+
+        if "SuperMemoElement" in element:
+            for sub_element in element["SuperMemoElement"]:
+                recursively_set_id(sub_element)
+
+    for element in data:
+        recursively_set_id(element)
+
+
 def makeNameSafe(name):
     illegalFilenameCharacters = r"/<|>|\:|\"|\/|\\|\||\?|\*|\^|\s/g"
     fixedTitle = re.sub(illegalFilenameCharacters, "_", name)
@@ -125,13 +146,12 @@ def write_imgfile(ebook, target_folder, imgs_folder_name):
             f.write(image.content)
 
 
-def get_documents(book, chapters, foldername, Id=1):
+def get_documents(book, chapters, foldername):
     mList = []
     for chapter in chapters:
         # 把这一层处理好，再去处理下一层。
         # 这一层和下一层的逻辑一致。
         if isinstance(chapter, epub.Link):
-            Id += 1
             title = chapter.title
             href = chapter.href
             doc = book.get_item_with_href(href)
@@ -141,14 +161,11 @@ def get_documents(book, chapters, foldername, Id=1):
                 }  # 获取文档内容
             else:
                 Content = {"Question": ""}
-            mList.append(
-                {"Title": title, "ID": Id, "Type": "Topic", "Content": Content}
-            )
+            mList.append({"Title": title, "Type": "Topic", "Content": Content})
         # 是元组的时候就说明是有子集的数据。这个元组代表当前的数据。元组的内容代表下一层数据。
         # 在元组中，其中第一个元素是本层的数据，第二个元素是下一层的数据，也是入口。
         # 这个的子元素的入口、以及超子集元素之间的关联位点。
         if isinstance(chapter, tuple):
-            Id += 1
             if isinstance(chapter[0], epub.Section):
                 title = chapter[0].title
                 href = chapter[0].href
@@ -164,7 +181,6 @@ def get_documents(book, chapters, foldername, Id=1):
                     Content = {"Question": ""}
                 element = {
                     "Title": title,
-                    "ID": Id,
                     "Type": "Topic",
                     "Content": Content,
                     # "SuperMemoElement": SuperMemoElement,
@@ -180,13 +196,12 @@ def get_documents(book, chapters, foldername, Id=1):
 def create_sm_book(book, book_f_name, target_folder=os.getcwd()):
     res = get_documents(book, book.toc, book_f_name)
 
-    data = []
-    data.append(
-        {"ID": 1, "Title": book.title, "Type": "Concept", "SuperMemoElement": res}
-    )
+    # 这个是Collection下的第一个SuperMemoElement
+    rootElement = [{"Title": book.title, "Type": "Concept", "SuperMemoElement": res}]
+    set_unique_id(rootElement)
 
     sm_book_file_path = os.path.join(target_folder, book_f_name + ".xml")
-    create_xml(data, sm_book_file_path)
+    create_xml(rootElement, sm_book_file_path)
 
     img_folder_name = book_f_name
     write_imgfile(book, target_folder, img_folder_name)
@@ -194,22 +209,22 @@ def create_sm_book(book, book_f_name, target_folder=os.getcwd()):
 
 def get_collections_primaryStorage(sm_location):
     """
-    docstring
+    collection_name: primaryStorage
     """
-    collection_primaryStorage = []
-    collection = []
+
+    collections = {}
     systems = os.path.join(sm_location, "systems")
     dir_list = os.listdir(systems)
     for current in dir_list:
         path = os.path.join(systems, current)
         # if os.path.isfile(path):
         if os.path.isdir(path):
-            collection.append(current)
-            collection_primaryStorage.append(os.path.join(path, "elements"))
-    return (collection, collection_primaryStorage)
+            collections = {current: os.path.join(path, "elements")}
+
+    return collections
 
 
-book = epub.read_epub("epubs/心理学与生活.epub")
+book = epub.read_epub("聪明人的个人成长.epub")
 book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
 
 # 需要填写sm的位置
