@@ -115,10 +115,16 @@ def trans_pinyin(str):
 
 
 # resolved：空格变问号的问题
-def make_spaces_safe(html_str):
-    em_space = 0x2003
-    result = html_str.replace(chr(em_space), "&ensp;")
-    return result
+# https://blog.csdn.net/u013778905/article/details/53177042
+# 符号库：https://www.fuhaoku.net/U+00A9
+def make_escape_safe(html_str):
+    escapeSequence = {
+        "em_space": (chr(0x2003), "&ensp;"),
+        "copy": (chr(0x00A9), "&copy;"),
+    }
+    for escape in escapeSequence.values():
+        html_str = html_str.replace(escape[0], escape[1])
+    return html_str
 
 
 # 写入数据结构时，必要调用的函数之一。
@@ -129,7 +135,7 @@ def modify_img_url(doc, foldername):
         # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
         img_name = img.attrs["src"].split("/")[-1]
         img.attrs["src"] = "file:///[PrimaryStorage]" + foldername + "/" + img_name
-    return make_spaces_safe(str(soup))
+    return make_escape_safe(str(soup))
 
 
 def write_imgfile(ebook, target_folder, imgs_folder_name):
