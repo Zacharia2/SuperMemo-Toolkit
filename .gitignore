@@ -1,3 +1,4 @@
 
 *.epub
 __pycache__/*
+*.pyc
