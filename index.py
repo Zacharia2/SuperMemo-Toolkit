@@ -114,6 +114,14 @@ def trans_pinyin(str):
     return "".join(trans_list)
 
 
+# resolved：空格变问号的问题
+def make_spaces_safe(html_str):
+    em_space = 0x2003
+    result = html_str.replace(chr(em_space), "&ensp;")
+    return result
+
+
+# 写入数据结构时，必要调用的函数之一。
 def modify_img_url(doc, foldername):
     soup = BeautifulSoup(doc, "html.parser")
     imgs = soup.find_all("img")
@@ -121,7 +129,7 @@ def modify_img_url(doc, foldername):
         # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
         img_name = img.attrs["src"].split("/")[-1]
         img.attrs["src"] = "file:///[PrimaryStorage]" + foldername + "/" + img_name
-    return str(soup)
+    return make_spaces_safe(str(soup))
 
 
 def write_imgfile(ebook, target_folder, imgs_folder_name):
@@ -287,4 +295,4 @@ def move_to_primaryStorage(source_folder_name, target_folder):
     shutil.move(source_folder_name, target_folder)
 
 
-start("聪明人的个人成长.epub", "C:/Users/Snowy/Desktop")
+start("C:/Users/Snowy/Desktop/如何阅读一本书.epub", "C:/Users/Snowy/Desktop")
