@@ -119,8 +119,9 @@ def trans_pinyin(str):
 # 符号库：https://www.fuhaoku.net/U+00A9
 def make_escape_safe(html_str):
     escapeSequence = {
-        "em_space": (chr(0x2003), "&ensp;"),
-        "copy": (chr(0x00A9), "&copy;"),
+        "EM SPACE": (chr(0x2003), "&ensp;"),
+        "COPYRIGHT SIGN": (chr(0x00A9), "&copy;"),
+        "EM DASH": (chr(0x2014), "&#8212"),
     }
     for escape in escapeSequence.values():
         html_str = html_str.replace(escape[0], escape[1])
