@@ -1,2 +1,3 @@
 
 *.epub
+__pycache__/*

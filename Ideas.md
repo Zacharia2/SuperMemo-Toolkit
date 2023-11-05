@@ -31,3 +31,13 @@ print("总共有", total_ids, "个ID。")
 这个代码将遍历整个数据结构，并在每个元素中检查是否存在ID字段。如果存在，则计数加一。如果存在SuperMemoElement字段，则递归调用函数以统计其子元素中的ID个数。最后，打印出总共的ID个数。
 
 希望这可以帮助到你！如果还有其他问题，请随时提问。
+
+
+    # collection = get_collections_primaryStorage(sm_location)
+
+    # 先在sm导入xml书籍。
+    # 等待上一步完成。
+    # 列出collection，选择后移动文件夹。
+    # 完成导入。
+
+    # shutil.move(source_folder_name, collection[1][0])

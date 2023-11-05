@@ -12,7 +12,7 @@ def mkdir(path):
     folder = os.path.exists(path)
     if not folder:
         os.makedirs(path)
-        print("新建文件夹:" + path)
+        print("创建文件夹:: " + path)
 
 
 def create_supermemo_element(parent_element, element_data):
@@ -146,6 +146,7 @@ def write_imgfile(ebook, target_folder, imgs_folder_name):
             f.write(image.content)
 
 
+# 还有不足之处。
 def split_section(html, doc_id):
     soup = BeautifulSoup(html, "html.parser")
     elements_with_id = soup.find(id=doc_id)
@@ -164,7 +165,7 @@ def split_section(html, doc_id):
     return content
 
 
-def getContent(href):
+def getContent(book, href):
     """输入文件href路径, 返回文件, 或者文件的节选。
 
     Args:
@@ -204,7 +205,7 @@ def get_documents(book, chapters, foldername):
         if isinstance(chapter, epub.Link):
             title = chapter.title
             href = chapter.href
-            Content = {"Question": modify_img_url(getContent(href), foldername)}
+            Content = {"Question": modify_img_url(getContent(book, href), foldername)}
             element = {"Title": title, "Type": "Topic", "Content": Content}
             mList.append(element)
         # 是元组的时候就说明是有子集的数据。这个元组代表当前的数据。元组的内容代表下一层数据。
@@ -214,7 +215,9 @@ def get_documents(book, chapters, foldername):
             if isinstance(chapter[0], epub.Section):
                 title = chapter[0].title
                 href = chapter[0].href
-                Content = {"Question": modify_img_url(getContent(href), foldername)}
+                Content = {
+                    "Question": modify_img_url(getContent(book, href), foldername)
+                }
                 element = {
                     "Title": title,
                     "Type": "Topic",
@@ -260,21 +263,28 @@ def get_collections_primaryStorage(sm_location):
     return collections
 
 
-book = epub.read_epub("聪明人的个人成长.epub")
-book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
-
+# Main
 # 需要填写sm的位置
-sm_location = "C:/Users/Snowy/Desktop/sm18"
+# sm_location = "C:/Users/Snowy/Desktop/sm18"
 
-# 可以自定义输出路径。
-create_sm_book(book, book_img_folder_name)
-
-collection = get_collections_primaryStorage(sm_location)
-
-# 先在sm导入xml书籍。
-# 等待上一步完成。
-# 列出collection，选择后移动文件夹。
-# 完成导入。
+# sm_location = ""
+# def set_sm_location(sm_path):
+#     global sm_location
+#     sm_location = sm_path
 
 
-# shutil.move(book_img_folder_name, collection[1][0])
+def start(epubfile, savefolder):
+    # book = epub.read_epub("聪明人的个人成长.epub")
+    book = epub.read_epub(epubfile)
+    book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
+
+    # 可以自定义输出路径。
+    # create_sm_book(book, book_img_folder_name, "C:/Users/Snowy/Desktop")
+    create_sm_book(book, book_img_folder_name, savefolder)
+
+
+def move_to_primaryStorage(source_folder_name, target_folder):
+    shutil.move(source_folder_name, target_folder)
+
+
+start("聪明人的个人成长.epub", "C:/Users/Snowy/Desktop")
