@@ -1,0 +1,507 @@
+<?xml version='1.0' encoding='utf-8'?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="eng">
+  <head>
+    <meta name="dtb:uid" content="5cbba872-4582-45c6-8afb-d6be06264c64"/>
+    <meta name="dtb:depth" content="4"/>
+    <meta name="dtb:generator" content="calibre (6.12.0)"/>
+    <meta name="dtb:totalPageCount" content="0"/>
+    <meta name="dtb:maxPageNumber" content="0"/>
+  </head>
+  <docTitle>
+    <text>Systematic Theology, Second Edition</text>
+  </docTitle>
+  <navMap>
+    <navPoint id="num_1" playOrder="1" class="chapter">
+      <navLabel>
+        <text>Title Page</text>
+      </navLabel>
+      <content src="text/part0002.html"/>
+    </navPoint>
+    <navPoint id="num_2" playOrder="2" class="chapter">
+      <navLabel>
+        <text>Copyright Page</text>
+      </navLabel>
+      <content src="text/part0003.html"/>
+    </navPoint>
+    <navPoint id="num_3" playOrder="3" class="chapter">
+      <navLabel>
+        <text>Dedication</text>
+      </navLabel>
+      <content src="text/part0005.html"/>
+    </navPoint>
+    <navPoint id="num_4" playOrder="4" class="chapter">
+      <navLabel>
+        <text>Contents</text>
+      </navLabel>
+      <content src="text/part0006.html"/>
+    </navPoint>
+    <navPoint id="num_5" playOrder="5" class="chapter">
+      <navLabel>
+        <text>Abbreviations</text>
+      </navLabel>
+      <content src="text/part0007.html"/>
+    </navPoint>
+    <navPoint id="num_6" playOrder="6" class="chapter">
+      <navLabel>
+        <text>Preface to the Second Edition</text>
+      </navLabel>
+      <content src="text/part0008_split_000.html"/>
+    </navPoint>
+    <navPoint id="num_7" playOrder="7" class="chapter">
+      <navLabel>
+        <text>Preface to the First Edition</text>
+      </navLabel>
+      <content src="text/part0009.html"/>
+    </navPoint>
+    <navPoint id="num_8" playOrder="8" class="chapter">
+      <navLabel>
+        <text>1. Introduction to Systematic Theology</text>
+      </navLabel>
+      <content src="text/part0010_split_000.html"/>
+    </navPoint>
+    <navPoint id="num_9" playOrder="9" class="chapter">
+      <navLabel>
+        <text>Part 1: The Doctrine of the Word of God</text>
+      </navLabel>
+      <content src="text/part0011.html"/>
+      <navPoint id="num_10" playOrder="10" class="chapter">
+        <navLabel>
+          <text>2. The Word of God</text>
+        </navLabel>
+        <content src="text/part0012_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_11" playOrder="11" class="chapter">
+        <navLabel>
+          <text>3. The Canon of Scripture</text>
+        </navLabel>
+        <content src="text/part0013_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_12" playOrder="12" class="chapter">
+        <navLabel>
+          <text>4. The Four Characteristics of Scripture: (1) Authority</text>
+        </navLabel>
+        <content src="text/part0014_split_000.html"/>
+        <navPoint id="num_13" playOrder="13" class="chapter">
+          <navLabel>
+            <text>Additional Note: Christianity and Theological Liberalism</text>
+          </navLabel>
+          <content src="text/part0014_split_017.html"/>
+        </navPoint>
+      </navPoint>
+      <navPoint id="num_14" playOrder="14" class="chapter">
+        <navLabel>
+          <text>5. The Inerrancy of Scripture</text>
+        </navLabel>
+        <content src="text/part0015_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_15" playOrder="15" class="chapter">
+        <navLabel>
+          <text>6. The Four Characteristics of Scripture: (2) Clarity</text>
+        </navLabel>
+        <content src="text/part0016_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_16" playOrder="16" class="chapter">
+        <navLabel>
+          <text>7. The Four Characteristics of Scripture: (3) Necessity</text>
+        </navLabel>
+        <content src="text/part0017_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_17" playOrder="17" class="chapter">
+        <navLabel>
+          <text>8. The Four Characteristics of Scripture: (4) Sufficiency</text>
+        </navLabel>
+        <content src="text/part0018_split_000.html"/>
+      </navPoint>
+    </navPoint>
+    <navPoint id="num_18" playOrder="18" class="chapter">
+      <navLabel>
+        <text>Part 2: The Doctrine of God</text>
+      </navLabel>
+      <content src="text/part0019.html"/>
+      <navPoint id="num_19" playOrder="19" class="chapter">
+        <navLabel>
+          <text>9. The Existence of God</text>
+        </navLabel>
+        <content src="text/part0020_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_20" playOrder="20" class="chapter">
+        <navLabel>
+          <text>10. The Knowability of God</text>
+        </navLabel>
+        <content src="text/part0021_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_21" playOrder="21" class="chapter">
+        <navLabel>
+          <text>11. The Character of God: “Incommunicable” Attributes</text>
+        </navLabel>
+        <content src="text/part0022_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_22" playOrder="22" class="chapter">
+        <navLabel>
+          <text>12. The Character of God: “Communicable” Attributes (Part 1)</text>
+        </navLabel>
+        <content src="text/part0023_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_23" playOrder="23" class="chapter">
+        <navLabel>
+          <text>13. The Character of God: “Communicable” Attributes (Part 2)</text>
+        </navLabel>
+        <content src="text/part0024_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_24" playOrder="24" class="chapter">
+        <navLabel>
+          <text>14. God In Three Persons: The Trinity</text>
+        </navLabel>
+        <content src="text/part0025_split_000.html"/>
+        <navPoint id="num_25" playOrder="25" class="chapter">
+          <navLabel>
+            <text>Additional Note: Christianity and Mormonism</text>
+          </navLabel>
+          <content src="text/part0025_split_029.html"/>
+        </navPoint>
+      </navPoint>
+      <navPoint id="num_26" playOrder="26" class="chapter">
+        <navLabel>
+          <text>15. Creation</text>
+        </navLabel>
+        <content src="text/part0026_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_27" playOrder="27" class="chapter">
+        <navLabel>
+          <text>16. God’s Providence</text>
+        </navLabel>
+        <content src="text/part0027_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_28" playOrder="28" class="chapter">
+        <navLabel>
+          <text>17. Miracles</text>
+        </navLabel>
+        <content src="text/part0028_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_29" playOrder="29" class="chapter">
+        <navLabel>
+          <text>18. Prayer</text>
+        </navLabel>
+        <content src="text/part0029_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_30" playOrder="30" class="chapter">
+        <navLabel>
+          <text>19. Angels</text>
+        </navLabel>
+        <content src="text/part0030_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_31" playOrder="31" class="chapter">
+        <navLabel>
+          <text>20. Satan and Demons</text>
+        </navLabel>
+        <content src="text/part0031_split_000.html"/>
+      </navPoint>
+    </navPoint>
+    <navPoint id="num_32" playOrder="32" class="chapter">
+      <navLabel>
+        <text>Part 3: The Doctrine of Man In the Image of God</text>
+      </navLabel>
+      <content src="text/part0032.html"/>
+      <navPoint id="num_33" playOrder="33" class="chapter">
+        <navLabel>
+          <text>21. The Creation of Man</text>
+        </navLabel>
+        <content src="text/part0033_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_34" playOrder="34" class="chapter">
+        <navLabel>
+          <text>22. Man As Male and Female</text>
+        </navLabel>
+        <content src="text/part0034_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_35" playOrder="35" class="chapter">
+        <navLabel>
+          <text>23. The Essential Nature of Man</text>
+        </navLabel>
+        <content src="text/part0035_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_36" playOrder="36" class="chapter">
+        <navLabel>
+          <text>24. Sin</text>
+        </navLabel>
+        <content src="text/part0036_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_37" playOrder="37" class="chapter">
+        <navLabel>
+          <text>25. The Covenants Between God and Man</text>
+        </navLabel>
+        <content src="text/part0037_split_000.html"/>
+      </navPoint>
+    </navPoint>
+    <navPoint id="num_38" playOrder="38" class="chapter">
+      <navLabel>
+        <text>Part 4: The Doctrines of Christ and the Holy Spirit</text>
+      </navLabel>
+      <content src="text/part0038.html"/>
+      <navPoint id="num_39" playOrder="39" class="chapter">
+        <navLabel>
+          <text>26. The Person of Christ</text>
+        </navLabel>
+        <content src="text/part0039_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_40" playOrder="40" class="chapter">
+        <navLabel>
+          <text>27. The Atonement</text>
+        </navLabel>
+        <content src="text/part0040_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_41" playOrder="41" class="chapter">
+        <navLabel>
+          <text>28. Resurrection and Ascension</text>
+        </navLabel>
+        <content src="text/part0041_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_42" playOrder="42" class="chapter">
+        <navLabel>
+          <text>29. The Offices of Christ</text>
+        </navLabel>
+        <content src="text/part0042_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_43" playOrder="43" class="chapter">
+        <navLabel>
+          <text>30. The Work of the Holy Spirit</text>
+        </navLabel>
+        <content src="text/part0043_split_000.html"/>
+      </navPoint>
+    </navPoint>
+    <navPoint id="num_44" playOrder="44" class="chapter">
+      <navLabel>
+        <text>Part 5: The Doctrine of the Application of Redemption</text>
+      </navLabel>
+      <content src="text/part0044.html"/>
+      <navPoint id="num_45" playOrder="45" class="chapter">
+        <navLabel>
+          <text>31. Common Grace</text>
+        </navLabel>
+        <content src="text/part0045_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_46" playOrder="46" class="chapter">
+        <navLabel>
+          <text>32. Election and Reprobation</text>
+        </navLabel>
+        <content src="text/part0046_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_47" playOrder="47" class="chapter">
+        <navLabel>
+          <text>33. The Gospel Call and Effective Calling</text>
+        </navLabel>
+        <content src="text/part0047_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_48" playOrder="48" class="chapter">
+        <navLabel>
+          <text>34. Regeneration</text>
+        </navLabel>
+        <content src="text/part0048_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_49" playOrder="49" class="chapter">
+        <navLabel>
+          <text>35. Conversion (Faith and Repentance)</text>
+        </navLabel>
+        <content src="text/part0049_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_50" playOrder="50" class="chapter">
+        <navLabel>
+          <text>36. Justification (Right Legal Standing Before God)</text>
+        </navLabel>
+        <content src="text/part0050_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_51" playOrder="51" class="chapter">
+        <navLabel>
+          <text>37. Adoption (Membership In God’s Family)</text>
+        </navLabel>
+        <content src="text/part0051_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_52" playOrder="52" class="chapter">
+        <navLabel>
+          <text>38. Sanctification (Growth In Likeness to Christ)</text>
+        </navLabel>
+        <content src="text/part0052_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_53" playOrder="53" class="chapter">
+        <navLabel>
+          <text>39. Baptism In and Filling With the Holy Spirit</text>
+        </navLabel>
+        <content src="text/part0053_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_54" playOrder="54" class="chapter">
+        <navLabel>
+          <text>40. The Perseverance of the Saints (Remaining a Christian)</text>
+        </navLabel>
+        <content src="text/part0054_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_55" playOrder="55" class="chapter">
+        <navLabel>
+          <text>41. Death and the Intermediate State</text>
+        </navLabel>
+        <content src="text/part0055_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_56" playOrder="56" class="chapter">
+        <navLabel>
+          <text>42. Glorification (Receiving a Resurrection Body)</text>
+        </navLabel>
+        <content src="text/part0056_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_57" playOrder="57" class="chapter">
+        <navLabel>
+          <text>43. Union With Christ</text>
+        </navLabel>
+        <content src="text/part0057_split_000.html"/>
+      </navPoint>
+    </navPoint>
+    <navPoint id="num_58" playOrder="58" class="chapter">
+      <navLabel>
+        <text>Part 6: The Doctrine of the Church</text>
+      </navLabel>
+      <content src="text/part0058.html"/>
+      <navPoint id="num_59" playOrder="59" class="chapter">
+        <navLabel>
+          <text>44. The Church: Its Nature, Its Marks, and Its Purposes</text>
+        </navLabel>
+        <content src="text/part0059_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_60" playOrder="60" class="chapter">
+        <navLabel>
+          <text>45. The Purity and Unity of the Church</text>
+        </navLabel>
+        <content src="text/part0060_split_000.html"/>
+        <navPoint id="num_61" playOrder="61" class="chapter">
+          <navLabel>
+            <text>Additional Note: Major Doctrinal Differences Between Protestants and Roman Catholics</text>
+          </navLabel>
+          <content src="text/part0060_split_008.html"/>
+        </navPoint>
+      </navPoint>
+      <navPoint id="num_62" playOrder="62" class="chapter">
+        <navLabel>
+          <text>46. The Power of the Church</text>
+        </navLabel>
+        <content src="text/part0061_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_63" playOrder="63" class="chapter">
+        <navLabel>
+          <text>47. Church Government</text>
+        </navLabel>
+        <content src="text/part0062_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_64" playOrder="64" class="chapter">
+        <navLabel>
+          <text>48. Means of Grace Within the Church</text>
+        </navLabel>
+        <content src="text/part0063_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_65" playOrder="65" class="chapter">
+        <navLabel>
+          <text>49. Baptism</text>
+        </navLabel>
+        <content src="text/part0064_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_66" playOrder="66" class="chapter">
+        <navLabel>
+          <text>50. The Lord’s Supper</text>
+        </navLabel>
+        <content src="text/part0065_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_67" playOrder="67" class="chapter">
+        <navLabel>
+          <text>51. Worship</text>
+        </navLabel>
+        <content src="text/part0066_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_68" playOrder="68" class="chapter">
+        <navLabel>
+          <text>52. Gifts of the Holy Spirit: (1) General Questions</text>
+        </navLabel>
+        <content src="text/part0067_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_69" playOrder="69" class="chapter">
+        <navLabel>
+          <text>53. Gifts of the Holy Spirit: (2) Specific Gifts</text>
+        </navLabel>
+        <content src="text/part0068_split_000.html"/>
+      </navPoint>
+    </navPoint>
+    <navPoint id="num_70" playOrder="70" class="chapter">
+      <navLabel>
+        <text>Part 7: The Doctrine of the Future</text>
+      </navLabel>
+      <content src="text/part0069.html"/>
+      <navPoint id="num_71" playOrder="71" class="chapter">
+        <navLabel>
+          <text>54. The Return of Christ: When and How?</text>
+        </navLabel>
+        <content src="text/part0070_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_72" playOrder="72" class="chapter">
+        <navLabel>
+          <text>55. The Millennium</text>
+        </navLabel>
+        <content src="text/part0071_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_73" playOrder="73" class="chapter">
+        <navLabel>
+          <text>56. The Final Judgment and Eternal Punishment</text>
+        </navLabel>
+        <content src="text/part0072_split_000.html"/>
+      </navPoint>
+      <navPoint id="num_74" playOrder="74" class="chapter">
+        <navLabel>
+          <text>57. The New Heavens and New Earth</text>
+        </navLabel>
+        <content src="text/part0073_split_000.html"/>
+      </navPoint>
+    </navPoint>
+    <navPoint id="num_75" playOrder="75" class="chapter">
+      <navLabel>
+        <text>Appendix 1: Historic Confessions of Faith</text>
+      </navLabel>
+      <content src="text/part0074_split_000.html"/>
+    </navPoint>
+    <navPoint id="num_76" playOrder="76" class="chapter">
+      <navLabel>
+        <text>Appendix 2: Annotated Bibliography of Evangelical Systematic Theologies</text>
+      </navLabel>
+      <content src="text/part0075_split_000.html"/>
+    </navPoint>
+    <navPoint id="num_77" playOrder="77" class="chapter">
+      <navLabel>
+        <text>Appendix 3: Master List of Systematic Theologies Indexed At the End of Each Chapter</text>
+      </navLabel>
+      <content src="text/part0076_split_000.html"/>
+    </navPoint>
+    <navPoint id="num_78" playOrder="78" class="chapter">
+      <navLabel>
+        <text>Glossary</text>
+      </navLabel>
+      <content src="text/part0077.html"/>
+    </navPoint>
+    <navPoint id="num_79" playOrder="79" class="chapter">
+      <navLabel>
+        <text>Hymn and Contemporary Worship Song Index</text>
+      </navLabel>
+      <content src="text/part0078.html"/>
+    </navPoint>
+    <navPoint id="num_80" playOrder="80" class="chapter">
+      <navLabel>
+        <text>Scripture Index</text>
+      </navLabel>
+      <content src="text/part0079_split_000.html"/>
+    </navPoint>
+    <navPoint id="num_81" playOrder="81" class="chapter">
+      <navLabel>
+        <text>Subject Index</text>
+      </navLabel>
+      <content src="text/part0080_split_000.html"/>
+    </navPoint>
+    <navPoint id="num_82" playOrder="82" class="chapter">
+      <navLabel>
+        <text>Author Index</text>
+      </navLabel>
+      <content src="text/part0081.html"/>
+    </navPoint>
+  </navMap>
+</ncx>
