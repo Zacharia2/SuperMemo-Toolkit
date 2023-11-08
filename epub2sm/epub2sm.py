@@ -302,4 +302,8 @@ def move_to_primaryStorage(source_folder_name, target_folder):
     shutil.move(source_folder_name, target_folder)
 
 
-start("C:/Users/Snowy/Desktop/如何阅读一本书.epub", "C:/Users/Snowy/Desktop")
+# start("C:/Users/Snowy/Desktop/如何阅读一本书.epub", "C:/Users/Snowy/Desktop")
+
+
+def test():
+    print("epub2sm")

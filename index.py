@@ -11,26 +11,17 @@ Options:
 # import pkg
 import os
 from docopt import docopt
+from epub2sm import epub2sm
 
 
 def cmd():
     args = docopt(__doc__)
     if args.get("cmdA"):
-        os.system("tree")
-        os.system("ipconfig")
-        os.system("netstat -ano")
-        os.system("tasklist")
         print("#" * 100)
         print(args["<valueA>"])
         print("#" * 100)
-    elif args.get("cmdB") and args.get("paramB"):
-        os.system("tree")
-        os.system("ipconfig")
-        os.system("netstat -ano")
-        os.system("tasklist")
-        print("#" * 100)
-        print(args["<valueB>"])
-        print("#" * 100)
+        epub2sm.test()
+
 
 
 if __name__ == "__main__":
