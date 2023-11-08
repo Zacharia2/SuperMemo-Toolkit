@@ -122,6 +122,7 @@ def make_escape_safe(html_str):
         "EM SPACE": (chr(0x2003), "&ensp;"),
         "COPYRIGHT SIGN": (chr(0x00A9), "&copy;"),
         "EM DASH": (chr(0x2014), "&#8212"),
+        "chapterlast": (chr(0xF108), "&#10048"),
     }
     for escape in escapeSequence.values():
         html_str = html_str.replace(escape[0], escape[1])
