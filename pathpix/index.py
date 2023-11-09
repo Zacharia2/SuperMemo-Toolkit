@@ -5,9 +5,12 @@ import time
 import requests
 from PIL import Image
 
-URL = 1
-RELATIVE = 2
-ABSOLUTE = 3
+
+def mkdir(path):
+    folder = os.path.exists(path)
+    if not folder:
+        os.makedirs(path)
+        print("创建文件夹:: " + path)
 
 
 def is_html_file(name):
@@ -28,15 +31,8 @@ def is_relative_path(string):
     return string.startswith("file:///[PrimaryStorage]")
 
 
-def matches_type(src_url):
-    if is_url(src_url):
-        return URL
-    if is_relative_path(src_url):
-        return RELATIVE
-    else:
-        return ABSOLUTE
-
-
+# 还有这种：'file:///C:/Users/Snowy/Desktop/sm18/必读：旅途的开始.png'
+# 'C:/Users/Snowy/Desktop/sm18/systems/Noname/elements/web_pic\\im_2023-11-09-20_39_50_plot_19.jpeg'
 def modify_src_to_relative(url):
     """将sm绝对路径转换为相对路径.
 
@@ -73,6 +69,7 @@ def im_download_and_convert(url, saved_path):
         im_bytes = response.content
         if content_type not in supports_im_type:
             try:
+                # webp无法读取二进制流。
                 with Image.open(im_bytes) as im:
                     print(im.format, im.size, im.mode)
                     # 这里是输出路径。
@@ -84,12 +81,14 @@ def im_download_and_convert(url, saved_path):
         else:
             ext = content_type.split("/")[1]
             # 如果支持的话，就直接写入的路径中即可。
+            mkdir(saved_path)
             saved_path = os.path.join(saved_path, file_name + f".{ext}")
+            # 必须先创建文件夹。
             with open(saved_path, "wb") as f:
                 f.write(im_bytes)
             return saved_path
     else:
-        print("非图片资源链接 ", url)
+        print("警告！非图片资源链接 ", url)
 
 
 def modify_src(html_path, web_im_saved_path):
@@ -98,11 +97,10 @@ def modify_src(html_path, web_im_saved_path):
     img_tags = soup.find_all("img")
     for img in img_tags:
         src = img.attrs["src"]
-        if matches_type(src) == URL:
-            img.attrs["src"] = modify_src_to_relative(
-                im_download_and_convert(src, web_im_saved_path)
-            )
-        elif matches_type(src) == ABSOLUTE:
+        if is_url(src):
+            im_local_path = im_download_and_convert(src, web_im_saved_path)
+            img.attrs["src"] = modify_src_to_relative(im_local_path)
+        elif is_relative_path(src):
             img.attrs["src"] = modify_src_to_relative(src)
     return str(soup)
 
@@ -125,7 +123,7 @@ def relative_and_localize(elements_path, web_im_saved_path):
                 if entry.is_file() and is_html_file(entry.name):
                     # todo something
                     try:
-                        with os.open(entry, "r", encoding="utf-8") as f:
+                        with open(entry.path, "r+", encoding='utf-8') as f:
                             content = f.read()
                             f.seek(0)
                             modified_content = modify_src(content, web_im_saved_path)
@@ -133,7 +131,7 @@ def relative_and_localize(elements_path, web_im_saved_path):
                             f.truncate()
                             processed_htm_files.append(entry.path)
                     except OSError:
-                        print(entry)
+                        print(entry.path)
 
                 if entry.is_dir():
                     find_htm_files(entry.path)
@@ -142,11 +140,7 @@ def relative_and_localize(elements_path, web_im_saved_path):
     return processed_htm_files
 
 
-# collect_html(
-#     "C:\\Users\\Snowy\\Desktop\\sm18\\systems\\CongMingRenDeGeRenChengZhang\\elements"
-# )
-
 relative_and_localize(
-    "C:\\Users\\Snowy\\Desktop\\sm18\\systems\\CongMingRenDeGeRenChengZhang\\elements",
-    "C:\\Users\\Snowy\\Desktop\\sm18\\systems\\CongMingRenDeGeRenChengZhang\\elements\\web_pic",
+    "C:/Users/Snowy/Desktop/sm18/systems/Noname/elements",
+    "C:/Users/Snowy/Desktop/sm18/systems/Noname/elements/web_pic",
 )
