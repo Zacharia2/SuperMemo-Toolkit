@@ -43,8 +43,11 @@ def modify_src_to_relative(url):
         str: file:///[PrimaryStorage]path/to/file
     """
 
-    pattern = re.compile(r"file:///.*?elements/")
-    src_path = pattern.sub("file:///[PrimaryStorage]", url)
+    if url.startswith("file:///"):
+        pattern = re.compile(r"file:///.*?elements/")
+        src_path = pattern.sub("file:///[PrimaryStorage]", url)
+    else:
+        pass
     return src_path
 
 
@@ -68,16 +71,32 @@ def im_download_and_convert(url, saved_path):
     if content_type and content_type.startswith("image/"):
         im_bytes = response.content
         if content_type not in supports_im_type:
-            try:
-                # webp无法读取二进制流。
-                with Image.open(im_bytes) as im:
-                    print(im.format, im.size, im.mode)
-                    # 这里是输出路径。
-                    saved_path = os.path.join(saved_path, file_name + ".png")
-                    im.save(saved_path, "png")
-                    return saved_path
-            except OSError:
-                print("cannot convert", url)
+            if content_type == "image/webp":
+                try:
+                    temp_path = os.path.join(saved_path, "temp")
+                    temp_file_path = os.path.join(temp_path, file_name + ".webp")
+                    mkdir(temp_path)
+                    with open(temp_file_path, "wb") as f:
+                        f.write(im_bytes)
+                    # 先把webp写到temp文件夹，然后再处理。
+                    with Image.open(temp_file_path) as im:
+                        print(im.format, im.size, im.mode)
+                        # 这里是输出路径。
+                        saved_path = os.path.join(saved_path, file_name + ".png")
+                        im.save(saved_path, "png")
+                        return saved_path
+                except OSError:
+                    print("cannot convert", url)
+            else:
+                try:
+                    with Image.open(im_bytes) as im:
+                        print(im.format, im.size, im.mode)
+                        # 这里是输出路径。
+                        saved_path = os.path.join(saved_path, file_name + ".png")
+                        im.save(saved_path, "png")
+                        return saved_path
+                except OSError:
+                    print("cannot convert", url)
         else:
             ext = content_type.split("/")[1]
             # 如果支持的话，就直接写入的路径中即可。
@@ -123,7 +142,7 @@ def relative_and_localize(elements_path, web_im_saved_path):
                 if entry.is_file() and is_html_file(entry.name):
                     # todo something
                     try:
-                        with open(entry.path, "r+", encoding='utf-8') as f:
+                        with open(entry.path, "r+", encoding="utf-8") as f:
                             content = f.read()
                             f.seek(0)
                             modified_content = modify_src(content, web_im_saved_path)
