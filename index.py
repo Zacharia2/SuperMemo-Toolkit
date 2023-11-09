@@ -1,15 +1,19 @@
 # encoding:utf-8
 """SMKit CLI Tool
 Usage:
+    smkit set config programs <path>
+    smkit get config --all
+    smkit e2s [<collection>] <epub-path> <targetfolder>
+    smkit pathpix <collection>
+    smkit indexer <epub> <output>
+    smkit codetitlefix <node.txt>
     smkit test <valueA>
-    smkit e2s <valueA> <valueB>
 
 Options:
     -h --help       Show Help doc.
     -v --version    Show Version.
 """
 
-import os
 from docopt import docopt
 from epub2sm import epub2sm
 
