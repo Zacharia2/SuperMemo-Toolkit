@@ -1,3 +1,4 @@
+import html
 from bs4 import BeautifulSoup
 import re
 import os
@@ -46,8 +47,9 @@ def modify_src_to_relative(url):
     if url.startswith("file:///"):
         pattern = re.compile(r"file:///.*?elements/")
         src_path = pattern.sub("file:///[PrimaryStorage]", url)
-    else:
-        pass
+    elif os.path.isfile(url) or os.path.isdir(url):
+        # 如果是系统文件目录，则。
+        src_path = url
     return src_path
 
 
@@ -142,10 +144,13 @@ def relative_and_localize(elements_path, web_im_saved_path):
                 if entry.is_file() and is_html_file(entry.name):
                     # todo something
                     try:
-                        with open(entry.path, "r+", encoding="utf-8") as f:
+                        with open(entry.path, "r+", encoding="GB2312") as f:
                             content = f.read()
+                            unescape_content = html.unescape(content)
                             f.seek(0)
-                            modified_content = modify_src(content, web_im_saved_path)
+                            modified_content = modify_src(
+                                unescape_content, web_im_saved_path
+                            )
                             f.write(modified_content)
                             f.truncate()
                             processed_htm_files.append(entry.path)
