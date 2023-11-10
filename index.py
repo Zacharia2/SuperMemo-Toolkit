@@ -67,10 +67,11 @@ def cmd():
         col_folder = docs.conf.get_collection_primaryStorage(
             sm_location, args["<collection>"]
         )
+        collection_temp_path = docs.conf.get_collections_temp(sm_location)
         save_img_folder = os.path.join(col_folder, "web_pic")
         print("集合元素：", col_folder)
         print("图片位置：", save_img_folder)
-        pathpix.relative_and_localize(col_folder, save_img_folder)
+        pathpix.relative_and_localize(col_folder, save_img_folder, collection_temp_path)
     elif args.get("test"):
         # python index.py e2s a
         print("#" * 100)
