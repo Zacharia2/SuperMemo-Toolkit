@@ -4,7 +4,6 @@ Usage:
     smkit set config <key> <value>
     smkit get config --all
     smkit e2sm <epub-path> <targetfolder>
-    smkit pathpix --least-col
     smkit pathpix <collection>
     smkit indexer <epub> <output>
     smkit codetitlefix <node.txt>
@@ -55,16 +54,23 @@ def cmd():
         epub2sm.start(args["<epub-path>"], args["<targetfolder>"])
 
     elif args.get("pathpix"):
-        sm_system1 = docs.conf.read_sm_system1(sm_location)
-        least_used_col = docs.conf.get_collection_primaryStorage(
-            sm_location, sm_system1
+        # smkit pathpix --least-col
+        # sm_system1 = docs.conf.read_sm_system1(sm_location)
+        # least_used_col = docs.conf.get_collection_primaryStorage(
+        #     sm_location, sm_system1
+        # )
+        # save_img_folder = os.path.join(least_used_col, "web_pic")
+        # # if args['<collection>']
+        # print(least_used_col)
+        # print(save_img_folder)
+        # pathpix.relative_and_localize(least_used_col, save_img_folder)
+        col_folder = docs.conf.get_collection_primaryStorage(
+            sm_location, args["<collection>"]
         )
-        save_img_folder = os.path.join(least_used_col, "web_pic")
-        # if args['<collection>']
-        print(least_used_col)
-        print(save_img_folder)
-        pathpix.relative_and_localize(least_used_col, save_img_folder)
-
+        save_img_folder = os.path.join(col_folder, "web_pic")
+        print("集合元素：", col_folder)
+        print("图片位置：", save_img_folder)
+        pathpix.relative_and_localize(col_folder, save_img_folder)
     elif args.get("test"):
         # python index.py e2s a
         print("#" * 100)
