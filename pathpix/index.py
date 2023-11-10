@@ -65,6 +65,8 @@ def is_in_elements_directory(path, directory):
     Returns:
         bool: 在, 返回True; 不在, 返回False
     """
+    path = path.replace("\\", "/")
+    directory = directory.replace("\\", "/")
     # 解码URL路径，转换为文件系统路径
     fs_path = urllib.parse.unquote(path)
     # 获取文件夹路径
@@ -105,7 +107,7 @@ def relativized_path(url):
     Returns:
         str: file:///[PrimaryStorage]path/to/file
     """
-
+    url = url.replace("\\", "/")
     if not url.startswith("file:///") and os.path.exists(url):
         # 统一为 "file:///.*?elements/"
         url = "file:///" + url
@@ -150,6 +152,9 @@ def im_download_and_convert(url, saved_path):
                     # 这里是输出路径。
                     saved_path = os.path.join(saved_path, file_name + ".png")
                     im.save(saved_path, "png")
+                    # 删除临时文件夹。
+                    print("删除临时文件夹::", temp_path)
+                    shutil.rmtree(temp_path)
                     return saved_path
             except IOError:
                 print("cannot convert", url)
@@ -180,6 +185,7 @@ def modify_src(html_path, web_im_saved_path, elements_path):
         elif not is_relative_path(src):
             # 绝对路径
             # 去掉前缀
+            src = src.replace("\\", "/")
             if src.startswith("file:///"):
                 fs_path = src.split("file:///")[1]
             else:
