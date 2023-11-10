@@ -84,7 +84,7 @@ def im_download_and_convert(url, saved_path):
         saved_path (_type_): 绝对路径, 保存img到指定目录
 
     Returns:
-        str: 绝对路径, 图片的绝对位置
+        str: 绝对路径, drive:/path/sm18/systems/col/elements/path/to/file.ext'
     """
     supports_im_type = ["image/jpeg", "image/jpg", "image/png"]
     response = requests.get(url)
@@ -99,7 +99,7 @@ def im_download_and_convert(url, saved_path):
             extension = content_type.split("/")[1]
             try:
                 temp_path = os.path.join(saved_path, "temp")
-                temp_file_path = os.path.join(temp_path, file_name + extension)
+                temp_file_path = os.path.join(temp_path, file_name + f".{extension}")
                 mkdir(temp_path)
                 # 先把webp写到temp文件夹，然后再处理。
                 with open(temp_file_path, "wb") as f:
@@ -136,7 +136,7 @@ def modify_src(html_path, web_im_saved_path):
         if is_url(src):
             im_local_path = im_download_and_convert(src, web_im_saved_path)
             img.attrs["src"] = relativized_path(im_local_path)
-        if not is_relative_path(src):
+        if is_relative_path(src):
             # 绝对路径
             # 去掉前缀
             if src.startswith("file:///"):
