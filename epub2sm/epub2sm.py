@@ -1,4 +1,3 @@
-import shutil
 import os
 import re
 import xml.etree.ElementTree as ET
@@ -262,49 +261,15 @@ def create_sm_book(book, book_f_name, target_folder=os.getcwd()):
     write_imgfile(book, target_folder, img_folder_name)
 
 
-def get_collections_primaryStorage(sm_location):
-    """
-    collection_name: primaryStorage
-    """
-
-    collections = {}
-    systems = os.path.join(sm_location, "systems")
-    dir_list = os.listdir(systems)
-    for current in dir_list:
-        path = os.path.join(systems, current)
-        # if os.path.isfile(path):
-        if os.path.isdir(path):
-            collections = {current: os.path.join(path, "elements")}
-
-    return collections
-
-
-# Main
-# 需要填写sm的位置
-# sm_location = "C:/Users/Snowy/Desktop/sm18"
-
-# sm_location = ""
-# def set_sm_location(sm_path):
-#     global sm_location
-#     sm_location = sm_path
-
-
 def start(epubfile, savefolder):
     # book = epub.read_epub("聪明人的个人成长.epub")
     book = epub.read_epub(epubfile)
     book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
-
+    print("开始处理书籍：", book_img_folder_name)
     # 可以自定义输出路径。
     # create_sm_book(book, book_img_folder_name, "C:/Users/Snowy/Desktop")
     create_sm_book(book, book_img_folder_name, savefolder)
-
-
-def move_to_primaryStorage(source_folder_name, target_folder):
-    shutil.move(source_folder_name, target_folder)
+    print("转换完成，已存储至：", savefolder)
 
 
 # start("C:/Users/Snowy/Desktop/如何阅读一本书.epub", "C:/Users/Snowy/Desktop")
-
-
-def test():
-    print("epub2sm")

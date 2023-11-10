@@ -127,7 +127,7 @@ def im_download_and_convert(url, saved_path):
         print("警告！非图片资源链接 ", url)
 
 
-def modify_src(html_path, web_im_saved_path):
+def modify_src(html_path, web_im_saved_path, elements_path):
     soup = BeautifulSoup(html_path, "html.parser")
 
     img_tags = soup.find_all("img")
@@ -136,7 +136,7 @@ def modify_src(html_path, web_im_saved_path):
         if is_url(src):
             im_local_path = im_download_and_convert(src, web_im_saved_path)
             img.attrs["src"] = relativized_path(im_local_path)
-        if is_relative_path(src):
+        if not is_relative_path(src):
             # 绝对路径
             # 去掉前缀
             if src.startswith("file:///"):
@@ -144,7 +144,7 @@ def modify_src(html_path, web_im_saved_path):
             else:
                 fs_path = src
             # 在不在集合的元素文件夹中。
-            if is_in_elements_directory(fs_path):
+            if is_in_elements_directory(fs_path, elements_path):
                 img.attrs["src"] = relativized_path(fs_path)
             else:
                 # 不在，移动到集合元素文件夹的web_im_saved_path。
@@ -176,10 +176,11 @@ def relative_and_localize(elements_path, web_im_saved_path):
                     try:
                         with open(entry.path, "r+", encoding="GB2312") as f:
                             content = f.read()
+                            print("正在处理：", entry.path)
                             unescape_content = html.unescape(content)
                             f.seek(0)
                             modified_content = modify_src(
-                                unescape_content, web_im_saved_path
+                                unescape_content, web_im_saved_path, elements_path
                             )
                             f.write(modified_content)
                             f.truncate()
@@ -193,7 +194,7 @@ def relative_and_localize(elements_path, web_im_saved_path):
     return failed_process_htm_files
 
 
-relative_and_localize(
-    "C:/Users/Snowy/Desktop/sm18/systems/Noname/elements",
-    "C:/Users/Snowy/Desktop/sm18/systems/Noname/elements/web_pic",
-)
+# relative_and_localize(
+#     "C:/Users/Snowy/Desktop/sm18/systems/Noname/elements",
+#     "C:/Users/Snowy/Desktop/sm18/systems/Noname/elements/web_pic",
+# )
