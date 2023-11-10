@@ -16,6 +16,24 @@ def mkdir(path):
         print("创建文件夹:: " + path)
 
 
+# 最好可以自动将不支持的字符转换为字符实体。
+# 挨个读取字符，判断gb2312是否支持，不支持就变成字符实体。
+def make_escape_safe(html_str):
+    escapeSequence = {
+        "EM SPACE": (chr(0x2003), "&ensp;"),
+        "COPYRIGHT SIGN": (chr(0x00A9), "&copy;"),
+        "EM DASH": (chr(0x2014), "&#8212;"),
+        "chapterlast": (chr(0xF108), "&#10048;"),
+        "REPLACEMENT CHARACTER": (chr(0xFFFD), "&#65533;"),
+        "WHITE FLORETTE": (chr(0x2740), "&#10048;"),
+        "START OF SELECTED AREA": (chr(0x0086), "&#x0086;"),
+    }
+    for escape in escapeSequence.values():
+        html_str = html_str.replace(escape[0], escape[1])
+
+    return html_str
+
+
 def is_in_elements_directory(path, directory):
     """判断是否在elements文件夹内。windows路径。
 
@@ -136,7 +154,7 @@ def modify_src(html_path, web_im_saved_path, elements_path):
         if is_url(src):
             im_local_path = im_download_and_convert(src, web_im_saved_path)
             img.attrs["src"] = relativized_path(im_local_path)
-        if not is_relative_path(src):
+        elif not is_relative_path(src):
             # 绝对路径
             # 去掉前缀
             if src.startswith("file:///"):
@@ -153,7 +171,7 @@ def modify_src(html_path, web_im_saved_path, elements_path):
                 shutil.copyfile(fs_path, target)
                 img.attrs["src"] = relativized_path(target)
 
-    return str(soup)
+    return make_escape_safe(str(soup))
 
 
 def relative_and_localize(elements_path, web_im_saved_path):
@@ -174,7 +192,7 @@ def relative_and_localize(elements_path, web_im_saved_path):
                 if entry.is_file() and is_html_file(entry.name):
                     # todo something
                     try:
-                        with open(entry.path, "r+", encoding="GB2312") as f:
+                        with open(entry.path, "r+", encoding="GBK") as f:
                             content = f.read()
                             print("正在处理：", entry.path)
                             unescape_content = html.unescape(content)
@@ -194,7 +212,7 @@ def relative_and_localize(elements_path, web_im_saved_path):
     return failed_process_htm_files
 
 
-# relative_and_localize(
-#     "C:/Users/Snowy/Desktop/sm18/systems/Noname/elements",
-#     "C:/Users/Snowy/Desktop/sm18/systems/Noname/elements/web_pic",
-# )
+relative_and_localize(
+    "c:/users/snowy/desktop/sm18/systems/zibenlun(jinianban)quansanjuan/elements",
+    "c:/users/snowy/desktop/sm18/systems/zibenlun(jinianban)quansanjuan/elements/web_pic",
+)

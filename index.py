@@ -47,23 +47,25 @@ def cmd():
             m_conf = docs.conf.read_config()
             print(m_conf)
 
-    if args.get("get") and args.get("config"):
+    elif args.get("get") and args.get("config"):
         print(docs.conf.read_config())
 
-    if args.get("e2sm"):
+    elif args.get("e2sm"):
         # python index.py e2s a b
         epub2sm.start(args["<epub-path>"], args["<targetfolder>"])
 
-    if args.get("pathpix"):
+    elif args.get("pathpix"):
         sm_system1 = docs.conf.read_sm_system1(sm_location)
         least_used_col = docs.conf.get_collection_primaryStorage(
             sm_location, sm_system1
         )
         save_img_folder = os.path.join(least_used_col, "web_pic")
         # if args['<collection>']
+        print(least_used_col)
+        print(save_img_folder)
         pathpix.relative_and_localize(least_used_col, save_img_folder)
 
-    if args.get("test"):
+    elif args.get("test"):
         # python index.py e2s a
         print("#" * 100)
         print(args["<valueA>"])
