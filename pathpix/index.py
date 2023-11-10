@@ -16,6 +16,19 @@ def mkdir(path):
         print("创建文件夹:: " + path)
 
 
+def is_utf8_supported_in_gbk(char):
+    code = ord(char)
+    try:
+        chr(code).encode("gbk")
+        return True
+    except ValueError:
+        print(
+            f"Unicode code point: {code}",
+            f"无法找到对应的GBK字符, 将使用字符实体 (numeric character reference) '&#x{code};' 替代",
+        )
+        return (chr(code), f"&#x{code};")
+
+
 # 最好可以自动将不支持的字符转换为字符实体。
 # 挨个读取字符，判断gb2312是否支持，不支持就变成字符实体。
 def make_escape_safe(html_str):
@@ -31,6 +44,14 @@ def make_escape_safe(html_str):
     for escape in escapeSequence.values():
         html_str = html_str.replace(escape[0], escape[1])
 
+    nosupp_char_list = []
+    for char in html_str:
+        result_bool = is_utf8_supported_in_gbk(char)
+        if not result_bool:
+            nosupp_char_list.append(result_bool)
+
+    for char_tuple in nosupp_char_list:
+        html_str = html_str.replace(char_tuple[0], char_tuple[1])
     return html_str
 
 
@@ -130,7 +151,7 @@ def im_download_and_convert(url, saved_path):
                     saved_path = os.path.join(saved_path, file_name + ".png")
                     im.save(saved_path, "png")
                     return saved_path
-            except OSError:
+            except IOError:
                 print("cannot convert", url)
         else:
             extension = content_type.split("/")[1]
@@ -149,11 +170,13 @@ def modify_src(html_path, web_im_saved_path, elements_path):
     soup = BeautifulSoup(html_path, "html.parser")
 
     img_tags = soup.find_all("img")
+    is_modify = False
     for img in img_tags:
         src = img.attrs["src"]
         if is_url(src):
             im_local_path = im_download_and_convert(src, web_im_saved_path)
             img.attrs["src"] = relativized_path(im_local_path)
+            is_modify = True
         elif not is_relative_path(src):
             # 绝对路径
             # 去掉前缀
@@ -164,14 +187,20 @@ def modify_src(html_path, web_im_saved_path, elements_path):
             # 在不在集合的元素文件夹中。
             if is_in_elements_directory(fs_path, elements_path):
                 img.attrs["src"] = relativized_path(fs_path)
+                is_modify = True
             else:
                 # 不在，移动到集合元素文件夹的web_im_saved_path。
                 old_full_file_name = os.path.basename(fs_path)
                 target = os.path.join(web_im_saved_path, old_full_file_name)
                 shutil.copyfile(fs_path, target)
                 img.attrs["src"] = relativized_path(target)
-
-    return make_escape_safe(str(soup))
+                is_modify = True
+        elif is_relative_path(src):
+            is_modify = False
+    if is_modify:
+        return make_escape_safe(str(soup))
+    else:
+        return False
 
 
 def relative_and_localize(elements_path, web_im_saved_path):
@@ -193,16 +222,17 @@ def relative_and_localize(elements_path, web_im_saved_path):
                     # todo something
                     try:
                         with open(entry.path, "r+", encoding="GBK") as f:
-                            content = f.read()
-                            print("正在处理：", entry.path)
-                            unescape_content = html.unescape(content)
-                            f.seek(0)
+                            # 转义序列转换为字符。
+                            unescape_content = html.unescape(f.read())
                             modified_content = modify_src(
                                 unescape_content, web_im_saved_path, elements_path
                             )
-                            f.write(modified_content)
-                            f.truncate()
-                    except OSError:
+                            if modified_content:
+                                print("正在处理：", entry.path)
+                                f.seek(0)
+                                f.write(modified_content)
+                                f.truncate()
+                    except IOError:
                         failed_process_htm_files.append(entry.path)
 
                 if entry.is_dir():
@@ -212,7 +242,7 @@ def relative_and_localize(elements_path, web_im_saved_path):
     return failed_process_htm_files
 
 
-relative_and_localize(
-    "c:/users/snowy/desktop/sm18/systems/zibenlun(jinianban)quansanjuan/elements",
-    "c:/users/snowy/desktop/sm18/systems/zibenlun(jinianban)quansanjuan/elements/web_pic",
-)
+# relative_and_localize(
+#     "c:/users/snowy/desktop/sm18/systems/zibenlun(jinianban)quansanjuan/elements",
+#     "c:/users/snowy/desktop/sm18/systems/zibenlun(jinianban)quansanjuan/elements/web_pic",
+# )
