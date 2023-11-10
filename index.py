@@ -219,6 +219,7 @@ def relative_and_localize(elements_path, web_im_saved_path):
         list: 处理后的文件列表
     """
     failed_process_htm_files = []
+    processed_htm_files = []
 
     def find_htm_files(directory):
         nonlocal failed_process_htm_files
@@ -238,6 +239,7 @@ def relative_and_localize(elements_path, web_im_saved_path):
                                 f.seek(0)
                                 f.write(modified_content)
                                 f.truncate()
+                                processed_htm_files.append(entry.path)
                     except IOError:
                         failed_process_htm_files.append(entry.path)
 
@@ -245,6 +247,12 @@ def relative_and_localize(elements_path, web_im_saved_path):
                     find_htm_files(entry.path)
 
     find_htm_files(elements_path)
+    if len(processed_htm_files) == 0:
+        print("PathPix:: 无事可做。")
+    else:
+        print("以下文件已修改：")
+        for item in processed_htm_files:
+            print(item)
     return failed_process_htm_files
 
 
