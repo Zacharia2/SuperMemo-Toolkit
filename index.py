@@ -117,7 +117,7 @@ def relativized_path(url):
     return src_path
 
 
-def im_download_and_convert(url, saved_path):
+def im_download_and_convert(url, saved_path, collection_temp_path):
     """给定url, 下载图片并转换, 返回保存图片的绝对路径
 
     Args:
@@ -139,9 +139,11 @@ def im_download_and_convert(url, saved_path):
         if content_type not in supports_im_type:
             extension = content_type.split("/")[1]
             try:
-                temp_path = os.path.join(saved_path, "temp")
-                temp_file_path = os.path.join(temp_path, file_name + f".{extension}")
-                mkdir(temp_path)
+                # temp_path = os.path.join(saved_path, "temp")
+                mkdir(collection_temp_path)
+                temp_file_path = os.path.join(
+                    collection_temp_path, file_name + f".{extension}"
+                )
                 # 先把webp写到temp文件夹，然后再处理。
                 with open(temp_file_path, "wb") as f:
                     f.write(im_bytes)
@@ -152,9 +154,6 @@ def im_download_and_convert(url, saved_path):
                     # 这里是输出路径。
                     saved_path = os.path.join(saved_path, file_name + ".png")
                     im.save(saved_path, "png")
-                    # 删除临时文件夹。
-                    print("删除临时文件夹::", temp_path)
-                    shutil.rmtree(temp_path)
                     return saved_path
             except IOError:
                 print("cannot convert", url)
@@ -171,15 +170,17 @@ def im_download_and_convert(url, saved_path):
         print("警告！非图片资源链接 ", url)
 
 
-def modify_src(html_path, web_im_saved_path, elements_path):
-    soup = BeautifulSoup(html_path, "html.parser")
+def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
+    soup = BeautifulSoup(html_doc, "html.parser")
 
     img_tags = soup.find_all("img")
     is_modify = False
     for img in img_tags:
         src = img.attrs["src"]
         if is_url(src):
-            im_local_path = im_download_and_convert(src, web_im_saved_path)
+            im_local_path = im_download_and_convert(
+                src, im_saved_path, collection_temp_path
+            )
             img.attrs["src"] = relativized_path(im_local_path)
             is_modify = True
         elif not is_relative_path(src):
@@ -197,19 +198,22 @@ def modify_src(html_path, web_im_saved_path, elements_path):
             else:
                 # 不在，移动到集合元素文件夹的web_im_saved_path。
                 old_full_file_name = os.path.basename(fs_path)
-                target = os.path.join(web_im_saved_path, old_full_file_name)
+                target = os.path.join(im_saved_path, old_full_file_name)
                 shutil.copyfile(fs_path, target)
                 img.attrs["src"] = relativized_path(target)
                 is_modify = True
         elif is_relative_path(src):
             is_modify = False
+    # 删除临时文件夹。
+    # print("删除临时文件夹::", collection_temp_path)
+    # shutil.rmtree(collection_temp_path)
     if is_modify:
         return make_escape_safe(str(soup))
     else:
         return False
 
 
-def relative_and_localize(elements_path, web_im_saved_path):
+def relative_and_localize(elements_path, web_im_saved_path, collection_temp_path):
     """在遍历查找html文件时, 一个个处理他们，并返回处理后的文件列表。
 
     Args:
@@ -232,7 +236,10 @@ def relative_and_localize(elements_path, web_im_saved_path):
                             # 转义序列转换为字符。
                             unescape_content = html.unescape(f.read())
                             modified_content = modify_src(
-                                unescape_content, web_im_saved_path, elements_path
+                                unescape_content,
+                                web_im_saved_path,
+                                elements_path,
+                                collection_temp_path,
                             )
                             if modified_content:
                                 print("正在处理：", entry.path)
