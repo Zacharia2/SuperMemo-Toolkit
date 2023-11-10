@@ -67,7 +67,7 @@ def cmd():
         col_folder = docs.conf.get_collection_primaryStorage(
             sm_location, args["<collection>"]
         )
-        collection_temp_path = docs.conf.get_collections_temp(sm_location)
+        collection_temp_path = docs.conf.get_collections_temp(col_folder)
         save_img_folder = os.path.join(col_folder, "web_pic")
         print("集合元素：", col_folder)
         print("图片位置：", save_img_folder)
