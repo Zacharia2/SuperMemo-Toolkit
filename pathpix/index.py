@@ -1,5 +1,6 @@
 import html
 import shutil
+import uuid
 from bs4 import BeautifulSoup
 import re
 import os
@@ -131,8 +132,8 @@ def im_download_and_convert(url, saved_path, collection_temp_path):
     response = requests.get(url)
     content_type = response.headers.get("Content-Type")
 
-    now = time.strftime("%Y-%m-%d-%H_%M_%S", time.localtime(time.time()))
-    file_name = "im_" + now + "_plot_" + str(len(now))
+    now = time.strftime("%Y-%m-%d-%H_%M", time.localtime(time.time()))
+    file_name = "im_" + now + "_plot_" + str(uuid.uuid4())
 
     if content_type and content_type.startswith("image/"):
         im_bytes = response.content
