@@ -153,11 +153,12 @@ def im_download_and_convert(url, saved_path, collection_temp_path):
                 with Image.open(temp_file_path) as im:
                     print(im.format, im.size, im.mode)
                     # 这里是输出路径。
+                    mkdir(saved_path)
                     saved_path = os.path.join(saved_path, file_name + ".png")
                     im.save(saved_path, "png")
                     return saved_path
             except IOError:
-                print("cannot convert", url)
+                print("IOError! Cannot convert", url)
         else:
             extension = content_type.split("/")[1]
             # 如果支持的话，就直接写入的路径中即可。
@@ -264,7 +265,8 @@ def relative_and_localize(elements_path, web_im_saved_path, collection_temp_path
     return failed_process_htm_files
 
 
-# relative_and_localize(
-#     "c:/users/snowy/desktop/sm18/systems/zibenlun(jinianban)quansanjuan/elements",
-#     "c:/users/snowy/desktop/sm18/systems/zibenlun(jinianban)quansanjuan/elements/web_pic",
-# )
+relative_and_localize(
+    "C:/Users/Snowy/Desktop/sm18/systems/ZiBenLun(JiNianBan)QuanSanJuan/elements",
+    "C:/Users/Snowy/Desktop/sm18/systems/ZiBenLun(JiNianBan)QuanSanJuan/elements/web_pic",
+    "C:/Users/Snowy/Desktop/sm18/systems/ZiBenLun(JiNianBan)QuanSanJuan/temp",
+)
