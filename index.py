@@ -7,7 +7,6 @@ import os
 import time
 import requests
 from PIL import Image
-import urllib
 
 
 def mkdir(path):
@@ -17,7 +16,19 @@ def mkdir(path):
         print("创建文件夹:: " + path)
 
 
-def is_in_elements_directory(path, directory):
+def unified_path_separator(path):
+    """格式化Windows路径为, 以\\作为分割符的路径。
+
+    Args:
+        path (str): Windows系统文件路径。
+
+    Returns:
+        str: 以\\作为分割符的标准路径。
+    """
+    return path.replace("/", "\\")
+
+
+def is_in_elements_directory(fs_path, directory):
     """判断是否在elements文件夹内。windows路径。
 
     Args:
@@ -27,10 +38,6 @@ def is_in_elements_directory(path, directory):
     Returns:
         bool: 在, 返回True; 不在, 返回False
     """
-    path = path.replace("\\", "/")
-    directory = directory.replace("\\", "/")
-    # 解码URL路径，转换为文件系统路径
-    fs_path = urllib.parse.unquote(path)
     # 获取文件夹路径
     directory_name = os.path.dirname(fs_path)
     # 判断给定路径是否以指定目录开头
@@ -57,7 +64,7 @@ def is_relative_path(string):
 
 # 还有这种：'file:///C:/Users/Snowy/Desktop/sm18/必读：旅途的开始.png'
 # 'C:/Users/Snowy/Desktop/sm18/systems/Noname/elements/web_pic\\im_2023-11-09-20_39_50_plot_19.jpeg'
-def relativized_path(url):
+def relativized_path(win_path):
     """将位于sm的elements文件夹中的文件的绝对路径转换为相对路径.
 
     Args:
@@ -69,13 +76,11 @@ def relativized_path(url):
     Returns:
         str: file:///[PrimaryStorage]path/to/file
     """
-    url = url.replace("\\", "/")
-    if not url.startswith("file:///") and os.path.exists(url):
-        # 统一为 "file:///.*?elements/"
-        url = "file:///" + url
+    if not win_path.startswith("file:///") and os.path.exists(win_path):
+        win_path = "file:///" + win_path
 
-    pattern = re.compile(r"file:///.*?elements/")
-    src_path = pattern.sub("file:///[PrimaryStorage]", url)
+    pattern = re.compile(r"file:///(.*?elements\\|.*?elements/)")
+    src_path = pattern.sub("file:///[PrimaryStorage]", win_path)
     return src_path
 
 
@@ -135,6 +140,7 @@ def im_download_and_convert(url, saved_path, collection_temp_path):
 
 def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
     soup = BeautifulSoup(html_doc, "html.parser")
+    elements_path = unified_path_separator(elements_path)
 
     img_tags = soup.find_all("img")
     is_modify = False
@@ -144,22 +150,23 @@ def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
             im_local_path = im_download_and_convert(
                 src, im_saved_path, collection_temp_path
             )
-            img.attrs["src"] = relativized_path(im_local_path)
+            standard_path = unified_path_separator(im_local_path)
+            img.attrs["src"] = relativized_path(standard_path)
             is_modify = True
         elif not is_relative_path(src):
             # 绝对路径
             # 去掉前缀
-            src = src.replace("\\", "/")
             if src.startswith("file:///"):
-                fs_path = src.split("file:///")[1]
+                fs_path = unified_path_separator(src.split("file:///")[1])
             else:
-                fs_path = src
-            # 在不在集合的元素文件夹中。
+                fs_path = unified_path_separator(src)
+            # 判断在不在集合的元素文件夹中。
             if is_in_elements_directory(fs_path, elements_path):
                 img.attrs["src"] = relativized_path(fs_path)
                 is_modify = True
             else:
                 # 不在，移动到集合元素文件夹的web_im_saved_path。
+                # <img src="file:///C:/Users/Snowy/Desktop/sm18/&#24517;&#35835;&#65306;&#26053;&#36884;&#30340;&#24320;&#22987;.png">
                 old_full_file_name = os.path.basename(fs_path)
                 target = os.path.join(im_saved_path, old_full_file_name)
                 shutil.copyfile(fs_path, target)
