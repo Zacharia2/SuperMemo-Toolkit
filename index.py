@@ -5,8 +5,50 @@ from bs4 import BeautifulSoup
 import re
 import os
 import time
+import pypinyin
 import requests
 from PIL import Image
+
+
+def makeNameSafe(name):
+    illegalFilenameCharacters = r"/<|>|\:|\"|\/|\\|\||\?|\*|\^|\s/g"
+    fixedTitle = re.sub(illegalFilenameCharacters, "_", name)
+    return fixedTitle
+
+
+# 全角转半角
+def full_to_half(text: str):  # 输入为一个句子
+    _text = ""
+    for char in text:
+        inside_code = ord(
+            char
+        )  # 以一个字符（长度为1的字符串）作为参数，返回对应的 ASCII 数值
+        if inside_code == 12288:  # 全角空格直接转换
+            inside_code = 32
+        elif 65281 <= inside_code <= 65374:  # 全角字符（除空格）根据关系转化
+            inside_code -= 65248
+        _text += chr(inside_code)
+    return _text
+
+
+def trans_pinyin(str):
+    trans_list = []
+    half_text = full_to_half(str)
+    for pinyin_name in pypinyin.pinyin(half_text, style=pypinyin.NORMAL):
+        for pinyin_name_ in pinyin_name:
+            pinyin_name__ = pinyin_name_.capitalize()
+            trans_list.append(pinyin_name__)
+    return "".join(trans_list)
+
+
+def copy_to_elements(file_path, target_folder):
+    # unescape_fs_path = html.unescape(file_path)
+    old_full_file_name = os.path.basename(file_path)
+    new_full_file_name = makeNameSafe(trans_pinyin(full_to_half(old_full_file_name)))
+    target = os.path.join(target_folder, new_full_file_name)
+    mkdir(target_folder)
+    shutil.copyfile(file_path, target)
+    return target
 
 
 def mkdir(path):
@@ -145,6 +187,8 @@ def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
     img_tags = soup.find_all("img")
     is_modify = False
     for img in img_tags:
+        # 中文的字符实体会自动变成正常的中文字符。
+        # <img src="file:///C:/Users/Snowy/Desktop/sm18/&#24517;&#35835;&#65306;&#26053;&#36884;&#30340;&#24320;&#22987;.png">
         src = img.attrs["src"]
         if is_url(src):
             im_local_path = im_download_and_convert(
@@ -166,11 +210,10 @@ def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
                 is_modify = True
             else:
                 # 不在，移动到集合元素文件夹的web_im_saved_path。
-                # <img src="file:///C:/Users/Snowy/Desktop/sm18/&#24517;&#35835;&#65306;&#26053;&#36884;&#30340;&#24320;&#22987;.png">
-                old_full_file_name = os.path.basename(fs_path)
-                target = os.path.join(im_saved_path, old_full_file_name)
-                shutil.copyfile(fs_path, target)
-                img.attrs["src"] = relativized_path(target)
+                local_pic = os.path.join(elements_path, "local_pic")
+                img.attrs["src"] = relativized_path(
+                    unified_path_separator(copy_to_elements(fs_path, local_pic))
+                )
                 is_modify = True
         elif is_relative_path(src):
             is_modify = False
