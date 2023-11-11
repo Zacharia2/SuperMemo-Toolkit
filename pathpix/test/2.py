@@ -1,3 +1,6 @@
+import re
+
+
 def is_utf8_supported_in_gbk(char):
     code = ord(char)
     try:
@@ -35,3 +38,16 @@ def make_escape_safe(html_str):
     for char_tuple in nosupp_char_list:
         html_str = html_str.replace(char_tuple[0], char_tuple[1])
     return html_str
+
+
+# path = path.replace("\\", "/")
+# directory = directory.replace("\\", "/")
+# 解码URL路径，转换为文件系统路径
+# fs_path = urllib.parse.unquote(path)
+win_path = 'C:\\Users\\Snowy\\Desktop\\sm18\\systems\\all in one\\elements\\web_pic\\im_2023-11-11-09_50_plot_74fc811b-cb87-4bff-8d05-6d41921da7b7.png'
+if not win_path.startswith("file:///"):
+    win_path = "file:///" + win_path
+
+pattern = re.compile(r"file:///(.*?elements\\|.*?elements/)")
+src_path = pattern.sub("file:///[PrimaryStorage]", win_path)
+print()
