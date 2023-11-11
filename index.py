@@ -241,6 +241,7 @@ def secure_file_write(modified_content, target_file, temp_dir):
     temp_file = os.path.join(temp_dir, original_name + ".tmp")
     try:
         print("正在处理：", target_file)
+        mkdir(temp_dir)
         # 创建并写入临时文件
         with codecs.open(temp_file, "wb") as f:
             f.seek(0)
