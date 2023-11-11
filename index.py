@@ -1,4 +1,5 @@
 # encoding:utf-8
+#!/usr/bin/env python
 """SMKit CLI Tool
 Usage:
     smkit set config <key> <value>
@@ -36,18 +37,20 @@ def move_to_primaryStorage(source_folder_name, target_folder):
 
 def cmd():
     args = docopt(__doc__)
-    m_conf = docs.conf.read_config()
+    this_folder = os.path.dirname(os.path.abspath(__file__))
+    conf_path = os.path.join(this_folder, "conf.json")
+    m_conf = docs.conf.read_config(conf_path)
     sm_location = m_conf["program"]
 
     if args.get("set") and args.get("config"):
         if args["<key>"] == "program":
             m_conf["program"] = args["<value>"]
-            docs.conf.update_config(m_conf)
-            m_conf = docs.conf.read_config()
+            docs.conf.update_config(conf_path, m_conf)
+            m_conf = docs.conf.read_config(conf_path)
             print(m_conf)
 
     elif args.get("get") and args.get("config"):
-        print(docs.conf.read_config())
+        print(docs.conf.read_config(conf_path))
 
     elif args.get("e2sm"):
         # python index.py e2s a b
