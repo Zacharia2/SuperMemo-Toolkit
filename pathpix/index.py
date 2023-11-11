@@ -226,6 +226,43 @@ def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
         return False
 
 
+def secure_file_write(modified_content, target_file, temp_dir):
+    """
+    写入文件的安全机制——文件备份和临时文件；
+
+    文件备份和临时文件将在函数完成后删除。
+
+    Args:
+        target_file (str): 目标文件
+        temp_dir (str): 临时文件夹, 存储文件备份和临时文件
+    """
+    original_name = os.path.basename(target_file)
+    backup_file = os.path.join(temp_dir, original_name + ".bak")
+    temp_file = os.path.join(temp_dir, original_name + ".tmp")
+    try:
+        print("正在处理：", target_file)
+        # 创建并写入临时文件
+        with codecs.open(temp_file, "wb") as f:
+            f.seek(0)
+            f.write(modified_content)
+            f.truncate()
+
+        # 备份原始文件
+        shutil.copyfile(target_file, backup_file)
+        # 重命名临时文件为目标文件
+        shutil.move(temp_file, target_file)
+    except Exception as e:
+        # 发生异常时回滚备份文件
+        shutil.move(backup_file, target_file)
+        print(f"写入文件时发生错误：{str(e)}")
+    finally:
+        # 删除临时文件和备份文件
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        if os.path.exists(backup_file):
+            os.remove(backup_file)
+
+
 def relative_and_localize(elements_path, web_im_saved_path, collection_temp_path):
     """在遍历查找html文件时, 一个个处理他们，并返回处理后的文件列表。
 
@@ -254,12 +291,10 @@ def relative_and_localize(elements_path, web_im_saved_path, collection_temp_path
                             collection_temp_path,
                         )
                         if modified_content:
-                            with codecs.open(entry.path, "wb") as f:
-                                print("正在处理：", entry.path)
-                                f.seek(0)
-                                f.write(modified_content)
-                                f.truncate()
-                                processed_htm_files.append(entry.path)
+                            secure_file_write(
+                                modified_content, entry.path, collection_temp_path
+                            )
+                            processed_htm_files.append(entry.path)
                     except IOError:
                         failed_process_htm_files.append(entry.path)
 
