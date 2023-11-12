@@ -9,6 +9,7 @@ import time
 import pypinyin
 import requests
 from PIL import Image
+from tqdm import tqdm
 
 
 def makeNameSafe(name):
@@ -291,63 +292,89 @@ def secure_file_write(modified_content, target_file, temp_dir):
             os.remove(backup_file)
 
 
-def relative_and_localize(elements_path, web_im_saved_path, collection_temp_path):
-    """在遍历查找html文件时, 一个个处理他们，并返回处理后的文件列表。
+def collect_documents(elements_path):
+    """在遍历查找HTM文档并返回文件路径列表。
 
     Args:
         element_path (str): elements路径
 
     Returns:
-        list: 处理后的文件列表
+        list: 找到的HTM的文件列表
     """
-    failed_process_htm_files = []
-    processed_htm_files = []
+    waiting_process_htm_files = []
 
-    def find_htm_files(directory):
-        nonlocal failed_process_htm_files
+    def find_htm_files_in_directory(directory):
+        nonlocal waiting_process_htm_files
         with os.scandir(directory) as entries:
             for entry in entries:
                 if entry.is_file() and is_html_file(entry.name):
-                    # todo something
-                    try:
-                        try:
-                            with codecs.open(entry.path, "rb") as f:
-                                bytes_content = f.read()
-                            modified_content = modify_src(
-                                bytes_content,
-                                web_im_saved_path,
-                                elements_path,
-                                collection_temp_path,
-                            )
-                        except UnicodeDecodeError:
-                            print("UnicodeDecodeError", entry.path)
-                        if modified_content:
-                            secure_file_write(
-                                modified_content, entry.path, collection_temp_path
-                            )
-                            processed_htm_files.append(entry.path)
-                    except IOError:
-                        failed_process_htm_files.append(entry.path)
-
+                    waiting_process_htm_files.append(entry.path)
                 if entry.is_dir():
-                    find_htm_files(entry.path)
+                    find_htm_files_in_directory(entry.path)
 
-    find_htm_files(elements_path)
+    find_htm_files_in_directory(elements_path)
+
+    return waiting_process_htm_files
+
+
+def relative_and_localize(
+    waiting_process_list, elements_path, im_saved_path, collection_temp_path
+):
+    """在遍历查找到的html文挡, 一个个处理他们。
+
+    Args:
+        waiting_process_htm_files (_type_): _description_
+        elements_path (_type_): _description_
+        im_saved_path (_type_): _description_
+        collection_temp_path (_type_): _description_
+    """
+    failed_process_htm_files = []
+    processed_htm_files = []
+    for htm_file_path in tqdm(waiting_process_list, desc="DocLinkCheck"):
+        try:
+            with codecs.open(htm_file_path, "rb") as f:
+                bytes_content = f.read()
+
+            modified_content = modify_src(
+                bytes_content,
+                im_saved_path,
+                elements_path,
+                collection_temp_path,
+            )
+
+            if modified_content:
+                secure_file_write(modified_content, htm_file_path, collection_temp_path)
+                processed_htm_files.append(htm_file_path)
+        except Exception as e:
+            failed_process_htm_files.append((htm_file_path, e))
+
+    if len(failed_process_htm_files) != 0:
+        print("\033[0;31;40m", "以下文件处理失败：", "\033[0m")
+        for item in failed_process_htm_files:
+            print(
+                "\033[0;31;40m", f"Cannot process {item[0]}. \n\t{item[1]}", "\033[0m"
+            )
     if len(processed_htm_files) == 0:
-        print("PathPix:: 无事可做。")
+        print("\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
     else:
-        print("以下文件已修改：")
+        print("\033[0;32m", "以下文件已修改：", "\033[0m")
         for item in processed_htm_files:
             print(item)
-    return failed_process_htm_files
 
 
-# relative_and_localize(
+def start(elements_path, im_saved_path, collection_temp_path):
+    waiting_process_list = collect_documents(elements_path)
+    relative_and_localize(
+        waiting_process_list, elements_path, im_saved_path, collection_temp_path
+    )
+
+
+# start(
 #     "C:/Users/Snowy/Desktop/sm18/systems/all in one/elements",
 #     "C:/Users/Snowy/Desktop/sm18/systems/all in one/elements/web_pic",
 #     "C:/Users/Snowy/Desktop/sm18/systems/all in one/temp",
 # )
-# relative_and_localize(
+# start(
 #     "D:/SuperMemo/systems/Reading-And-Review/elements",
 #     "D:/SuperMemo/systems/Reading-And-Review/elements/web_pic",
 #     "D:/SuperMemo/systems/Reading-And-Review/temp",
