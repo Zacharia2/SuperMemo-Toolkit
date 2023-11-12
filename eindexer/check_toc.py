@@ -1,13 +1,10 @@
 import ebooklib
 from ebooklib import epub
-from bs4 import BeautifulSoup
 
 
-# {"Question": modify_img_url(section, foldername)}
-# {"Question": ""}
 def get_doc_of_toc(book):
-    mList = []
     chapters = book.toc
+    mList = []
 
     def iter_toc(chapters):
         nonlocal mList
@@ -36,14 +33,22 @@ def get_doc_items_href(book):
     docs = book.get_items_of_type(ebooklib.ITEM_DOCUMENT)
 
     for doc in docs:
-        print(doc.file_name)
+        # print(doc.file_name)
         docs_file_name_list.append(doc.file_name)
     return docs_file_name_list
 
 
 def contrast_diff(epubfile):
-    epubfile = "C:\\Users\\Snowy\\Desktop\\魔鬼沟通学 - 阮琦.epub"
+    # 条件是他们的名字必须一样，只是这样的担心是多余的，因为不一样就没法引用。
     book = epub.read_epub(epubfile)
 
-    doc_of_toc_list = get_doc_of_toc(book)
-    doc_items_href_list = get_doc_items_href(book)
+    toc_of_set = set(get_doc_of_toc(book))
+    doc_of_href_set = set(get_doc_items_href(book))
+
+    # 返回一个集合，元素包含在集合 x ，但不在集合 y
+    diff_list = list(doc_of_href_set.difference(toc_of_set))
+    return diff_list
+
+
+# contrast_diff("D:\\Dropbox\\00-TMP\\魔鬼沟通学 - 阮琦.epub")
+contrast_diff("C:/Users/Snowy/Desktop/心理学与生活.epub")
