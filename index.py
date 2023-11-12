@@ -77,7 +77,7 @@ def cmd():
         print("集合元素：", col_folder)
         print("图片位置：", save_img_folder)
         print("临时文件：", collection_temp_path)
-        pathpix.relative_and_localize(col_folder, save_img_folder, collection_temp_path)
+        pathpix.start(col_folder, save_img_folder, collection_temp_path)
     elif args.get("test"):
         # python index.py e2s a
         print("#" * 100)
