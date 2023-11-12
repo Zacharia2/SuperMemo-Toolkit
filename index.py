@@ -7,8 +7,6 @@ Usage:
     smkit e2sm <epub-path> <targetfolder>
     smkit pathpix <collection>
     smkit indexer <epub> <output>
-    smkit codetitlefix <node.txt>
-    smkit test <valueA>
 
 Options:
     -h --help       Show Help doc.

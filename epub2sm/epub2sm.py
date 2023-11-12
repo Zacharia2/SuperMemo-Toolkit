@@ -213,7 +213,7 @@ def getContent(book, href):
 
 # {"Question": modify_img_url(section, foldername)}
 # {"Question": ""}
-def get_documents(book, chapters, foldername):
+def get_documents_by_toc(book, chapters, foldername):
     mList = []
     for chapter in chapters:
         # 把这一层处理好，再去处理下一层。
@@ -243,21 +243,45 @@ def get_documents(book, chapters, foldername):
                 mList.append(element)
             # 当元组的第二个元素有子元素的时候。
             if isinstance(chapter[1], list):
-                SubElementList = get_documents(book, chapter[1], foldername)
+                SubElementList = get_documents_by_toc(book, chapter[1], foldername)
                 element["SuperMemoElement"] = SubElementList
     return mList
 
 
-def create_sm_book(book, book_f_name, target_folder=os.getcwd()):
-    res = get_documents(book, book.toc, book_f_name)
+def get_documents_by_docList(book, foldername):
+    mList = []
+    docList = book.get_items_of_type(ebooklib.ITEM_DOCUMENT)
+    for doc in docList:
+        href = doc.file_name
+        Content = {"Question": modify_img_url(getContent(book, href), foldername)}
+        element = {"Type": "Topic", "Content": Content}
+        mList.append(element)
+    return mList
 
+
+def create_sm_book_by_toc(book, book_f_name, target_folder=os.getcwd()):
+    # 创建数据结构
+    res = get_documents_by_toc(book, book.toc, book_f_name)
     # 这个是Collection下的第一个SuperMemoElement
     rootElement = [{"Title": book.title, "Type": "Concept", "SuperMemoElement": res}]
     set_unique_id(rootElement)
+    sm_book_file_path = os.path.join(target_folder, book_f_name + ".xml")
 
+    # 根据数据结构创建XML文件
+    create_xml(rootElement, sm_book_file_path)
+    img_folder_name = book_f_name
+    write_imgfile(book, target_folder, img_folder_name)
+
+
+def create_sm_book_by_docList(book, book_f_name, target_folder=os.getcwd()):
+    # 创建数据结构
+    res = get_documents_by_docList(book, book_f_name)
+    rootElement = [{"Title": book.title, "Type": "Concept", "SuperMemoElement": res}]
+    set_unique_id(rootElement)
+
+    # 根据数据结构创建XML文件
     sm_book_file_path = os.path.join(target_folder, book_f_name + ".xml")
     create_xml(rootElement, sm_book_file_path)
-
     img_folder_name = book_f_name
     write_imgfile(book, target_folder, img_folder_name)
 
@@ -269,8 +293,9 @@ def start(epubfile, savefolder):
     print("开始处理书籍：", book_img_folder_name)
     # 可以自定义输出路径。
     # create_sm_book(book, book_img_folder_name, "C:/Users/Snowy/Desktop")
-    create_sm_book(book, book_img_folder_name, savefolder)
+    # create_sm_book_by_toc(book, book_img_folder_name, savefolder)
+    create_sm_book_by_docList(book, book_img_folder_name, savefolder)
     print("转换完成，已存储至：", savefolder)
 
 
-# start("C:/Users/Snowy/Desktop/如何阅读一本书.epub", "C:/Users/Snowy/Desktop")
+start("C:/Users/Snowy/Desktop/心理学与生活.epub", "C:/Users/Snowy/Desktop")
