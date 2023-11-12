@@ -1,4 +1,5 @@
 import codecs
+import imghdr
 import shutil
 import uuid
 from bs4 import BeautifulSoup
@@ -86,6 +87,31 @@ def is_in_elements_directory(fs_path, directory):
     return directory_name.startswith(directory)
 
 
+def assure_image_url(url):
+    """
+    接受URL, 返回图片类型和响应, 不是图片返回False。
+    """
+    try:
+        response = requests.get(url, stream=True)
+        content_type = response.headers.get("content-type")
+        filetype = imghdr.what(None, response.content)
+        # 文件头信息、文件内容。
+        if content_type and "image" in content_type:
+            return (content_type, response.content)
+        elif filetype is not None:
+            return ("image/" + filetype, response.content)
+        else:
+            return False
+    except requests.exceptions.ConnectionError as e:
+        print("网络连接异常: ", e)
+    except requests.exceptions.Timeout as e:
+        print("连接超时: ", e)
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP错误, 状态码: {e.response.status_code}, {e}")
+    except ValueError as e:
+        print("响应解析异常: ", e)
+
+
 def is_html_file(name):
     name = name.lower()
     return name.endswith(".html") or name.endswith(".htm")
@@ -118,6 +144,8 @@ def relativized_path(win_path):
     Returns:
         str: file:///[PrimaryStorage]path/to/file
     """
+    # 需要把\\分割符变成/分割符，使变成标准的链接分割符。
+    win_path = win_path.replace("\\", "/")
     if not win_path.startswith("file:///") and os.path.exists(win_path):
         win_path = "file:///" + win_path
 
@@ -137,16 +165,15 @@ def im_download_and_convert(url, saved_path, collection_temp_path):
         str: 绝对路径, drive:/path/sm18/systems/col/elements/path/to/file.ext'
     """
     supports_im_type = ["image/jpeg", "image/jpg", "image/png"]
-    response = requests.get(url)
-    content_type = response.headers.get("Content-Type")
-
     now = time.strftime("%Y-%m-%d-%H_%M", time.localtime(time.time()))
-    file_name = "im_" + now + "_plot_" + str(uuid.uuid4())
+    file_name = "im_" + now + "_uuid_" + str(uuid.uuid4())
 
-    if content_type and content_type.startswith("image/"):
-        im_bytes = response.content
-        if content_type not in supports_im_type:
-            extension = content_type.split("/")[1]
+    result_is_im = assure_image_url(url)
+
+    if result_is_im:
+        im_bytes = result_is_im[1]
+        if result_is_im[0] not in supports_im_type:
+            extension = result_is_im[0].split("/")[1]
             try:
                 # temp_path = os.path.join(saved_path, "temp")
                 mkdir(collection_temp_path)
@@ -165,10 +192,10 @@ def im_download_and_convert(url, saved_path, collection_temp_path):
                     saved_path = os.path.join(saved_path, file_name + ".png")
                     im.save(saved_path, "png")
                     return saved_path
-            except IOError:
-                print("IOError! Cannot convert", url)
+            except Exception as e:
+                print(f"An error occurred: {e}! Cannot convert {url}")
         else:
-            extension = content_type.split("/")[1]
+            extension = result_is_im[0].split("/")[1]
             # 如果支持的话，就直接写入的路径中即可。
             mkdir(saved_path)
             saved_path = os.path.join(saved_path, file_name + f".{extension}")
@@ -283,14 +310,17 @@ def relative_and_localize(elements_path, web_im_saved_path, collection_temp_path
                 if entry.is_file() and is_html_file(entry.name):
                     # todo something
                     try:
-                        with codecs.open(entry.path, "r", encoding="gbk") as f:
-                            content = f.read()
-                        modified_content = modify_src(
-                            content,
-                            web_im_saved_path,
-                            elements_path,
-                            collection_temp_path,
-                        )
+                        try:
+                            with codecs.open(entry.path, "rb") as f:
+                                bytes_content = f.read()
+                            modified_content = modify_src(
+                                bytes_content,
+                                web_im_saved_path,
+                                elements_path,
+                                collection_temp_path,
+                            )
+                        except UnicodeDecodeError:
+                            print("UnicodeDecodeError", entry.path)
                         if modified_content:
                             secure_file_write(
                                 modified_content, entry.path, collection_temp_path
@@ -316,4 +346,9 @@ def relative_and_localize(elements_path, web_im_saved_path, collection_temp_path
 #     "C:/Users/Snowy/Desktop/sm18/systems/all in one/elements",
 #     "C:/Users/Snowy/Desktop/sm18/systems/all in one/elements/web_pic",
 #     "C:/Users/Snowy/Desktop/sm18/systems/all in one/temp",
+# )
+# relative_and_localize(
+#     "D:/SuperMemo/systems/Reading-And-Review/elements",
+#     "D:/SuperMemo/systems/Reading-And-Review/elements/web_pic",
+#     "D:/SuperMemo/systems/Reading-And-Review/temp",
 # )
