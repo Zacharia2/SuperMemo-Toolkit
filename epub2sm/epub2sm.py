@@ -298,4 +298,4 @@ def start(epubfile, savefolder):
     print("转换完成，已存储至：", savefolder)
 
 
-start("C:/Users/Snowy/Desktop/心理学与生活.epub", "C:/Users/Snowy/Desktop")
+# start("C:/Users/Snowy/Desktop/心理学与生活.epub", "C:/Users/Snowy/Desktop")
