@@ -6,6 +6,7 @@ Usage:
     smkit get config --all
     smkit e2sm <epub-path> <targetfolder>
     smkit pathpix <collection>
+    smkit clist
     smkit indexer <epub> <output>
 
 Options:
@@ -76,11 +77,14 @@ def cmd():
         print("图片位置：", save_img_folder)
         print("临时文件：", collection_temp_path)
         pathpix.start(col_folder, save_img_folder, collection_temp_path)
-    elif args.get("test"):
+    elif args.get("clist"):
         # python index.py e2s a
-        print("#" * 100)
-        print(args["<valueA>"])
-        epub2sm.test()
+        # print("#" * 100)
+        # print(args["<valueA>"])
+        # epub2sm.test()
+        col_list = docs.conf.get_collections_primaryStorage(sm_location)
+        for col_name in col_list:
+            print("集合名称：", col_name)
 
 
 if __name__ == "__main__":

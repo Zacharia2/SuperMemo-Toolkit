@@ -50,8 +50,8 @@ def get_collections_primaryStorage(sm_location):
     for current in dir_list:
         path = os.path.join(systems, current)
         # if os.path.isfile(path):
-        if os.path.isdir(path):
-            collections = {current: os.path.join(path, "elements")}
+        if os.path.isdir(path) and current != ".git":
+            collections.update({current: os.path.join(path, "elements")})
 
     return collections
 
