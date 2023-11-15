@@ -114,7 +114,10 @@ def assure_image_url(url):
         print("响应解析异常: ", e)
 
 
+# Windows 下需要安装 libmagic 的 DLL，否则报错
 def is_html_file(file_path):
+    # pip install python-magic-bin
+    # pip install python-magic
     # name = name.lower()
     file_type = magic.Magic(mime=True).from_file(file_path)
     file_ext = os.path.splitext(file_path)[1].lower()
@@ -122,7 +125,6 @@ def is_html_file(file_path):
         file_type == "text/html"
         or file_ext.endswith(".html")
         or file_ext.endswith(".htm")
-        or file_type == "text/plain"
     )
 
 
@@ -310,6 +312,7 @@ def collect_documents(elements_path):
         list: 找到的HTM的文件列表
     """
     waiting_process_htm_files = []
+    print("PathPix:: 开始收集HTM文件。")
 
     def find_htm_files_in_directory(directory):
         nonlocal waiting_process_htm_files
@@ -321,7 +324,7 @@ def collect_documents(elements_path):
                     find_htm_files_in_directory(entry.path)
 
     find_htm_files_in_directory(elements_path)
-
+    print("PathPix:: Done!")
     return waiting_process_htm_files
 
 
@@ -343,10 +346,10 @@ def relative_and_localize(
             with codecs.open(
                 htm_file_path, "r", encoding="gbk", errors="xmlcharrefreplace"
             ) as f:
-                bytes_content = f.read()
+                content = f.read()
 
             modified_content = modify_src(
-                bytes_content,
+                content,
                 im_saved_path,
                 elements_path,
                 collection_temp_path,
@@ -385,7 +388,7 @@ def start(elements_path, im_saved_path, collection_temp_path):
 #     "C:/Users/Snowy/Desktop/sm18/systems/all in one/temp",
 # )
 # start(
-#     "D:/SuperMemo/systems/Reading-And-Review/elements",
-#     "D:/SuperMemo/systems/Reading-And-Review/elements/web_pic",
-#     "D:/SuperMemo/systems/Reading-And-Review/temp",
+#     "D:/SuperMemo/systems/ALL IN ONE/elements",
+#     "D:/SuperMemo/systems/ALL IN ONE/elements/web_pic",
+#     "D:/SuperMemo/systems/ALL IN ONE/temp",
 # )
