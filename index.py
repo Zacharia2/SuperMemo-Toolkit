@@ -10,6 +10,7 @@ import pypinyin
 import requests
 from PIL import Image
 from tqdm import tqdm
+import magic
 
 
 def makeNameSafe(name):
@@ -113,9 +114,16 @@ def assure_image_url(url):
         print("响应解析异常: ", e)
 
 
-def is_html_file(name):
-    name = name.lower()
-    return name.endswith(".html") or name.endswith(".htm")
+def is_html_file(file_path):
+    # name = name.lower()
+    file_type = magic.Magic(mime=True).from_file(file_path)
+    file_ext = os.path.splitext(file_path)[1].lower()
+    return (
+        file_type == "text/html"
+        or file_ext.endswith(".html")
+        or file_ext.endswith(".htm")
+        or file_type == "text/plain"
+    )
 
 
 def is_url(str):
@@ -307,7 +315,7 @@ def collect_documents(elements_path):
         nonlocal waiting_process_htm_files
         with os.scandir(directory) as entries:
             for entry in entries:
-                if entry.is_file() and is_html_file(entry.name):
+                if entry.is_file() and is_html_file(entry.path):
                     waiting_process_htm_files.append(entry.path)
                 if entry.is_dir():
                     find_htm_files_in_directory(entry.path)
