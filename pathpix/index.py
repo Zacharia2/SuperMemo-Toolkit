@@ -332,7 +332,9 @@ def relative_and_localize(
     processed_htm_files = []
     for htm_file_path in tqdm(waiting_process_list, desc="DocLinkCheck"):
         try:
-            with codecs.open(htm_file_path, "rb") as f:
+            with codecs.open(
+                htm_file_path, "r", encoding="gbk", errors="xmlcharrefreplace"
+            ) as f:
                 bytes_content = f.read()
 
             modified_content = modify_src(
