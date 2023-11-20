@@ -115,9 +115,8 @@ def assure_image_url(url):
 
 
 # Windows 下需要安装 libmagic 的 DLL，否则报错
+# https://github.com/ahupp/python-magic
 def is_html_file(file_path):
-    # pip install python-magic-bin
-    # pip install python-magic
     # name = name.lower()
     file_type = magic.Magic(mime=True).from_file(file_path)
     file_ext = os.path.splitext(file_path)[1].lower()
