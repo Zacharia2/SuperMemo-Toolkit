@@ -2,8 +2,8 @@
 #!/usr/bin/env python
 """SMKit CLI Tool
 Usage:
-    smkit set config <key> <value>
-    smkit get config --all
+    smkit config set <key> <value>
+    smkit config list
     smkit e2sm <epub-path> <targetfolder>
     smkit pathpix <collection>
     smkit clist
@@ -35,6 +35,7 @@ def move_to_primaryStorage(source_folder_name, target_folder):
 
 # pyinstaller --add-data "conf.json;." index.py
 
+
 def cmd():
     args = docopt(__doc__)
     this_folder = os.path.dirname(os.path.abspath(__file__))
@@ -42,14 +43,19 @@ def cmd():
     m_conf = docs.conf.read_config(conf_path)
     sm_location = m_conf["program"]
 
-    if args.get("set") and args.get("config"):
+    if args.get("config") and args.get("set"):
         if args["<key>"] == "program":
             m_conf["program"] = args["<value>"]
             docs.conf.update_config(conf_path, m_conf)
             m_conf = docs.conf.read_config(conf_path)
             print(m_conf)
+        else:
+            m_conf[args["<key>"]] = args["<value>"]
+            docs.conf.update_config(conf_path, m_conf)
+            m_conf = docs.conf.read_config(conf_path)
+            print(m_conf)
 
-    elif args.get("get") and args.get("config"):
+    elif args.get("config") and args.get("list"):
         print(docs.conf.read_config(conf_path))
 
     elif args.get("e2sm"):
