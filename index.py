@@ -33,6 +33,7 @@ def move_to_primaryStorage(source_folder_name, target_folder):
 #     global sm_location
 #     sm_location = sm_path
 
+# pyinstaller --add-data "conf.json;." index.py
 
 def cmd():
     args = docopt(__doc__)
