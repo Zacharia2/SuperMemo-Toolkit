@@ -174,7 +174,13 @@ def im_download_and_convert(url, saved_path, collection_temp_path):
     Returns:
         str: 绝对路径, drive:/path/sm18/systems/col/elements/path/to/file.ext'
     """
-    supports_im_type = ["image/jpeg", "image/jpg", "image/png"]
+    supports_im_type = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+        "image/bmp",
+    ]
     now = time.strftime("%Y-%m-%d-%H_%M", time.localtime(time.time()))
     file_name = "im_" + now + "_uuid_" + str(uuid.uuid4())
 
