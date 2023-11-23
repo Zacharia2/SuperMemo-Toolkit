@@ -11,6 +11,7 @@ import requests
 from PIL import Image
 from tqdm import tqdm
 import magic
+from urllib.parse import unquote
 
 
 def makeNameSafe(name):
@@ -244,9 +245,9 @@ def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
             # 绝对路径
             # 去掉前缀
             if src.startswith("file:///"):
-                fs_path = unified_path_separator(src.split("file:///")[1])
+                fs_path = unquote(unified_path_separator(src.split("file:///")[1]))
             else:
-                fs_path = unified_path_separator(src)
+                fs_path = unquote(unified_path_separator(src))
             # 判断在不在集合的元素文件夹中。
             if is_in_elements_directory(fs_path, elements_path):
                 img.attrs["src"] = relativized_path(fs_path)
