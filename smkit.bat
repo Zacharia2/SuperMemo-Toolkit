@@ -1,1 +1,1 @@
-python %~dp0index.py %*
+python %~dp0smkit.py %*
