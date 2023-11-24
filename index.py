@@ -4,20 +4,34 @@
 Usage:
     smkit config set <key> <value>
     smkit config list
+    smkit e2sm <epub-path> <targetfolder>
     smkit pathpix <collection>
     smkit clist
+    smkit indexer <epub> <output>
 
 Options:
     -h --help       Show Help doc.
     -v --version    Show Version.
 """
+# import shutil
 import docs.conf
 from docopt import docopt
+from epub2sm import epub2sm
 from pathpix import index as pathpix
 import os
 
 
-# pyinstaller --add-data "conf.json;." smkit.py
+# def move_to_primaryStorage(source_folder_name, target_folder):
+#     shutil.move(source_folder_name, target_folder)
+
+
+# Main
+# 需要填写sm的位置
+# sm_location = "C:/Users/Snowy/Desktop/sm18"
+
+# def set_sm_location(sm_path):
+#     global sm_location
+#     sm_location = sm_path
 
 
 def cmd():
@@ -42,7 +56,21 @@ def cmd():
     elif args.get("config") and args.get("list"):
         print(docs.conf.read_config(conf_path))
 
+    elif args.get("e2sm"):
+        # python index.py e2s a b
+        epub2sm.start(args["<epub-path>"], args["<targetfolder>"])
+
     elif args.get("pathpix"):
+        # smkit pathpix --least-col
+        # sm_system1 = docs.conf.read_sm_system1(sm_location)
+        # least_used_col = docs.conf.get_collection_primaryStorage(
+        #     sm_location, sm_system1
+        # )
+        # save_img_folder = os.path.join(least_used_col, "web_pic")
+        # # if args['<collection>']
+        # print(least_used_col)
+        # print(save_img_folder)
+        # pathpix.relative_and_localize(least_used_col, save_img_folder)
         col_folder = docs.conf.get_collection_primaryStorage(
             sm_location, args["<collection>"]
         )
