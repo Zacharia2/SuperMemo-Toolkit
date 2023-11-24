@@ -229,17 +229,21 @@ def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
     elements_path = unified_path_separator(elements_path)
 
     img_tags = soup.find_all("img")
+    # 过滤元素。去掉没有src属性以及属性值为空的。
+    filtered_im_list = list(
+        filter(lambda im: "src" in im.attrs and im.attrs["src"] != "", img_tags)
+    )
     is_modify = False
-    for img in img_tags:
+    for im in filtered_im_list:
         # 中文的字符实体会自动变成正常的中文字符。
         # <img src="file:///C:/Users/Snowy/Desktop/sm18/&#24517;&#35835;&#65306;&#26053;&#36884;&#30340;&#24320;&#22987;.png">
-        src = img.attrs["src"]
+        src = im.attrs["src"]
         if is_url(src):
             im_local_path = im_download_and_convert(
                 src, im_saved_path, collection_temp_path
             )
             standard_path = unified_path_separator(im_local_path)
-            img.attrs["src"] = relativized_path(standard_path)
+            im.attrs["src"] = relativized_path(standard_path)
             is_modify = True
         elif not is_relative_path(src):
             # 绝对路径
@@ -250,12 +254,12 @@ def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
                 fs_path = unquote(unified_path_separator(src))
             # 判断在不在集合的元素文件夹中。
             if is_in_elements_directory(fs_path, elements_path):
-                img.attrs["src"] = relativized_path(fs_path)
+                im.attrs["src"] = relativized_path(fs_path)
                 is_modify = True
             else:
                 # 不在，移动到集合元素文件夹的web_im_saved_path。
                 local_pic = os.path.join(elements_path, "local_pic")
-                img.attrs["src"] = relativized_path(
+                im.attrs["src"] = relativized_path(
                     unified_path_separator(copy_to_elements(fs_path, local_pic))
                 )
                 is_modify = True
@@ -318,7 +322,7 @@ def collect_documents(elements_path):
         list: 找到的HTM的文件列表
     """
     waiting_process_htm_files = []
-    print("PathPix:: 开始收集HTM文件。")
+    print("PathPix:: 正在收集HTM文件, 请稍后。")
 
     def find_htm_files_in_directory(directory):
         nonlocal waiting_process_htm_files
