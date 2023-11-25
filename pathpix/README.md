@@ -2,6 +2,4 @@
 
 > supermemo图链整理小工具。
 
-核心功能，转换不支持的图片，图片的相对路径化。
-
-功能介绍，安装使用教程以及下载地址：https://docs.qq.com/doc/DQnRpb0VNUEVvR3dl
+PathPix功能说明、下载安装使用文档：https://docs.qq.com/doc/DQnRpb0VNUEVvR3dl
