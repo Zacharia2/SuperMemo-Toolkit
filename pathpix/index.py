@@ -48,7 +48,13 @@ def trans_pinyin(str):
 def copy_to_elements(file_path, target_folder):
     # unescape_fs_path = html.unescape(file_path)
     old_full_file_name = os.path.basename(file_path)
-    new_full_file_name = makeNameSafe(trans_pinyin(full_to_half(old_full_file_name)))
+    name, ext = os.path.splitext(old_full_file_name)
+    new_full_file_name = (
+        makeNameSafe(trans_pinyin(full_to_half(name)))
+        + "_uuid_"
+        + str(uuid.uuid4())
+        + ext
+    )
     target = os.path.join(target_folder, new_full_file_name)
     mkdir(target_folder)
     shutil.copyfile(file_path, target)
