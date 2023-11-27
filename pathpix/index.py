@@ -11,7 +11,7 @@ import requests
 from PIL import Image
 from tqdm import tqdm
 import magic
-from urllib.parse import unquote
+from urllib.parse import unquote, urlparse
 
 
 def makeNameSafe(name):
@@ -391,6 +391,55 @@ def relative_and_localize(
             print(item)
 
 
+def organize_unused_im(elements_path, temp_dir):
+    im_list = []
+    doc_im_set = set()
+
+    webpic = os.path.join(elements_path, "web_pic")
+    localpic = os.path.join(elements_path, "local_pic")
+    unused_pic = os.path.join(temp_dir, "unused_im")
+
+    # 读取单个HTML文件中的被引用的im名字。
+    def find_im(directory):
+        im_list = []
+        with os.scandir(directory) as entries:
+            for entry in entries:
+                if entry.is_file():
+                    im_list.append(entry.path)
+        return im_list
+
+    print("PathPix::", "清理web_pic, local_pic文件夹中从未被使用的图片")
+    im_list = find_im(webpic) + find_im(localpic)
+
+    for htm_file_path in tqdm(collect_documents(elements_path), desc="Doc-IM-gather"):
+        with codecs.open(
+            htm_file_path, "r", encoding="gbk", errors="xmlcharrefreplace"
+        ) as f:
+            soup = BeautifulSoup(f.read(), "html.parser")
+            img_tags = soup.find_all("img")
+            filtered_im_list = list(
+                filter(lambda im: "src" in im.attrs and im.attrs["src"] != "", img_tags)
+            )
+            for im in filtered_im_list:
+                parse_result = urlparse(im.attrs["src"])
+                file_name = os.path.basename(unquote(parse_result.path))
+                # 收集所有被引用的im文件名。
+                doc_im_set.add(file_name)
+
+    # 移动到temp文件夹
+    for im in im_list:
+        # 对im进行 整理 只保留文件名。
+        im_fname = os.path.basename(im)
+        if im_fname not in doc_im_set:
+            try:
+                print("正在处理：", im)
+                mkdir(unused_pic)
+                # 将一个文件或文件夹从 src 移动到 dst 如果 dst 已存在且为文件夹，则 src 将会被移动到 dst内。
+                shutil.move(im, unused_pic)
+            except Exception as e:
+                print(f"移动unused_pic时发生错误: {str(e)}")
+
+
 def start(elements_path, im_saved_path, collection_temp_path):
     waiting_process_list = collect_documents(elements_path)
     relative_and_localize(
@@ -407,4 +456,8 @@ def start(elements_path, im_saved_path, collection_temp_path):
 #     "D:/SuperMemo/systems/ALL IN ONE/elements",
 #     "D:/SuperMemo/systems/ALL IN ONE/elements/web_pic",
 #     "D:/SuperMemo/systems/ALL IN ONE/temp",
+# )
+# organize_unused_im(
+#     "D:/SuperMemo/systems/Reading-And-Review/elements",
+#     "D:/SuperMemo/systems/Reading-And-Review/temp",
 # )
