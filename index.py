@@ -5,7 +5,7 @@ Usage:
     smkit config set <key> <value>
     smkit config list
     smkit e2sm <epub-path> <targetfolder>
-    smkit pathpix <collection>
+    smkit pathpix ( <collection> | [--clean=<collection>] | [--least-col] )
     smkit clist
     smkit indexer <epub> <output>
 
@@ -62,27 +62,30 @@ def cmd():
 
     elif args.get("pathpix"):
         # smkit pathpix --least-col
-        # sm_system1 = config.read_sm_system1(sm_location)
-        # least_used_col = config.get_collection_primaryStorage(
-        #     sm_location, sm_system1
-        # )
-        # save_img_folder = os.path.join(least_used_col, "web_pic")
-        # # if args['<collection>']
-        # print(least_used_col)
-        # print(save_img_folder)
-        # pathpix.relative_and_localize(least_used_col, save_img_folder)
-        col_folder = config.get_collection_primaryStorage(
-            sm_location, args["<collection>"]
-        )
-        collection_temp_path = config.get_collections_temp(
-            os.path.join(sm_location, "systems", args["<collection>"])
-        )
-        save_img_folder = os.path.join(col_folder, "web_pic")
-        local_pic = os.path.join(col_folder, "local_pic")
-        print("集合元素：", col_folder)
-        print("图片位置：", [save_img_folder, local_pic])
-        print("临时文件：", collection_temp_path)
-        pathpix.start(col_folder, save_img_folder, collection_temp_path)
+        if args.get("--least-col"):
+            sm_system1 = config.read_sm_system1(sm_location)
+            least_used_col = config.get_collection_primaryStorage(
+                sm_location, sm_system1
+            )
+            save_img_folder = os.path.join(least_used_col, "web_pic")
+            print(least_used_col)
+            print(save_img_folder)
+            # pathpix.relative_and_localize(least_used_col, save_img_folder)
+        elif args.get("<collection>"):
+            col_folder = config.get_collection_primaryStorage(
+                sm_location, args["<collection>"]
+            )
+            collection_temp_path = config.get_collections_temp(
+                os.path.join(sm_location, "systems", args["<collection>"])
+            )
+            save_img_folder = os.path.join(col_folder, "web_pic")
+            local_pic = os.path.join(col_folder, "local_pic")
+            print("集合元素：", col_folder)
+            print("图片位置：", [save_img_folder, local_pic])
+            print("临时文件：", collection_temp_path)
+            pathpix.start(col_folder, save_img_folder, collection_temp_path)
+        elif args.get("--clean"):
+            print("print::  smkit pathpix --clean", args["--clean"])
     elif args.get("clist"):
         col_list = config.get_collections_primaryStorage(sm_location)
         for col_name in col_list:
