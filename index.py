@@ -14,7 +14,7 @@ Options:
     -v --version    Show Version.
 """
 # import shutil
-import docs.conf
+from scripts import config
 from docopt import docopt
 from epub2sm import epub2sm
 from pathpix import index as pathpix
@@ -38,23 +38,23 @@ def cmd():
     args = docopt(__doc__)
     this_folder = os.path.dirname(os.path.abspath(__file__))
     conf_path = os.path.join(this_folder, "conf.json")
-    m_conf = docs.conf.read_config(conf_path)
+    m_conf = config.read_config(conf_path)
     sm_location = m_conf["program"]
 
     if args.get("config") and args.get("set"):
         if args["<key>"] == "program":
             m_conf["program"] = args["<value>"]
-            docs.conf.update_config(conf_path, m_conf)
-            m_conf = docs.conf.read_config(conf_path)
+            config.update_config(conf_path, m_conf)
+            m_conf = config.read_config(conf_path)
             print(m_conf)
         else:
             m_conf[args["<key>"]] = args["<value>"]
-            docs.conf.update_config(conf_path, m_conf)
-            m_conf = docs.conf.read_config(conf_path)
+            config.update_config(conf_path, m_conf)
+            m_conf = config.read_config(conf_path)
             print(m_conf)
 
     elif args.get("config") and args.get("list"):
-        print(docs.conf.read_config(conf_path))
+        print(config.read_config(conf_path))
 
     elif args.get("e2sm"):
         # python index.py e2s a b
@@ -62,8 +62,8 @@ def cmd():
 
     elif args.get("pathpix"):
         # smkit pathpix --least-col
-        # sm_system1 = docs.conf.read_sm_system1(sm_location)
-        # least_used_col = docs.conf.get_collection_primaryStorage(
+        # sm_system1 = config.read_sm_system1(sm_location)
+        # least_used_col = config.get_collection_primaryStorage(
         #     sm_location, sm_system1
         # )
         # save_img_folder = os.path.join(least_used_col, "web_pic")
@@ -71,10 +71,10 @@ def cmd():
         # print(least_used_col)
         # print(save_img_folder)
         # pathpix.relative_and_localize(least_used_col, save_img_folder)
-        col_folder = docs.conf.get_collection_primaryStorage(
+        col_folder = config.get_collection_primaryStorage(
             sm_location, args["<collection>"]
         )
-        collection_temp_path = docs.conf.get_collections_temp(
+        collection_temp_path = config.get_collections_temp(
             os.path.join(sm_location, "systems", args["<collection>"])
         )
         save_img_folder = os.path.join(col_folder, "web_pic")
@@ -84,7 +84,7 @@ def cmd():
         print("临时文件：", collection_temp_path)
         pathpix.start(col_folder, save_img_folder, collection_temp_path)
     elif args.get("clist"):
-        col_list = docs.conf.get_collections_primaryStorage(sm_location)
+        col_list = config.get_collections_primaryStorage(sm_location)
         for col_name in col_list:
             print("集合名称：", col_name)
 
