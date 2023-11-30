@@ -24,7 +24,6 @@ import os
 # def move_to_primaryStorage(source_folder_name, target_folder):
 #     shutil.move(source_folder_name, target_folder)
 
-
 # Main
 # 需要填写sm的位置
 # sm_location = "C:/Users/Snowy/Desktop/sm18"
@@ -43,11 +42,11 @@ def cmd():
 
     if args.get("config") and args.get("set"):
         if args["<key>"] == "program":
-            m_conf["program"] = args["<value>"]
+            m_conf[args["<key>"]] = args["<value>"]
             config.update_config(conf_path, m_conf)
             m_conf = config.read_config(conf_path)
             print(m_conf)
-        else:
+        elif args["<key>"] == "systems" and args.get("set"):
             m_conf[args["<key>"]] = args["<value>"]
             config.update_config(conf_path, m_conf)
             m_conf = config.read_config(conf_path)
@@ -67,25 +66,17 @@ def cmd():
             least_used_col = config.get_collection_primaryStorage(
                 sm_location, sm_system1
             )
-            save_img_folder = os.path.join(least_used_col, "web_pic")
-            print(least_used_col)
-            print(save_img_folder)
-            # pathpix.relative_and_localize(least_used_col, save_img_folder)
+            pathpix.start(least_used_col)
         elif args.get("<collection>"):
-            col_folder = config.get_collection_primaryStorage(
+            elements_path = config.get_collection_primaryStorage(
                 sm_location, args["<collection>"]
             )
-            collection_temp_path = config.get_collections_temp(
-                os.path.join(sm_location, "systems", args["<collection>"])
-            )
-            save_img_folder = os.path.join(col_folder, "web_pic")
-            local_pic = os.path.join(col_folder, "local_pic")
-            print("集合元素：", col_folder)
-            print("图片位置：", [save_img_folder, local_pic])
-            print("临时文件：", collection_temp_path)
-            pathpix.start(col_folder, save_img_folder, collection_temp_path)
+            pathpix.start(elements_path)
         elif args.get("--clean"):
-            print("print::  smkit pathpix --clean", args["--clean"])
+            elements_path = config.get_collection_primaryStorage(
+                sm_location, args["--clean"]
+            )
+            pathpix.organize_unused_im(elements_path)
     elif args.get("clist"):
         col_list = config.get_collections_primaryStorage(sm_location)
         for col_name in col_list:

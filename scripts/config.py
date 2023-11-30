@@ -56,22 +56,6 @@ def get_collections_primaryStorage(sm_location):
     return collections
 
 
-def get_collections_temp(collection_path):
-    """给定集合 col 绝对路径, 返回集合的 temp 路径。
-
-    Args:
-        collection_path (_type_): drive:/path/sm/systems/col
-
-    Returns:
-        _type_: drive:/path/sm/systems/col/temp
-    """
-    return os.path.join(collection_path, "temp")
-
-
-# 引入configparser包，它是用于读取配置文件的包
-# 配置文件的格式可以为[](其中包含的为section)
-
-
 # 获取config.ini文件路径
 def get_path():
     current_path = os.path.abspath(__file__)

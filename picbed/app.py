@@ -1,4 +1,5 @@
 import os
+import sys
 from flask import (
     Flask,
     request,
@@ -8,11 +9,13 @@ from werkzeug.utils import secure_filename
 from flask import send_from_directory
 import random
 import time
-import getConfig as gcf
+
+sys.path.insert(0, sys.path[0] + "/../")
+from scripts import config  # noqa: E402
 
 
 # 配置设置
-cf = gcf.get_config()
+cf = config.get_config()
 
 # 允许上传的文件扩展名
 allowed_extensions = {"txt", "pdf", "png", "jpg", "jpeg", "gif"}
@@ -51,6 +54,7 @@ def upload_file():
         # 保存文件
         filename = f"{int(time.time())}{random.randint(1, 99999)}{secure_filename(str(random.randint(1, 7887)) + file.filename)}"
         file_path = file.save(os.path.join(upload_folder, filename))
+        print(file_path)
 
         # 获取服务器地址和端口
         server_address = f"{app.config['running_domain']}:{app.config['running_port']}"
@@ -78,15 +82,12 @@ def uploaded_file(filename):
 
 if __name__ == "__main__":
     # 配置应用的上传文件夹路径
-    app.config["UPLOAD_FOLDER"] = upload_folder
-
     # 配置应用运行的域名
-    app.config["running_domain"] = cf["running_domain"]
-
     # 配置应用运行的端口
-    app.config["running_port"] = cf["port"]
-
     # 设置上传文件的最大内容长度限制
+    app.config["UPLOAD_FOLDER"] = upload_folder
+    app.config["running_domain"] = cf["running_domain"]
+    app.config["running_port"] = cf["port"]
     app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024 * int(cf["max_length"])
 
     # 确保实例文件夹存在
@@ -98,7 +99,7 @@ if __name__ == "__main__":
     # 尝试创建上传文件夹，如果尚不存在
     try:
         os.mkdir(upload_folder)
-    except Exception as e:
+    except Exception:
         pass  # 如果文件夹已存在或有其他错误，不做处理
 
     # 运行 Flask 应用

@@ -391,12 +391,13 @@ def relative_and_localize(
             print(item)
 
 
-def organize_unused_im(elements_path, temp_dir):
+def organize_unused_im(elements_path):
     im_list = []
     doc_im_set = set()
 
     webpic = os.path.join(elements_path, "web_pic")
     localpic = os.path.join(elements_path, "local_pic")
+    temp_dir = os.path.normpath(os.path.join(elements_path, "../", "temp"))
     unused_pic = os.path.join(temp_dir, "unused_im")
 
     # 读取单个HTML文件中的被引用的im名字。
@@ -408,56 +409,65 @@ def organize_unused_im(elements_path, temp_dir):
                     im_list.append(entry.path)
         return im_list
 
-    print("PathPix::", "清理web_pic, local_pic文件夹中从未被使用的图片")
-    im_list = find_im(webpic) + find_im(localpic)
+    is_exists_webpic = os.path.exists(webpic)
+    is_exists_localpic = os.path.exists(localpic)
+    if is_exists_webpic or is_exists_localpic:
+        print("PathPix::", "清理web_pic, local_pic文件夹中从未被使用的图片")
+        im_list = find_im(webpic) + find_im(localpic)
 
-    for htm_file_path in tqdm(collect_documents(elements_path), desc="Doc-IM-gather"):
-        with codecs.open(
-            htm_file_path, "r", encoding="gbk", errors="xmlcharrefreplace"
-        ) as f:
-            soup = BeautifulSoup(f.read(), "html.parser")
-            img_tags = soup.find_all("img")
-            filtered_im_list = list(
-                filter(lambda im: "src" in im.attrs and im.attrs["src"] != "", img_tags)
-            )
-            for im in filtered_im_list:
-                parse_result = urlparse(im.attrs["src"])
-                file_name = os.path.basename(unquote(parse_result.path))
-                # 收集所有被引用的im文件名。
-                doc_im_set.add(file_name)
+        for htm_file_path in tqdm(collect_documents(elements_path), desc="Doc-ImGather"):
+            with codecs.open(
+                htm_file_path, "r", encoding="gbk", errors="xmlcharrefreplace"
+            ) as f:
+                soup = BeautifulSoup(f.read(), "html.parser")
+                img_tags = soup.find_all("img")
+                filtered_im_list = list(
+                    filter(
+                        lambda im: "src" in im.attrs and im.attrs["src"] != "", img_tags
+                    )
+                )
+                for im in filtered_im_list:
+                    parse_result = urlparse(im.attrs["src"])
+                    file_name = os.path.basename(unquote(parse_result.path))
+                    # 收集所有被引用的im文件名。
+                    doc_im_set.add(file_name)
 
-    # 移动到temp文件夹
-    for im in im_list:
-        # 对im进行 整理 只保留文件名。
-        im_fname = os.path.basename(im)
-        if im_fname not in doc_im_set:
-            try:
-                print("正在处理：", im)
-                mkdir(unused_pic)
-                # 将一个文件或文件夹从 src 移动到 dst 如果 dst 已存在且为文件夹，则 src 将会被移动到 dst内。
-                shutil.move(im, unused_pic)
-            except Exception as e:
-                print(f"移动unused_pic时发生错误: {str(e)}")
+        # 移动到temp文件夹
+        unused_pic_list = []
+        for im in im_list:
+            # 对im进行 整理 只保留文件名。
+            im_fname = os.path.basename(im)
+            if im_fname not in doc_im_set:
+                unused_pic_list.append(im)
+
+        if len(unused_pic_list) > 0:
+            for im in unused_pic_list:
+                try:
+                    print("正在处理：", im)
+                    mkdir(unused_pic)
+                    # 将一个文件或文件夹从 src 移动到 dst 如果 dst 已存在且为文件夹，则 src 将会被移动到 dst内。
+                    shutil.move(im, unused_pic)
+                except Exception as e:
+                    print(f"移动unused_pic时发生错误: {str(e)}")
+        else:
+            print("PathPix:: 无事可做。")
+    else:
+        print("PathPix:: 未处理过此集合, web_pic 和 local_pic 文件夹不存在。")
 
 
-def start(elements_path, im_saved_path, collection_temp_path):
+def start(elements_path):
+    collection_temp_path = os.path.normpath(os.path.join(elements_path, "../", "temp"))
+    save_img_folder = os.path.normpath(os.path.join(elements_path, "web_pic"))
+    local_pic = os.path.normpath(os.path.join(elements_path, "local_pic"))
+    print("集合元素：", elements_path)
+    print("图片位置：", [save_img_folder, local_pic])
+    print("临时文件：", collection_temp_path)
     waiting_process_list = collect_documents(elements_path)
     relative_and_localize(
-        waiting_process_list, elements_path, im_saved_path, collection_temp_path
+        waiting_process_list, elements_path, save_img_folder, collection_temp_path
     )
 
 
-# start(
-#     "C:/Users/Snowy/Desktop/sm18/systems/all in one/elements",
-#     "C:/Users/Snowy/Desktop/sm18/systems/all in one/elements/web_pic",
-#     "C:/Users/Snowy/Desktop/sm18/systems/all in one/temp",
-# )
-# start(
-#     "D:/SuperMemo/systems/ALL IN ONE/elements",
-#     "D:/SuperMemo/systems/ALL IN ONE/elements/web_pic",
-#     "D:/SuperMemo/systems/ALL IN ONE/temp",
-# )
-# organize_unused_im(
-#     "D:/SuperMemo/systems/Reading-And-Review/elements",
-#     "D:/SuperMemo/systems/Reading-And-Review/temp",
-# )
+# start("C:/Users/Snowy/Desktop/sm18/systems/all in one/elements")
+# start("D:/SuperMemo/systems/ALL IN ONE/elements")
+# organize_unused_im("D:/SuperMemo/systems/Reading-And-Review/elements")

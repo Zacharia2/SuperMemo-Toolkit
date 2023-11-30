@@ -4,7 +4,7 @@
 Usage:
     smkit config set <key> <value>
     smkit config list
-    smkit pathpix <collection>
+    smkit pathpix ( <collection> | [--clean=<collection>] | [--least-col] )
     smkit clist
 
 Options:
@@ -12,7 +12,7 @@ Options:
     -v --version    Show Version.
 """
 from docopt import docopt
-import index as pathpix
+from pathpix import index as pathpix
 import os
 import sys
 
@@ -20,6 +20,7 @@ sys.path.insert(0, sys.path[0] + "/../")
 from scripts import config  # noqa: E402
 
 # pyinstaller --add-data "conf.json;." smkit.py
+# pyinstaller smkit.spec
 
 
 def cmd():
@@ -31,11 +32,11 @@ def cmd():
 
     if args.get("config") and args.get("set"):
         if args["<key>"] == "program":
-            m_conf["program"] = args["<value>"]
+            m_conf[args["<key>"]] = args["<value>"]
             config.update_config(conf_path, m_conf)
             m_conf = config.read_config(conf_path)
             print(m_conf)
-        else:
+        elif args["<key>"] == "systems" and args.get("set"):
             m_conf[args["<key>"]] = args["<value>"]
             config.update_config(conf_path, m_conf)
             m_conf = config.read_config(conf_path)
@@ -45,18 +46,23 @@ def cmd():
         print(config.read_config(conf_path))
 
     elif args.get("pathpix"):
-        col_folder = config.get_collection_primaryStorage(
-            sm_location, args["<collection>"]
-        )
-        collection_temp_path = config.get_collections_temp(
-            os.path.join(sm_location, "systems", args["<collection>"])
-        )
-        save_img_folder = os.path.join(col_folder, "web_pic")
-        local_pic = os.path.join(col_folder, "local_pic")
-        print("集合元素：", col_folder)
-        print("图片位置：", [save_img_folder, local_pic])
-        print("临时文件：", collection_temp_path)
-        pathpix.start(col_folder, save_img_folder, collection_temp_path)
+        # smkit pathpix --least-col
+        if args.get("--least-col"):
+            sm_system1 = config.read_sm_system1(sm_location)
+            least_used_col = config.get_collection_primaryStorage(
+                sm_location, sm_system1
+            )
+            pathpix.start(least_used_col)
+        elif args.get("<collection>"):
+            elements_path = config.get_collection_primaryStorage(
+                sm_location, args["<collection>"]
+            )
+            pathpix.start(elements_path)
+        elif args.get("--clean"):
+            elements_path = config.get_collection_primaryStorage(
+                sm_location, args["--clean"]
+            )
+            pathpix.organize_unused_im(elements_path)
     elif args.get("clist"):
         col_list = config.get_collections_primaryStorage(sm_location)
         for col_name in col_list:
