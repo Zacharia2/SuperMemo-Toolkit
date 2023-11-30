@@ -4,3 +4,5 @@ __pycache__/*
 *.pyc
 dist/*
 build/*
+pathpix/dist/*
+pathpix/build/*
