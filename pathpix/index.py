@@ -1,4 +1,5 @@
 import imghdr
+import logging
 import shutil
 import uuid
 from bs4 import BeautifulSoup
@@ -12,6 +13,31 @@ from PIL import Image
 from tqdm import tqdm
 import magic
 from urllib.parse import unquote, urlparse
+
+
+def setup_logger():
+    """设置日志记录器，添加文件处理器和格式化器"""
+    # 创建记录器并设置等级
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+
+    # 创建文件处理器并设置等级
+    file_handler = logging.FileHandler("smkit.log", mode="w")
+    file_handler.setLevel(logging.INFO)
+
+    # 创建格式化器并设置到处理器
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler.setFormatter(formatter)
+
+    # 添加处理器到记录器
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+logger = setup_logger()
 
 
 def makeNameSafe(name):
@@ -398,13 +424,16 @@ def relative_and_localize(
                 processed_htm_files.append(htm_file_path)
         except Exception as e:
             failed_process_htm_files.append((htm_file_path, e))
+            logger.warning((htm_file_path, e))
 
     if len(failed_process_htm_files) != 0:
-        print("\033[0;31;40m", "以下文件处理失败：", "\033[0m")
-        for item in failed_process_htm_files:
-            print(
-                "\033[0;31;40m", f"Cannot process {item[0]}. \n\t{item[1]}", "\033[0m"
-            )
+        print("\033[0;31;40m", "一些文件处理失败, 请查看log文件", "\033[0m")
+        os.startfile("smkit.log")
+        # print("\033[0;31;40m", "以下文件处理失败：", "\033[0m")
+        # for item in failed_process_htm_files:
+        #     print(
+        #         "\033[0;31;40m", f"Cannot process {item[0]}. \n\t{item[1]}", "\033[0m"
+        #     )
     if len(processed_htm_files) == 0:
         print("\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
     else:

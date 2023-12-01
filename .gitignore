@@ -6,3 +6,4 @@ dist/*
 build/*
 pathpix/dist/*
 pathpix/build/*
+*.log
