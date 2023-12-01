@@ -476,7 +476,7 @@ def organize_unused_im(elements_path):
         if len(unused_pic_list) > 0:
             for im in unused_pic_list:
                 try:
-                    print("正在处理：", im)
+                    print("正在处理：", os.path.basename(im))
                     mkdir(unused_pic)
                     # 将一个文件或文件夹从 src 移动到 dst 如果 dst 已存在且为文件夹，则 src 将会被移动到 dst内。
                     shutil.move(im, unused_pic)
