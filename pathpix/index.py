@@ -419,10 +419,9 @@ def organize_unused_im(elements_path):
             collect_documents(elements_path), desc="Doc-ImGather"
         ):
             try:
-                with codecs.open(
-                    htm_file_path, "r", encoding="gbk", errors="xmlcharrefreplace"
-                ) as f:
-                    soup = BeautifulSoup(f.read(), "html.parser")
+                with codecs.open(htm_file_path, "rb") as f:
+                    content = f.read()
+                    soup = BeautifulSoup(content, "html.parser")
                     img_tags = soup.find_all("img")
                     filtered_im_list = list(
                         filter(
@@ -435,8 +434,8 @@ def organize_unused_im(elements_path):
                         file_name = os.path.basename(unquote(parse_result.path))
                         # 收集所有被引用的im文件名。
                         doc_im_set.add(file_name)
-            except Exception as e:
-                print("Cannot process:: ", htm_file_path + "\n\t" + e)
+            except UnicodeDecodeError as e:
+                print("Cannot:: ", htm_file_path + "\n\t" + e)
         # 移动到temp文件夹
         unused_pic_list = []
         for im in im_list:
