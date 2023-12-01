@@ -14,6 +14,8 @@ from tqdm import tqdm
 import magic
 from urllib.parse import unquote, urlparse
 
+LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "smkit.log")
+
 
 def setup_logger():
     """设置日志记录器，添加文件处理器和格式化器"""
@@ -22,7 +24,7 @@ def setup_logger():
     logger.setLevel(logging.INFO)
 
     # 创建文件处理器并设置等级
-    file_handler = logging.FileHandler("smkit.log", mode="w")
+    file_handler = logging.FileHandler(LOG_FILE, mode="w")
     file_handler.setLevel(logging.INFO)
 
     # 创建格式化器并设置到处理器
@@ -428,7 +430,7 @@ def relative_and_localize(
 
     if len(failed_process_htm_files) != 0:
         print("\033[0;31;40m", "一些文件处理失败, 请查看log文件", "\033[0m")
-        os.startfile("smkit.log")
+        os.startfile(LOG_FILE)
         # print("\033[0;31;40m", "以下文件处理失败：", "\033[0m")
         # for item in failed_process_htm_files:
         #     print(
