@@ -415,23 +415,28 @@ def organize_unused_im(elements_path):
         print("PathPix::", "清理web_pic, local_pic文件夹中从未被使用的图片")
         im_list = find_im(webpic) + find_im(localpic)
 
-        for htm_file_path in tqdm(collect_documents(elements_path), desc="Doc-ImGather"):
-            with codecs.open(
-                htm_file_path, "r", encoding="gbk", errors="xmlcharrefreplace"
-            ) as f:
-                soup = BeautifulSoup(f.read(), "html.parser")
-                img_tags = soup.find_all("img")
-                filtered_im_list = list(
-                    filter(
-                        lambda im: "src" in im.attrs and im.attrs["src"] != "", img_tags
+        for htm_file_path in tqdm(
+            collect_documents(elements_path), desc="Doc-ImGather"
+        ):
+            try:
+                with codecs.open(
+                    htm_file_path, "r", encoding="gbk", errors="xmlcharrefreplace"
+                ) as f:
+                    soup = BeautifulSoup(f.read(), "html.parser")
+                    img_tags = soup.find_all("img")
+                    filtered_im_list = list(
+                        filter(
+                            lambda im: "src" in im.attrs and im.attrs["src"] != "",
+                            img_tags,
+                        )
                     )
-                )
-                for im in filtered_im_list:
-                    parse_result = urlparse(im.attrs["src"])
-                    file_name = os.path.basename(unquote(parse_result.path))
-                    # 收集所有被引用的im文件名。
-                    doc_im_set.add(file_name)
-
+                    for im in filtered_im_list:
+                        parse_result = urlparse(im.attrs["src"])
+                        file_name = os.path.basename(unquote(parse_result.path))
+                        # 收集所有被引用的im文件名。
+                        doc_im_set.add(file_name)
+            except Exception as e:
+                print("Cannot process:: ", htm_file_path + "\n\t" + e)
         # 移动到temp文件夹
         unused_pic_list = []
         for im in im_list:
