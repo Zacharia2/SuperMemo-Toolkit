@@ -1,4 +1,3 @@
-import codecs
 import imghdr
 import shutil
 import uuid
@@ -6,6 +5,7 @@ from bs4 import BeautifulSoup
 import re
 import os
 import time
+import chardet
 import pypinyin
 import requests
 from PIL import Image
@@ -134,12 +134,18 @@ def is_html_file(file_path):
     )
 
 
-def is_url(str):
+def is_http_url_scheme(str):
     v = re.compile(
         "^(?!mailto:)(?:(?:http|https|ftp)://|//)(?:\\S+(?::\\S*)?@)?(?:(?:(?:[1-9]\\d?|1\\d\\d|2[01]\\d|22[0-3])(?:\\.(?:1?\\d{1,2}|2[0-4]\\d|25[0-5])){2}(?:\\.(?:[0-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4]))|(?:(?:[a-z\\u00a1-\\uffff0-9]+-?)*[a-z\\u00a1-\\uffff0-9]+)(?:\\.(?:[a-z\\u00a1-\\uffff0-9]+-?)*[a-z\\u00a1-\\uffff0-9]+)*(?:\\.(?:[a-z\\u00a1-\\uffff]{2,})))|localhost)(?::\\d{2,5})?(?:(/|\\?|#)[^\\s]*)?$",
         re.IGNORECASE,
     )
     return bool(v.match(str))
+
+
+def is_data_url_scheme(str):
+    parsed_url = urlparse(str)
+    if parsed_url.scheme == "data":
+        return True
 
 
 def is_relative_path(string):
@@ -230,6 +236,10 @@ def im_download_and_convert(url, saved_path, collection_temp_path):
         print("警告！非图片资源链接 ", url)
 
 
+def im_data_url_and_convert():
+    print("这是一个Data URI scheme。svglib、pyvips")
+
+
 def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
     soup = BeautifulSoup(html_doc, "html.parser")
     elements_path = unified_path_separator(elements_path)
@@ -243,21 +253,25 @@ def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
     for im in filtered_im_list:
         # 中文的字符实体会自动变成正常的中文字符。
         # <img src="file:///C:/Users/Snowy/Desktop/sm18/&#24517;&#35835;&#65306;&#26053;&#36884;&#30340;&#24320;&#22987;.png">
-        src = im.attrs["src"]
-        if is_url(src):
+        im_src = im.attrs["src"]
+        if is_http_url_scheme(im_src):
             im_local_path = im_download_and_convert(
-                src, im_saved_path, collection_temp_path
+                im_src, im_saved_path, collection_temp_path
             )
             standard_path = unified_path_separator(im_local_path)
             im.attrs["src"] = relativized_path(standard_path)
             is_modify = True
-        elif not is_relative_path(src):
+        elif is_data_url_scheme(im_src):
+            im_data_url_and_convert()
+            # 如果是 Data URI scheme
+            pass
+        elif not is_relative_path(im_src):
             # 绝对路径
             # 去掉前缀
-            if src.startswith("file:///"):
-                fs_path = unquote(unified_path_separator(src.split("file:///")[1]))
+            if im_src.startswith("file:///"):
+                fs_path = unquote(unified_path_separator(im_src.split("file:///")[1]))
             else:
-                fs_path = unquote(unified_path_separator(src))
+                fs_path = unquote(unified_path_separator(im_src))
             # 判断在不在集合的元素文件夹中。
             if is_in_elements_directory(fs_path, elements_path):
                 im.attrs["src"] = relativized_path(fs_path)
@@ -269,7 +283,7 @@ def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
                     unified_path_separator(copy_to_elements(fs_path, local_pic))
                 )
                 is_modify = True
-        elif is_relative_path(src):
+        elif is_relative_path(im_src):
             is_modify = False
     # 删除临时文件夹。
     # print("删除临时文件夹::", collection_temp_path)
@@ -297,7 +311,7 @@ def secure_file_write(modified_content, target_file, temp_dir):
         print("正在处理：", target_file)
         mkdir(temp_dir)
         # 创建并写入临时文件
-        with codecs.open(temp_file, "wb") as f:
+        with open(temp_file, "wb") as f:
             f.seek(0)
             f.write(modified_content)
             f.truncate()
@@ -328,19 +342,26 @@ def collect_documents(elements_path):
         list: 找到的HTM的文件列表
     """
     waiting_process_htm_files = []
-    print("PathPix:: 正在收集HTM文件, 请稍后。")
+    processed_count = 0
 
     def find_htm_files_in_directory(directory):
         nonlocal waiting_process_htm_files
+        nonlocal processed_count
         with os.scandir(directory) as entries:
             for entry in entries:
                 if entry.is_file() and is_html_file(entry.path):
                     waiting_process_htm_files.append(entry.path)
+                    processed_count += 1
+                    print(
+                        "PathPix:: 正在收集HTM文件, 请稍后.",
+                        f"[{processed_count}]\r",
+                        end="",
+                    )
                 if entry.is_dir():
                     find_htm_files_in_directory(entry.path)
 
     find_htm_files_in_directory(elements_path)
-    print("PathPix:: Done!")
+    print("\nPathPix:: Done!")
     return waiting_process_htm_files
 
 
@@ -357,12 +378,13 @@ def relative_and_localize(
     """
     failed_process_htm_files = []
     processed_htm_files = []
-    for htm_file_path in tqdm(waiting_process_list, desc="DocLinkCheck"):
+    for htm_file_path in tqdm(waiting_process_list, desc="Doc-LinkCheck"):
         try:
-            with codecs.open(
-                htm_file_path, "r", encoding="gbk", errors="xmlcharrefreplace"
-            ) as f:
-                content = f.read()
+            with open(htm_file_path, "rb") as f:
+                raw_data = f.read()
+                result = chardet.detect(raw_data)
+                encoding = result["encoding"]
+            content = raw_data.decode(encoding=encoding, errors="xmlcharrefreplace")
 
             modified_content = modify_src(
                 content,
@@ -403,10 +425,13 @@ def organize_unused_im(elements_path):
     # 读取单个HTML文件中的被引用的im名字。
     def find_im(directory):
         im_list = []
-        with os.scandir(directory) as entries:
-            for entry in entries:
-                if entry.is_file():
-                    im_list.append(entry.path)
+        try:
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    if entry.is_file():
+                        im_list.append(entry.path)
+        except FileNotFoundError:
+            pass
         return im_list
 
     is_exists_webpic = os.path.exists(webpic)
@@ -419,23 +444,27 @@ def organize_unused_im(elements_path):
             collect_documents(elements_path), desc="Doc-ImGather"
         ):
             try:
-                with codecs.open(htm_file_path, "rb") as f:
-                    content = f.read()
-                    soup = BeautifulSoup(content, "html.parser")
-                    img_tags = soup.find_all("img")
-                    filtered_im_list = list(
-                        filter(
-                            lambda im: "src" in im.attrs and im.attrs["src"] != "",
-                            img_tags,
-                        )
+                with open(htm_file_path, "rb") as f:
+                    raw_data = f.read()
+                    result = chardet.detect(raw_data)
+                    encoding = result["encoding"]
+
+                content = raw_data.decode(encoding=encoding, errors="xmlcharrefreplace")
+                soup = BeautifulSoup(content, "html.parser")
+                img_tags = soup.find_all("img")
+                filtered_im_list = list(
+                    filter(
+                        lambda im: "src" in im.attrs and im.attrs["src"] != "",
+                        img_tags,
                     )
-                    for im in filtered_im_list:
-                        parse_result = urlparse(im.attrs["src"])
-                        file_name = os.path.basename(unquote(parse_result.path))
-                        # 收集所有被引用的im文件名。
-                        doc_im_set.add(file_name)
+                )
+                for im in filtered_im_list:
+                    parse_result = urlparse(im.attrs["src"])
+                    file_name = os.path.basename(unquote(parse_result.path))
+                    # 收集所有被引用的im文件名。
+                    doc_im_set.add(file_name)
             except UnicodeDecodeError as e:
-                print("Cannot:: ", htm_file_path + "\n\t" + e)
+                print(htm_file_path + "\n\t" + e)
         # 移动到temp文件夹
         unused_pic_list = []
         for im in im_list:
