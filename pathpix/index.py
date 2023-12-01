@@ -103,7 +103,12 @@ def assure_image_url(url):
     try:
         response = requests.get(url, stream=True)
         content_type = response.headers.get("content-type")
-        filetype = imghdr.what(None, response.content)
+        if content_type:
+            # 处理可能的字符编码，如：image/jpeg; charset=utf-8
+            content_type = content_type.split(";")[0]
+        # 仅读取文件头用于确定文件类型
+        header = response.raw.read(1024)  # imghdr需要至少512字节
+        filetype = imghdr.what(None, header)
         # 文件头信息、文件内容。
         if content_type and "image" in content_type:
             return (content_type, response.content)
@@ -124,14 +129,9 @@ def assure_image_url(url):
 # Windows 下需要安装 libmagic 的 DLL，否则报错
 # https://github.com/ahupp/python-magic
 def is_html_file(file_path):
-    # name = name.lower()
     file_type = magic.Magic(mime=True).from_file(file_path)
     file_ext = os.path.splitext(file_path)[1].lower()
-    return (
-        file_type == "text/html"
-        or file_ext.endswith(".html")
-        or file_ext.endswith(".htm")
-    )
+    return file_type == "text/html" or file_ext in [".html", ".htm"]
 
 
 def is_http_url_scheme(str):
@@ -465,6 +465,7 @@ def organize_unused_im(elements_path):
                     doc_im_set.add(file_name)
             except UnicodeDecodeError as e:
                 print(htm_file_path + "\n\t" + e)
+
         # 移动到temp文件夹
         unused_pic_list = []
         for im in im_list:
