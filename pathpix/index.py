@@ -139,17 +139,17 @@ def assure_image_url(url):
     try:
         response = requests.get(url, stream=True)
         content_type = response.headers.get("content-type")
+        content = response.content
         if content_type:
             # 处理可能的字符编码，如：image/jpeg; charset=utf-8
             content_type = content_type.split(";")[0]
         # 仅读取文件头用于确定文件类型
-        header = response.raw.read(1024)  # imghdr需要至少512字节
-        filetype = imghdr.what(None, header)
+        filetype = imghdr.what(None, content)
         # 文件头信息、文件内容。
         if content_type and "image" in content_type:
-            return (content_type, response.content)
+            return (content_type, content)
         elif filetype is not None:
-            return ("image/" + filetype, response.content)
+            return ("image/" + filetype, content)
         else:
             return False
     except requests.exceptions.ConnectionError as e:
