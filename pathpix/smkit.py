@@ -25,10 +25,18 @@ from scripts import config  # noqa: E402
 
 def cmd():
     args = docopt(__doc__)
-    this_folder = os.path.dirname(os.path.abspath(__file__))
-    conf_path = os.path.join(this_folder, "conf.json")
-    m_conf = config.read_config(conf_path)
-    sm_location = m_conf["program"]
+
+    config_dir = config.get_config_dir()
+    conf_path = os.path.join(config_dir, "conf.json")
+    init_conf_json = {"program": "D:\\SuperMemo"}
+
+    if not os.path.exists(config_dir):
+        os.makedirs(config_dir)
+        config.update_config(conf_path, init_conf_json)
+    elif os.path.exists(config_dir) and not os.path.exists(conf_path):
+        config.update_config(conf_path, init_conf_json)
+    elif os.path.exists(conf_path):
+        m_conf = config.read_config(conf_path)
 
     if args.get("config") and args.get("set"):
         if args["<key>"] == "program":
@@ -46,6 +54,7 @@ def cmd():
         print(config.read_config(conf_path))
 
     elif args.get("pathpix"):
+        sm_location = m_conf["program"]
         # smkit pathpix --least-col
         if args.get("--least-col"):
             sm_system1 = config.read_sm_system1(sm_location)

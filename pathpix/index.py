@@ -1,6 +1,7 @@
 import imghdr
 import logging
 import shutil
+import sys
 import uuid
 from bs4 import BeautifulSoup
 import re
@@ -14,7 +15,15 @@ from tqdm import tqdm
 import magic
 from urllib.parse import unquote, urlparse
 
-LOG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "smkit.log")
+sys.path.insert(0, sys.path[0] + "/../")
+from scripts import config  # noqa: E402
+
+config_dir = config.get_config_dir()
+if os.path.exists(config_dir):
+    LOG_FILE = os.path.join(config_dir, "supermemokit.log.txt")
+elif not os.path.exists(config_dir):
+    os.makedirs(config_dir)
+    LOG_FILE = os.path.join(config_dir, "supermemokit.log.txt")
 
 
 def setup_logger():
@@ -90,8 +99,7 @@ def copy_to_elements(file_path, target_folder):
 
 
 def mkdir(path):
-    folder = os.path.exists(path)
-    if not folder:
+    if not os.path.exists(path):
         os.makedirs(path)
         print("创建文件夹:: " + path)
 
