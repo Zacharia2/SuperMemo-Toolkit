@@ -8,7 +8,7 @@ a = Analysis(
     ['smkit.py'],
     pathex=[],
     binaries=[],
-    datas=[('conf.json', '.')],
+    datas=[],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

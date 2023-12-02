@@ -3,6 +3,12 @@ import json
 import os
 
 
+def get_config_dir():
+    user_home_dir = os.path.expanduser("~")
+    config_dir = os.path.join(user_home_dir, ".supermemokit")
+    return config_dir
+
+
 def read_config(conf_path):
     """ "读取配置"""
     with open(conf_path) as json_file:
