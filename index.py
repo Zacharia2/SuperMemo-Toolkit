@@ -47,6 +47,7 @@ def cmd():
         config.update_config(conf_path, init_conf_json)
     elif os.path.exists(conf_path):
         m_conf = config.read_config(conf_path)
+    sm_location = m_conf["program"]
 
     if args.get("config") and args.get("set"):
         if args["<key>"] == "program":
@@ -68,7 +69,6 @@ def cmd():
         epub2sm.start(args["<epub-path>"], args["<targetfolder>"])
 
     elif args.get("pathpix"):
-        sm_location = m_conf["program"]
         # smkit pathpix --least-col
         if args.get("--least-col"):
             sm_system1 = config.read_sm_system1(sm_location)
