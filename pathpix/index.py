@@ -213,12 +213,14 @@ def relativized_path(win_path):
     return src_path
 
 
-def im_download_and_convert(url, saved_path, collection_temp_path):
+def im_download_and_convert(url, web_pic_folder, collection_temp_folder, htm_path):
     """给定url, 下载图片并转换, 返回保存图片的绝对路径
 
     Args:
         url (str): img标签中的src值
-        saved_path (_type_): 绝对路径, 保存img到指定目录
+        **kwargs : saved_path, collection_temp_path, htm_file_path
+
+        saved_path (str): 绝对路径, 保存img到指定目录
 
     Returns:
         str: 绝对路径, drive:/path/sm18/systems/col/elements/path/to/file.ext'
@@ -240,10 +242,9 @@ def im_download_and_convert(url, saved_path, collection_temp_path):
         if result_is_im[0] not in supports_im_type:
             extension = result_is_im[0].split("/")[1]
             try:
-                # temp_path = os.path.join(saved_path, "temp")
-                mkdir(collection_temp_path)
+                mkdir(collection_temp_folder)
                 temp_file_path = os.path.join(
-                    collection_temp_path, file_name + f".{extension}"
+                    collection_temp_folder, file_name + f".{extension}"
                 )
                 # 先把webp写到temp文件夹，然后再处理。
                 with open(temp_file_path, "wb") as f:
@@ -253,32 +254,42 @@ def im_download_and_convert(url, saved_path, collection_temp_path):
                 with Image.open(temp_file_path) as im:
                     print(im.format, im.size, im.mode)
                     # 这里是输出路径。
-                    mkdir(saved_path)
-                    saved_path = os.path.join(saved_path, file_name + ".png")
+                    mkdir(web_pic_folder)
+                    saved_path = os.path.join(web_pic_folder, file_name + ".png")
                     im.save(saved_path, "png")
                     return saved_path
             except Exception as e:
-                print(f"An error occurred: {e}! Cannot convert {url}")
+                logger.warning(
+                    f"发生一个异常: {e}! \n\tFile:{htm_path}, \n\tCannot convert {url}"
+                )
         else:
             extension = result_is_im[0].split("/")[1]
             # 如果支持的话，就直接写入的路径中即可。
-            mkdir(saved_path)
-            saved_path = os.path.join(saved_path, file_name + f".{extension}")
+            mkdir(web_pic_folder)
+            saved_path = os.path.join(web_pic_folder, file_name + f".{extension}")
             # 必须先创建文件夹。
             with open(saved_path, "wb") as f:
                 f.write(im_bytes)
             return saved_path
     else:
-        print("警告！非图片资源链接 ", url)
+        logger.warning(f"警告! File:{htm_path}, 非图片资源链接 {url}")
 
 
 def im_data_url_and_convert():
-    print("这是一个Data URI scheme。svglib、pyvips")
+    print("这是一个Data URI scheme, 暂不支持; svglib、pyvips")
 
 
-def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
-    soup = BeautifulSoup(html_doc, "html.parser")
-    elements_path = unified_path_separator(elements_path)
+def modify_img_src(
+    html_content,
+    elements_folder,
+    collection_temp_folder,
+    htm_path,
+):
+    # im_saved_path, elements_path, collection_temp_path, htm_file_path
+    soup = BeautifulSoup(html_content, "html.parser")
+    elements_folder = unified_path_separator(elements_folder)
+    web_pic_folder = os.path.normpath(os.path.join(elements_folder, "web_pic"))
+    local_pic_folder = os.path.normpath(os.path.join(elements_folder, "local_pic"))
 
     img_tags = soup.find_all("img")
     # 过滤元素。去掉没有src属性以及属性值为空的。
@@ -291,46 +302,43 @@ def modify_src(html_doc, im_saved_path, elements_path, collection_temp_path):
         # <img src="file:///C:/Users/Snowy/Desktop/sm18/&#24517;&#35835;&#65306;&#26053;&#36884;&#30340;&#24320;&#22987;.png">
         im_src = im.attrs["src"]
         if is_http_url_scheme(im_src):
-            im_local_path = im_download_and_convert(
-                im_src, im_saved_path, collection_temp_path
+            im_web_local_path = im_download_and_convert(
+                im_src,
+                web_pic_folder,
+                collection_temp_folder,
+                htm_path,
             )
-            standard_path = unified_path_separator(im_local_path)
+            standard_path = unified_path_separator(im_web_local_path)
             im.attrs["src"] = relativized_path(standard_path)
             is_modify = True
         elif is_data_url_scheme(im_src):
-            im_data_url_and_convert()
             # 如果是 Data URI scheme
-            pass
+            im_data_url_and_convert()
         elif not is_relative_path(im_src):
-            # 绝对路径
-            # 去掉前缀
+            # 绝对路径，去掉前缀
             if im_src.startswith("file:///"):
                 fs_path = unquote(unified_path_separator(im_src.split("file:///")[1]))
             else:
                 fs_path = unquote(unified_path_separator(im_src))
             # 判断在不在集合的元素文件夹中。
-            if is_in_elements_directory(fs_path, elements_path):
+            if is_in_elements_directory(fs_path, elements_folder):
                 im.attrs["src"] = relativized_path(fs_path)
                 is_modify = True
             else:
                 # 不在，移动到集合元素文件夹的web_im_saved_path。
-                local_pic = os.path.join(elements_path, "local_pic")
                 im.attrs["src"] = relativized_path(
-                    unified_path_separator(copy_to_elements(fs_path, local_pic))
+                    unified_path_separator(copy_to_elements(fs_path, local_pic_folder))
                 )
                 is_modify = True
         elif is_relative_path(im_src):
             is_modify = False
-    # 删除临时文件夹。
-    # print("删除临时文件夹::", collection_temp_path)
-    # shutil.rmtree(collection_temp_path)
     if is_modify:
         return soup.encode(encoding="ascii")
     else:
         return False
 
 
-def secure_file_write(modified_content, target_file, temp_dir):
+def secure_file_write(modified_content, target_file, temp_folder):
     """
     写入文件的安全机制——文件备份和临时文件；
 
@@ -341,11 +349,11 @@ def secure_file_write(modified_content, target_file, temp_dir):
         temp_dir (str): 临时文件夹, 存储文件备份和临时文件
     """
     original_name = os.path.basename(target_file)
-    backup_file = os.path.join(temp_dir, original_name + ".bak")
-    temp_file = os.path.join(temp_dir, original_name + ".tmp")
+    backup_file = os.path.join(temp_folder, original_name + ".bak")
+    temp_file = os.path.join(temp_folder, original_name + ".tmp")
     try:
         # print("正在处理：", target_file)
-        mkdir(temp_dir)
+        mkdir(temp_folder)
         # 创建并写入临时文件
         with open(temp_file, "wb") as f:
             f.seek(0)
@@ -399,7 +407,7 @@ def collect_documents(elements_path):
 
 
 def relative_and_localize(
-    waiting_process_list, elements_path, im_saved_path, collection_temp_path
+    waiting_process_list, elements_folder, collection_temp_folder
 ):
     """在遍历查找到的html文挡, 一个个处理他们。
 
@@ -409,6 +417,7 @@ def relative_and_localize(
         im_saved_path (_type_): _description_
         collection_temp_path (_type_): _description_
     """
+    # elements_path, im_saved_path, collection_temp_path
     failed_process_htm_files = []
     processed_htm_files = []
     for htm_file_path in tqdm(waiting_process_list, desc="Doc-LinkCP"):
@@ -419,15 +428,17 @@ def relative_and_localize(
                 encoding = result["encoding"]
             content = raw_data.decode(encoding=encoding, errors="xmlcharrefreplace")
 
-            modified_content = modify_src(
+            modified_content = modify_img_src(
                 content,
-                im_saved_path,
-                elements_path,
-                collection_temp_path,
+                elements_folder,
+                collection_temp_folder,
+                htm_file_path,
             )
 
             if modified_content:
-                secure_file_write(modified_content, htm_file_path, collection_temp_path)
+                secure_file_write(
+                    modified_content, htm_file_path, collection_temp_folder
+                )
                 processed_htm_files.append(htm_file_path)
         except Exception as e:
             failed_process_htm_files.append((htm_file_path, e))
@@ -525,18 +536,24 @@ def organize_unused_im(elements_path):
         print("PathPix:: 未处理过此集合, web_pic 和 local_pic 文件夹不存在。")
 
 
-def start(elements_path):
-    collection_temp_path = os.path.normpath(os.path.join(elements_path, "../", "temp"))
-    save_img_folder = os.path.normpath(os.path.join(elements_path, "web_pic"))
-    local_pic = os.path.normpath(os.path.join(elements_path, "local_pic"))
-    print("集合元素：", elements_path)
-    print("图片位置：", [save_img_folder, local_pic])
-    print("临时文件：", collection_temp_path)
-    waiting_process_list = collect_documents(elements_path)
+def start(elements_folder):
+    collection_temp_folder = os.path.normpath(
+        os.path.join(elements_folder, "../", "temp")
+    )
+    web_pic_folder = os.path.normpath(os.path.join(elements_folder, "web_pic"))
+    local_pic_folder = os.path.normpath(os.path.join(elements_folder, "local_pic"))
+    print("集合元素：", elements_folder)
+    print("图片位置：", [web_pic_folder, local_pic_folder])
+    print("临时文件：", collection_temp_folder)
+    waiting_process_list = collect_documents(elements_folder)
     relative_and_localize(
-        waiting_process_list, elements_path, save_img_folder, collection_temp_path
+        waiting_process_list,
+        elements_folder,
+        collection_temp_folder,
     )
 
+
+# 区分文件和文件夹路径。文件就使用path，文件夹就使用folder
 
 # start("C:/Users/Snowy/Desktop/sm18/systems/all in one/elements")
 # start("D:/SuperMemo/systems/ALL IN ONE/elements")
