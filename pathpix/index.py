@@ -344,7 +344,7 @@ def secure_file_write(modified_content, target_file, temp_dir):
     backup_file = os.path.join(temp_dir, original_name + ".bak")
     temp_file = os.path.join(temp_dir, original_name + ".tmp")
     try:
-        print("正在处理：", target_file)
+        # print("正在处理：", target_file)
         mkdir(temp_dir)
         # 创建并写入临时文件
         with open(temp_file, "wb") as f:
@@ -377,28 +377,25 @@ def collect_documents(elements_path):
     Returns:
         list: 找到的HTM的文件列表
     """
-    waiting_process_htm_files = []
+    htm_file_list = []
     processed_count = 0
 
-    def find_htm_files_in_directory(directory):
-        nonlocal waiting_process_htm_files
-        nonlocal processed_count
-        with os.scandir(directory) as entries:
-            for entry in entries:
-                if entry.is_file() and is_html_file(entry.path):
-                    waiting_process_htm_files.append(entry.path)
-                    processed_count += 1
-                    print(
-                        "PathPix:: 正在收集HTM文件, 请稍后.",
-                        f"[{processed_count}]\r",
-                        end="",
-                    )
-                if entry.is_dir():
-                    find_htm_files_in_directory(entry.path)
-
-    find_htm_files_in_directory(elements_path)
+    stack = [elements_path]
+    while stack:
+        current_path = stack.pop()
+        for entry in os.scandir(current_path):
+            if entry.is_file() and is_html_file(entry.path):
+                htm_file_list.append(entry.path)
+                processed_count += 1
+                print(
+                    "PathPix:: 正在收集HTM文件, 请稍后.",
+                    f"[{processed_count}]\r",
+                    end="",
+                )
+            if entry.is_dir():
+                stack.append(entry.path)
     print("\nPathPix:: Done!")
-    return waiting_process_htm_files
+    return htm_file_list
 
 
 def relative_and_localize(
@@ -414,7 +411,7 @@ def relative_and_localize(
     """
     failed_process_htm_files = []
     processed_htm_files = []
-    for htm_file_path in tqdm(waiting_process_list, desc="Doc-LinkCheck"):
+    for htm_file_path in tqdm(waiting_process_list, desc="Doc-LinkCP"):
         try:
             with open(htm_file_path, "rb") as f:
                 raw_data = f.read()
