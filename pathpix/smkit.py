@@ -4,7 +4,7 @@
 Usage:
     smkit config set <key> <value>
     smkit config list
-    smkit pathpix ( <collection> | [--clean=<collection>] | [--least-col] )
+    smkit pathpix ( <collection> | [--clean=<collection>] | [--least-col] | [--fullpath=<htmlfullpath>] )
     smkit clist
 
 Options:
@@ -72,6 +72,8 @@ def cmd():
                 sm_location, args["--clean"]
             )
             pathpix.organize_unused_im(elements_path)
+        elif args.get("--fullpath"):
+            pathpix.single(args["--fullpath"])
     elif args.get("clist"):
         col_list = config.get_collections_primaryStorage(sm_location)
         for col_name in col_list:

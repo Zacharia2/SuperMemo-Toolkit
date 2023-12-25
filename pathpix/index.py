@@ -414,7 +414,6 @@ def relative_and_localize(
     Args:
         waiting_process_htm_files (_type_): _description_
         elements_path (_type_): _description_
-        im_saved_path (_type_): _description_
         collection_temp_path (_type_): _description_
     """
     # elements_path, im_saved_path, collection_temp_path
@@ -534,6 +533,28 @@ def organize_unused_im(elements_path):
             print("PathPix:: 无事可做。")
     else:
         print("PathPix:: 未处理过此集合, web_pic 和 local_pic 文件夹不存在。")
+
+
+def single(fullpath):
+    """
+    docstring
+    """
+    elements_folder = os.path.normpath(
+        os.path.join(fullpath.split("elements")[0], "elements")
+    )
+    collection_temp_folder = os.path.normpath(
+        os.path.join(elements_folder, "../", "temp")
+    )
+    web_pic_folder = os.path.normpath(os.path.join(elements_folder, "web_pic"))
+    local_pic_folder = os.path.normpath(os.path.join(elements_folder, "local_pic"))
+    print("元素位置：", fullpath)
+    print("图片位置：", [web_pic_folder, local_pic_folder])
+    print("临时文件：", collection_temp_folder)
+    relative_and_localize(
+        [fullpath],
+        elements_folder,
+        collection_temp_folder,
+    )
 
 
 def start(elements_folder):
