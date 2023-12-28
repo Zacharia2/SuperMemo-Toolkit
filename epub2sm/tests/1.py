@@ -30,7 +30,7 @@ def get_doc_of_toc(book):
 
 def isToc(book, doc):
     # 判断doc是否在toc列表中。
-    pass
+    return True
 
 
 def organize_linear_documents(book):
@@ -40,17 +40,18 @@ def organize_linear_documents(book):
     # 大前提是，docList是线性的。
     for doc in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
         # 判断是不是开头部分。
-        if isToc(doc) and FirstTocChecked is False:
+        if not isToc(book, doc) and FirstTocChecked is False:
             # 这个是没有toc引用，需要自己创建的。
-            M_list[0].append(doc.file_name, [])
-        elif isToc(doc):
+            M_list[0].append([doc.file_name, []])
+        elif isToc(book, doc):
             FirstTocChecked = True
             L_list = [doc.file_name, []]
             M_list[1].append(L_list)
-        elif not isToc(doc):
+        elif not isToc(book, doc):
             L_list = M_list[1].pop()  # M取出最后一个元素给L
             L_list[1].append(doc.file_name)
             M_list[1].append(L_list)  # M在加回去L
 
 
-# book = epub.read_epub(epubfile)
+book = epub.read_epub("C:/Users/Snowy/Desktop/魔鬼沟通学 - 阮琦.epub")
+organize_linear_documents(book)
