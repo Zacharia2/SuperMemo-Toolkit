@@ -483,7 +483,7 @@ def organize_unused_im(elements_path):
     is_exists_webpic = os.path.exists(webpic)
     is_exists_localpic = os.path.exists(localpic)
     if is_exists_webpic or is_exists_localpic:
-        print("PathPix::", "清理web_pic, local_pic文件夹中从未被使用的图片")
+        print("PathPix::", "清理web_pic, local_pic文件夹中未被使用的图片")
         im_list = find_im(webpic) + find_im(localpic)
 
         for htm_file_path in tqdm(
@@ -523,14 +523,14 @@ def organize_unused_im(elements_path):
         if len(unused_pic_list) > 0:
             for im in unused_pic_list:
                 try:
-                    print("正在处理：", os.path.basename(im))
+                    print("处理: ", os.path.basename(im))
                     mkdir(unused_pic)
                     # 将一个文件或文件夹从 src 移动到 dst 如果 dst 已存在且为文件夹，则 src 将会被移动到 dst内。
                     shutil.move(im, unused_pic)
                 except Exception as e:
-                    print(f"移动unused_pic时发生错误: {str(e)}")
+                    print(f"移动至unused_pic时发生错误: {str(e)}")
         else:
-            print("PathPix:: 无事可做。")
+            print("\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
     else:
         print("PathPix:: 未处理过此集合, web_pic 和 local_pic 文件夹不存在。")
 
