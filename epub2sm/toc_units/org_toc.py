@@ -74,28 +74,30 @@ def insert_doc(book, chapters, f_href, sub_doc_list):
     while stack:
         chapters = stack.pop()
         for chapter in chapters:
+            # 转换为tuple(epub.Section，list=epub.Link)
             if isinstance(chapter, epub.Link):
                 # title = chapter.title
-                href = chapter.href
-                file_name = href.split("#")[0]
+                file_name = chapter.href.split("#")[0]
                 if f_href == file_name:
-                    elink = []
+                    # 改成元组，第一个元素存储epub.Section，第二个元素存储list ，epub.Link
+                    index_chapter = chapters.index(chapter)
+                    section = epub.Section(chapter.title, chapter.href)
+                    link_list = []
                     for item in sub_doc_list:
                         item_content = book.get_item_with_href(item).content
                         soup = BeautifulSoup(item_content, "html.parser")
                         item_title = re.sub(
-                            r"\\[btnfr]", "", "".join(filter(str.isalnum, soup.text))
+                            r"\\[btnfr]",
+                            "",
+                            "".join(filter(str.isalnum, soup.text)),
                         )[:50]
-                        elink.append(epub.Link(href=item, title=item_title))
-                    rdata = copy.deepcopy(chapter[1])
-                    elink.extend(rdata)
-                    chapter[1].clear()
-                    chapter[1].extend(elink)
+                        link_list.append(epub.Link(href=item, title=item_title))
+                    # 替换为新的
+                    chapters[index_chapter] = tuple((section, link_list))
             if isinstance(chapter, tuple):
                 if isinstance(chapter[0], epub.Section):
                     # title = chapter[0].title
-                    href = chapter[0].href
-                    file_name = href.split("#")[0]
+                    file_name = chapter[0].href.split("#")[0]
                     if f_href == file_name:
                         elink = []
                         for item in sub_doc_list:
@@ -173,13 +175,22 @@ def remove_anchors_in_toc(anchor_sharp, chapters):
             if isinstance(chapter, tuple):
                 # 保留chapter[0]里面的，删除sub_chapter[1]里面的。
                 # 用不到isinstance(chapter, epub.Link)
-                if isinstance(chapter[0], epub.Section):
-                    if anchor_sharp in chapter[0].href:
-                        for sub_chapter in chapter[1]:
-                            # 删除epub.Link
-                            if anchor_sharp in sub_chapter.href:
-                                index_chapter = chapter[1].index(sub_chapter)
-                                del chapter[1][index_chapter]
+                if (
+                    isinstance(chapter[0], epub.Section)
+                    and anchor_sharp in chapter[0].href
+                ):
+                    for sub_chapter in chapter[1]:
+                        # 删除epub.Link
+                        if (
+                            isinstance(sub_chapter, epub.Link)
+                            and anchor_sharp in sub_chapter.href
+                        ):
+                            index_chapter = chapter[1].index(sub_chapter)
+                            del chapter[1][index_chapter]
+                        if isinstance(sub_chapter, tuple) or isinstance(
+                            sub_chapter, list
+                        ):
+                            stack.append(sub_chapter)
                 if isinstance(chapter[1], list):
                     stack.append(chapter[1])
 
@@ -210,17 +221,9 @@ def merge_doc(book):
             if len(sub_doc_list) != 0:
                 B_list.append(item)
 
-    # TODO:chapters, 查找符合的href，加入到此toc的子集中。
-    for item in B_list:
-        href, sub_doc_list = item
-        # 可变对象：list dict set
-        # 可变对象作为参数传入时，在函数中对其本身进行修改，
-        # 是会影响到全局中的这个变量值的，因为函数直接对该地址的值进行了修改
-        insert_doc(book, chapters, href, sub_doc_list)
-    anchor_points = find_all_anchor_point_of_toc(chapters)
-
     # 查找doc文件（anchor_point href去掉锚点）所有的锚点href数量
     # doc文档也可以自己就是锚点。
+    anchor_points = find_all_anchor_point_of_toc(chapters)
     duplicate_anchor = {}
     for anchor_point in anchor_points:
         duplicate_anchor[anchor_point] = count_anchors_in_toc(anchor_point, chapters)
@@ -228,6 +231,15 @@ def merge_doc(book):
         if vaule > 1:
             # 锚点href数量大于1，则查找删除所有锚点，只保留文档。
             remove_anchors_in_toc(key + "#", chapters)
+
+    # chapters, 查找符合的href，加入到此toc的子集中。
+    # 可变对象：list dict set
+    # 可变对象作为参数传入时，在函数中对其本身进行修改，
+    # 是会影响到全局中的这个变量值的，因为函数直接对该地址的值进行了修改
+    for item in B_list:
+        href, sub_doc_list = item
+        insert_doc(book, chapters, href, sub_doc_list)
+
     return chapters
 
 
