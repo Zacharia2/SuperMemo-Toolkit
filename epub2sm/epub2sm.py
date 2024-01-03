@@ -3,9 +3,9 @@ import re
 import xml.etree.ElementTree as ET
 import ebooklib
 from ebooklib import epub
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Doctype
 import pypinyin
-from epub2sm.toc_units import org_toc
+from toc_units import org_toc, check_toc
 
 
 def mkdir(path):
@@ -133,6 +133,12 @@ def make_escape_safe(html_str):
 # 写入数据结构时，必要调用的函数之一。
 def modify_img_url(doc, foldername):
     soup = BeautifulSoup(doc, "html.parser")
+    # 删除DOCTYPE定义
+    for item in soup.contents:
+        if isinstance(item, Doctype):
+            item.extract()
+            break
+    # 处理图片
     imgs = soup.find_all("img")
     for img in imgs:
         # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
@@ -263,6 +269,11 @@ def get_documents_by_docList(book, foldername):
 def create_sm_book_by_toc(book, book_f_name, target_folder=os.getcwd()):
     # 创建数据结构
     toc = org_toc.merge_doc(book)
+    diff_list = check_toc.contrast_diff_toc(toc, book)
+    if len(diff_list) == 0:
+        print("内容完整性: True")
+    else:
+        print("内容完整性: False;/n", diff_list)
     res = get_documents_by_toc(book, toc, book_f_name)
     # 这个是Collection下的第一个SuperMemoElement
     rootElement = [{"Title": book.title, "Type": "Concept", "SuperMemoElement": res}]
@@ -295,9 +306,9 @@ def start(epubfile, savefolder):
     print("开始处理书籍：", book_img_folder_name)
     # 可以自定义输出路径。
     # create_sm_book(book, book_img_folder_name, "C:/Users/Snowy/Desktop")
-    # create_sm_book_by_toc(book, book_img_folder_name, savefolder)
-    create_sm_book_by_docList(book, book_img_folder_name, savefolder)
+    create_sm_book_by_toc(book, book_img_folder_name, savefolder)
+    # create_sm_book_by_docList(book, book_img_folder_name, savefolder)
     print("转换完成，已存储至：", savefolder)
 
 
-# start("C:/Users/Snowy/Desktop/心理学与生活.epub", "C:/Users/Snowy/Desktop")
+start("C:/Users/Snowy/Desktop/心理学与生活.epub", "C:/Users/Snowy/Desktop")
