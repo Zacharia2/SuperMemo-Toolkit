@@ -1,3 +1,4 @@
+import copy
 import re
 import ebooklib
 from ebooklib import epub
@@ -78,26 +79,36 @@ def insert_doc(book, chapters, f_href, sub_doc_list):
             href = chapter.href
             file_name = href.split("#")[0]
             if f_href == file_name:
+                elink = []
                 for item in sub_doc_list:
                     item_content = book.get_item_with_href(item).content
                     soup = BeautifulSoup(item_content, "html.parser")
                     item_title = re.sub(
                         r"\\[btnfr]", "", "".join(filter(str.isalnum, soup.text))
                     )[:50]
-                    chapter[1].append(epub.Link(href=item, title=item_title))
+                    elink.append(epub.Link(href=item, title=item_title))
+                rdata = copy.deepcopy(chapter[1])
+                elink.extend(rdata)
+                chapter[1].clear()
+                chapter[1].extend(elink)
         if isinstance(chapter, tuple):
             if isinstance(chapter[0], epub.Section):
                 # title = chapter[0].title
                 href = chapter[0].href
                 file_name = href.split("#")[0]
                 if f_href == file_name:
+                    elink = []
                     for item in sub_doc_list:
                         item_content = book.get_item_with_href(item).content
                         soup = BeautifulSoup(item_content, "html.parser")
                         item_title = re.sub(
                             r"\\[btnfr]", "", "".join(filter(str.isalnum, soup.text))
                         )[:50]
-                        chapter[1].append(epub.Link(href=item, title=item_title))
+                        elink.append(epub.Link(href=item, title=item_title))
+                    rdata = copy.deepcopy(chapter[1])
+                    elink.extend(rdata)
+                    chapter[1].clear()
+                    chapter[1].extend(elink)
             # 当元组的第二个元素有子元素的时候。
             if isinstance(chapter[1], list):
                 insert_doc(book, chapter[1], f_href, sub_doc_list)
@@ -140,8 +151,6 @@ def merge_doc(book):
     return chapters
 
 
-# book = epub.read_epub(
-#     "C:/Users/Snowy/Desktop/心理学与生活（第19版，中文版） - 理查德·格里格 菲利普·津巴多.epub"
-# )
-# book = epub.read_epub("C:/Users/Snowy/Desktop/魔鬼沟通学 - 阮琦.epub")
+# book = epub.read_epub("C:/Users/Snowy/Desktop/心理学与生活.epub")
+# # book = epub.read_epub("C:/Users/Snowy/Desktop/魔鬼沟通学 - 阮琦.epub")
 # merge_doc(book)
