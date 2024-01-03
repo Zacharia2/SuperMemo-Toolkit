@@ -2,8 +2,7 @@ import ebooklib
 from ebooklib import epub
 
 
-def get_doc_of_toc(book):
-    chapters = book.toc
+def get_doc_of_toc(chapters):
     mList = []
 
     def iter_toc(chapters):
@@ -42,7 +41,19 @@ def contrast_diff(epubfile):
     # 条件是他们的名字必须一样，只是这样的担心是多余的，因为不一样就没法引用。
     book = epub.read_epub(epubfile)
 
-    toc_of_set = set(get_doc_of_toc(book))
+    toc_of_set = set(get_doc_of_toc(book.toc))
+    doc_of_href_set = set(get_doc_items_href(book))
+
+    # 返回一个集合，元素包含在集合 x ，但不在集合 y
+    diff_list = list(doc_of_href_set.difference(toc_of_set))
+    return diff_list
+
+
+def contrast_diff_toc(toc, book):
+    """
+    docstring
+    """
+    toc_of_set = set(get_doc_of_toc(toc))
     doc_of_href_set = set(get_doc_items_href(book))
 
     # 返回一个集合，元素包含在集合 x ，但不在集合 y
@@ -51,4 +62,4 @@ def contrast_diff(epubfile):
 
 
 # contrast_diff("D:\\Dropbox\\00-TMP\\魔鬼沟通学 - 阮琦.epub")
-contrast_diff("C:/Users/Snowy/Desktop/心理学与生活.epub")
+# contrast_diff("C:/Users/Snowy/Desktop/心理学与生活.epub")
