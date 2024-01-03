@@ -4,7 +4,7 @@
 Usage:
     smkit config set <key> <value>
     smkit config list
-    smkit e2sm <epub-path> <targetfolder>
+    smkit e2sm ( [-t] | [-l] ) <epub-path> <targetfolder>
     smkit pathpix ( <collection> | [--clean=<collection>] | [--least-col] | [--fullpath=<htmlfullpath>] )
     smkit clist
     smkit indexer <epub> <output>
@@ -66,7 +66,10 @@ def cmd():
 
     elif args.get("e2sm"):
         # python index.py e2s a b
-        epub2sm.start(args["<epub-path>"], args["<targetfolder>"])
+        if args.get("-t"):
+            epub2sm.t_start(args["<epub-path>"], args["<targetfolder>"])
+        if args.get("-l"):
+            epub2sm.l_start(args["<epub-path>"], args["<targetfolder>"])
 
     elif args.get("pathpix"):
         # smkit pathpix --least-col

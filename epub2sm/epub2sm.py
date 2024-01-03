@@ -172,52 +172,15 @@ def write_imgfile(ebook, target_folder, imgs_folder_name):
             f.write(image.content)
 
 
-def split_section(html, doc_id):
-    soup = BeautifulSoup(html, "html.parser")
-    elements_with_id = soup.find(id=doc_id)
-    tag_name = elements_with_id.name
-    # 获取带有id属性的元素
-    element_with_id = soup.find(tag_name, id=doc_id)
-    # 提取这一节内容
-    # 把它自己（分割标记）也放进去。
-    content = str(element_with_id)
-    if element_with_id is not None:
-        for sibling in element_with_id.find_next_siblings():
-            if sibling.name == tag_name:
-                break
-            else:
-                content += str(sibling)
-
-    return content
-
-
 def getContent(book, href):
-    """输入文件href路径, 返回文件, 或者文件的节选。
-
-    Args:
-        href (str): 文件href路径
-
-    Returns:
-        str: 文件 或者 文件的节选。
-    """
-    # 若有锚点。说明是一个文件中的一节。
-    # 用id属性的元素对应的tag分割文档。
-    # resolve ：暂时忽略锚点的情况:'Text/Section0001_0012.xhtml#toc_1
     if href.find("#") != -1:
-        doc_id = href.split("#")[-1]
         doc_href = href.split("#")[0]
         doc = book.get_item_with_href(doc_href)
-        # 分割文本
-        section = split_section(doc.content.decode("utf-8"), doc_id)
-        # SuperMemo接受任意的超文本。
-        return section
+        Content = doc.content.decode("utf-8") if doc else ""
     else:
         # 没有锚点。说明是一个文件。
         doc = book.get_item_with_href(href)
-        if doc:
-            Content = doc.content.decode("utf-8")
-        else:
-            Content = ""
+        Content = doc.content.decode("utf-8") if doc else ""
     return Content
 
 
@@ -275,18 +238,20 @@ def create_sm_book_by_toc(book, book_f_name, target_folder=os.getcwd()):
     diff_list = check_toc.contrast_diff_toc(toc, book)
     if len(diff_list) == 0:
         print("内容完整性: True")
+        res = get_documents_by_toc(book, toc, book_f_name)
+        # 这个是Collection下的第一个SuperMemoElement
+        rootElement = [
+            {"Title": book.title, "Type": "Concept", "SuperMemoElement": res}
+        ]
+        set_unique_id(rootElement)
+        sm_book_file_path = os.path.join(target_folder, book_f_name + ".xml")
+
+        # 根据数据结构创建XML文件
+        create_xml(rootElement, sm_book_file_path)
+        img_folder_name = book_f_name
+        write_imgfile(book, target_folder, img_folder_name)
     else:
         print("内容完整性: False;/n", diff_list)
-    res = get_documents_by_toc(book, toc, book_f_name)
-    # 这个是Collection下的第一个SuperMemoElement
-    rootElement = [{"Title": book.title, "Type": "Concept", "SuperMemoElement": res}]
-    set_unique_id(rootElement)
-    sm_book_file_path = os.path.join(target_folder, book_f_name + ".xml")
-
-    # 根据数据结构创建XML文件
-    create_xml(rootElement, sm_book_file_path)
-    img_folder_name = book_f_name
-    write_imgfile(book, target_folder, img_folder_name)
 
 
 def create_sm_book_by_docList(book, book_f_name, target_folder=os.getcwd()):
@@ -302,17 +267,23 @@ def create_sm_book_by_docList(book, book_f_name, target_folder=os.getcwd()):
     write_imgfile(book, target_folder, img_folder_name)
 
 
-def start(epubfile, savefolder):
+def t_start(epubfile, savefolder):
     # UserWarning: In the future version we will turn default option ignore_ncx to True.
     #   warnings.warn('In the future version we will turn default option ignore_ncx to True.')
     book = epub.read_epub(epubfile, {"ignore_ncx": True})
     book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
     print("开始处理书籍：", book_img_folder_name)
     # 可以自定义输出路径。
-    # create_sm_book(book, book_img_folder_name, "C:/Users/Snowy/Desktop")
     create_sm_book_by_toc(book, book_img_folder_name, savefolder)
-    # create_sm_book_by_docList(book, book_img_folder_name, savefolder)
     print("转换完成，已存储至：", savefolder)
 
 
-# start("C:/Users/Snowy/Desktop/心理学与生活.epub", "C:/Users/Snowy/Desktop")
+def l_start(epubfile, savefolder):
+    book = epub.read_epub(epubfile, {"ignore_ncx": True})
+    book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
+    print("开始处理书籍：", book_img_folder_name)
+    create_sm_book_by_docList(book, book_img_folder_name, savefolder)
+    print("转换完成，已存储至：", savefolder)
+
+
+t_start("C:/Users/Snowy/Desktop/魔鬼沟通学 - 阮琦.epub", "C:/Users/Snowy/Desktop")
