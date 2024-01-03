@@ -78,19 +78,29 @@ def insert_doc(chapters, f_href, sub_doc_list):
             href = chapter.href
             file_name = href.split("#")[0]
             if f_href == file_name:
-                chapter[1].append(sub_doc_list)
+                for item in sub_doc_list:
+                    item_content = book.get_item_with_href(item).content
+                    soup = BeautifulSoup(item_content, "html.parser")
+                    item_title = re.sub(
+                        r"\\[btnfr]", "", "".join(filter(str.isalnum, soup.text))
+                    )[:50]
+                    chapter[1].append(epub.Link(href=item, title=item_title))
         if isinstance(chapter, tuple):
             if isinstance(chapter[0], epub.Section):
                 # title = chapter[0].title
                 href = chapter[0].href
                 file_name = href.split("#")[0]
                 if f_href == file_name:
-                    chapter[1].append(sub_doc_list)
+                    for item in sub_doc_list:
+                        item_content = book.get_item_with_href(item).content
+                        soup = BeautifulSoup(item_content, "html.parser")
+                        item_title = re.sub(
+                            r"\\[btnfr]", "", "".join(filter(str.isalnum, soup.text))
+                        )[:50]
+                        chapter[1].append(epub.Link(href=item, title=item_title))
             # 当元组的第二个元素有子元素的时候。
             if isinstance(chapter[1], list):
                 insert_doc(chapter[1], f_href, sub_doc_list)
-
-    return chapters
 
 
 def merge_doc(book):
@@ -122,9 +132,12 @@ def merge_doc(book):
     # TODO:chapters, 查找符合的href，加入到此toc的子集中。
     for item in B_list:
         href, sub_doc_list = item
+        # 可变对象：list dict set
+        # 可变对象作为参数传入时，在函数中对其本身进行修改，
+        # 是会影响到全局中的这个变量值的，因为函数直接对该地址的值进行了修改
         insert_doc(chapters, href, sub_doc_list)
 
-    print()
+    return chapters
 
 
 book = epub.read_epub(
@@ -132,4 +145,3 @@ book = epub.read_epub(
 )
 # book = epub.read_epub("C:/Users/Snowy/Desktop/魔鬼沟通学 - 阮琦.epub")
 merge_doc(book)
-print("1212")
