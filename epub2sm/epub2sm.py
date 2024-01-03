@@ -5,6 +5,7 @@ import ebooklib
 from ebooklib import epub
 from bs4 import BeautifulSoup
 import pypinyin
+from epub2sm.toc_units import org_toc
 
 
 def mkdir(path):
@@ -261,7 +262,8 @@ def get_documents_by_docList(book, foldername):
 
 def create_sm_book_by_toc(book, book_f_name, target_folder=os.getcwd()):
     # 创建数据结构
-    res = get_documents_by_toc(book, book.toc, book_f_name)
+    toc = org_toc.merge_doc(book)
+    res = get_documents_by_toc(book, toc, book_f_name)
     # 这个是Collection下的第一个SuperMemoElement
     rootElement = [{"Title": book.title, "Type": "Concept", "SuperMemoElement": res}]
     set_unique_id(rootElement)
