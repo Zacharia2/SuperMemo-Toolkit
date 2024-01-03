@@ -286,4 +286,4 @@ def l_start(epubfile, savefolder):
     print("转换完成，已存储至：", savefolder)
 
 
-t_start("C:/Users/Snowy/Desktop/魔鬼沟通学 - 阮琦.epub", "C:/Users/Snowy/Desktop")
+t_start("C:/Users/Snowy/Desktop/资本论.epub", "C:/Users/Snowy/Desktop")
