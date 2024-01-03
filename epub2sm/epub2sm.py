@@ -1,11 +1,14 @@
 import os
 import re
+import sys
 import xml.etree.ElementTree as ET
 import ebooklib
 from ebooklib import epub
 from bs4 import BeautifulSoup, Doctype
 import pypinyin
-from toc_units import org_toc, check_toc
+
+sys.path.insert(0, sys.path[0] + "/../")
+from epub2sm.toc_units import org_toc, check_toc  # noqa: E402
 
 
 def mkdir(path):
@@ -300,8 +303,9 @@ def create_sm_book_by_docList(book, book_f_name, target_folder=os.getcwd()):
 
 
 def start(epubfile, savefolder):
-    # book = epub.read_epub("聪明人的个人成长.epub")
-    book = epub.read_epub(epubfile)
+    # UserWarning: In the future version we will turn default option ignore_ncx to True.
+    #   warnings.warn('In the future version we will turn default option ignore_ncx to True.')
+    book = epub.read_epub(epubfile, {"ignore_ncx": True})
     book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
     print("开始处理书籍：", book_img_folder_name)
     # 可以自定义输出路径。
