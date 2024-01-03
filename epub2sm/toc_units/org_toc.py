@@ -66,7 +66,7 @@ def organize_linear_documents(book):
     return M_list
 
 
-def insert_doc(chapters, f_href, sub_doc_list):
+def insert_doc(book, chapters, f_href, sub_doc_list):
     """
     docstring
     """
@@ -100,7 +100,7 @@ def insert_doc(chapters, f_href, sub_doc_list):
                         chapter[1].append(epub.Link(href=item, title=item_title))
             # 当元组的第二个元素有子元素的时候。
             if isinstance(chapter[1], list):
-                insert_doc(chapter[1], f_href, sub_doc_list)
+                insert_doc(book, chapter[1], f_href, sub_doc_list)
 
 
 def merge_doc(book):
@@ -135,13 +135,13 @@ def merge_doc(book):
         # 可变对象：list dict set
         # 可变对象作为参数传入时，在函数中对其本身进行修改，
         # 是会影响到全局中的这个变量值的，因为函数直接对该地址的值进行了修改
-        insert_doc(chapters, href, sub_doc_list)
+        insert_doc(book, chapters, href, sub_doc_list)
 
     return chapters
 
 
-book = epub.read_epub(
-    "C:/Users/Snowy/Desktop/心理学与生活（第19版，中文版） - 理查德·格里格 菲利普·津巴多.epub"
-)
+# book = epub.read_epub(
+#     "C:/Users/Snowy/Desktop/心理学与生活（第19版，中文版） - 理查德·格里格 菲利普·津巴多.epub"
+# )
 # book = epub.read_epub("C:/Users/Snowy/Desktop/魔鬼沟通学 - 阮琦.epub")
-merge_doc(book)
+# merge_doc(book)
