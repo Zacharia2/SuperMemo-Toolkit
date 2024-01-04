@@ -67,9 +67,9 @@ def cmd():
     elif args.get("e2sm"):
         # python index.py e2s a b
         if args.get("-t"):
-            epub2sm.t_start(args["<epub-path>"], args["<targetfolder>"])
+            epub2sm.start_with_toc(args["<epub-path>"], args["<targetfolder>"])
         if args.get("-l"):
-            epub2sm.l_start(args["<epub-path>"], args["<targetfolder>"])
+            epub2sm.start_with_linear(args["<epub-path>"], args["<targetfolder>"])
 
     elif args.get("pathpix"):
         # smkit pathpix --least-col

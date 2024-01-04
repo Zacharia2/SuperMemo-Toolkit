@@ -267,7 +267,7 @@ def create_sm_book_by_docList(book, book_f_name, target_folder=os.getcwd()):
     write_imgfile(book, target_folder, img_folder_name)
 
 
-def t_start(epubfile, savefolder):
+def start_with_toc(epubfile, savefolder):
     # UserWarning: In the future version we will turn default option ignore_ncx to True.
     #   warnings.warn('In the future version we will turn default option ignore_ncx to True.')
     book = epub.read_epub(epubfile, {"ignore_ncx": True})
@@ -278,7 +278,7 @@ def t_start(epubfile, savefolder):
     print("转换完成，已存储至：", savefolder)
 
 
-def l_start(epubfile, savefolder):
+def start_with_linear(epubfile, savefolder):
     book = epub.read_epub(epubfile, {"ignore_ncx": True})
     book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
     print("开始处理书籍：", book_img_folder_name)
@@ -286,4 +286,4 @@ def l_start(epubfile, savefolder):
     print("转换完成，已存储至：", savefolder)
 
 
-# t_start("C:/Users/Snowy/Desktop/资本论.epub", "C:/Users/Snowy/Desktop")
+# start_with_toc("C:/Users/Snowy/Desktop/资本论.epub", "C:/Users/Snowy/Desktop")
