@@ -275,8 +275,8 @@ def im_download_and_convert(url, web_pic_folder, collection_temp_folder, htm_pat
         logger.warning(f"警告! File:{htm_path}, 非图片资源链接 {url}")
 
 
-def im_data_url_and_convert():
-    print("这是一个Data URI scheme, 暂不支持; svglib、pyvips")
+def im_data_url_and_convert(htm_path):
+    print("这是一个Data URI scheme, 暂不支持; svglib、pyvips。文件:", htm_path)
 
 
 def modify_img_src(
@@ -313,7 +313,7 @@ def modify_img_src(
             is_modify = True
         elif is_data_url_scheme(im_src):
             # 如果是 Data URI scheme
-            im_data_url_and_convert()
+            im_data_url_and_convert(htm_path)
         elif not is_relative_path(im_src):
             # 绝对路径，去掉前缀
             if im_src.startswith("file:///"):
