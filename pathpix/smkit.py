@@ -12,12 +12,13 @@ Options:
     -v --version    Show Version.
 """
 from docopt import docopt
-from pathpix import index as pathpix
 import os
 import sys
 
 sys.path.insert(0, sys.path[0] + "/../")
 from scripts import config  # noqa: E402
+from pathpix import index as pathpix  # noqa: E402
+from pathpix import ui  # noqa: E402
 
 # pyinstaller --add-data "conf.json;." smkit.py
 # pyinstaller smkit.spec
@@ -81,4 +82,7 @@ def cmd():
 
 
 if __name__ == "__main__":
-    cmd()
+    if len(sys.argv) > 1:
+        cmd()
+    else:
+        ui.run_ui()

@@ -62,6 +62,24 @@ def get_collections_primaryStorage(sm_location):
     return collections
 
 
+def get_collections_primaryStorage_ui(sm_location):
+    if not os.path.exists(sm_location):
+        return []
+
+    systems = os.path.join(sm_location, "systems")
+    if not os.path.exists(systems) or not os.path.isdir(systems):
+        return []
+
+    collections = []
+
+    for current in os.listdir(systems):
+        path = os.path.join(systems, current)
+        if os.path.isdir(path) and current != ".git":
+            collections.append(current)
+
+    return collections
+
+
 # 获取config.ini文件路径
 def get_path():
     current_path = os.path.abspath(__file__)

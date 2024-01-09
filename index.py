@@ -14,10 +14,12 @@ Options:
     -v --version    Show Version.
 """
 # import shutil
+import sys
 from scripts import config
 from docopt import docopt
 from epub2sm import epub2sm
 from pathpix import index as pathpix
+from pathpix import ui
 import os
 
 
@@ -98,4 +100,7 @@ def cmd():
 
 
 if __name__ == "__main__":
-    cmd()
+    if len(sys.argv) > 1:
+        cmd()
+    else:
+        ui.run_ui()
