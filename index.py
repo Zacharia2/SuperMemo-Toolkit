@@ -5,7 +5,7 @@ Usage:
     smkit config set <key> <value>
     smkit config list
     smkit e2sm ( [-t] | [-l] ) <epub-path> <targetfolder>
-    smkit pathpix ( <collection> | [--clean=<collection>] | [--least-col] | [--fullpath=<htmlfullpath>] )
+    smkit pathpix ( <collection> | [--clean=<collection>] | [--least-col] | [--fullpath=<htmlfullpath>] | --gui )
     smkit clist
     smkit indexer <epub> <output>
 
@@ -14,6 +14,7 @@ Options:
     -v --version    Show Version.
 """
 # import shutil
+import ctypes
 import psutil
 from scripts import config
 from docopt import docopt
@@ -36,6 +37,7 @@ import os
 
 # pyinstaller --add-data "conf.json;." smkit.py
 # pyinstaller smkit.spec
+
 
 def cmd():
     args = docopt(__doc__)
@@ -95,6 +97,8 @@ def cmd():
             pathpix.organize_unused_im(elements_path)
         elif args.get("--fullpath"):
             pathpix.single(args["--fullpath"])
+        elif args.get("--gui"):
+            gui.run()
     elif args.get("clist"):
         col_list = config.get_collections_primaryStorage(sm_location)
         for col_name in col_list:
@@ -109,9 +113,15 @@ def check_console():
     return False
 
 
+# 使用kernel32.GetConsoleWindow()获取命令行窗口的句柄，
+# 然后使用user32.ShowWindow()将其隐藏起来
+def hide_console():
+    kernel32 = ctypes.WinDLL("kernel32")
+    user32 = ctypes.WinDLL("user32")
+    SW_HIDE = 0
+    hWnd = kernel32.GetConsoleWindow()
+    user32.ShowWindow(hWnd, SW_HIDE)
+
+
 if __name__ == "__main__":
-    if check_console():
-        # 双击执行是进入扩展UI
-        gui.run()
-    else:
-        cmd()
+    cmd()

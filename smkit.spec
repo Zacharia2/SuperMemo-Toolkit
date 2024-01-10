@@ -5,7 +5,7 @@ block_cipher = None
 
 
 a = Analysis(
-    ['smkit.py'],
+    ['index.py'],
     pathex=[],
     binaries=[],
     datas=[],
