@@ -14,7 +14,7 @@ Options:
     -v --version    Show Version.
 """
 # import shutil
-import sys
+import psutil
 from scripts import config
 from docopt import docopt
 from epub2sm import epub2sm
@@ -99,8 +99,17 @@ def cmd():
             print("集合名称：", col_name)
 
 
+def check_console():
+    image_name = "explorer.exe"
+    s = psutil.Process().parent()
+    if s.name() == image_name or s.parent().name() == image_name:
+        return True
+    return False
+
+
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        cmd()
-    else:
+    if check_console():
+        # 双击执行是进入扩展UI
         ui.run_ui()
+    else:
+        cmd()
