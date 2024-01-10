@@ -15,6 +15,8 @@ from docopt import docopt
 import os
 import sys
 
+import psutil
+
 sys.path.insert(0, sys.path[0] + "/../")
 from scripts import config  # noqa: E402
 from pathpix import index as pathpix  # noqa: E402
@@ -81,8 +83,17 @@ def cmd():
             print("集合名称：", col_name)
 
 
+def check_console():
+    image_name = "explorer.exe"
+    s = psutil.Process().parent()
+    if s.name() == image_name or s.parent().name() == image_name:
+        return True
+    return False
+
+
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        cmd()
-    else:
+    if check_console():
+        # 双击执行是进入扩展UI
         ui.run_ui()
+    else:
+        cmd()
