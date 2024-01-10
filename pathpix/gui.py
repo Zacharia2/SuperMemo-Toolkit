@@ -238,19 +238,17 @@ clear_redundancy_button = tk.Button(
 )
 clear_redundancy_button.pack(side="left", padx=5)
 
-# 读取配置文件
-m_conf = config.read_config(conf_path)
-# 加载保存的路径到编辑框
-if "program" in m_conf:
-    entry1.insert(0, m_conf["program"])
-if "entry2" in m_conf:
-    entry2.insert(0, m_conf["entry2"])
 
+def run():
+    # 读取配置文件
+    m_conf = config.read_config(conf_path)
+    # 加载保存的路径到编辑框
+    if "program" in m_conf:
+        entry1.insert(0, m_conf["program"])
+    if "entry2" in m_conf:
+        entry2.insert(0, m_conf["entry2"])
 
-# 将 save_entries_on_exit 函数绑定到窗口的关闭事件
-root.protocol("WM_DELETE_WINDOW", save_entries_on_exit)
-
-
-def run_ui():
+    # 将 save_entries_on_exit 函数绑定到窗口的关闭事件
+    root.protocol("WM_DELETE_WINDOW", save_entries_on_exit)
     # 运行主循环
     root.mainloop()

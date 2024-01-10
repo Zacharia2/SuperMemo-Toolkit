@@ -19,7 +19,7 @@ from scripts import config
 from docopt import docopt
 from epub2sm import epub2sm
 from pathpix import index as pathpix
-from pathpix import ui
+from pathpix import gui
 import os
 
 
@@ -34,6 +34,8 @@ import os
 #     global sm_location
 #     sm_location = sm_path
 
+# pyinstaller --add-data "conf.json;." smkit.py
+# pyinstaller smkit.spec
 
 def cmd():
     args = docopt(__doc__)
@@ -110,6 +112,6 @@ def check_console():
 if __name__ == "__main__":
     if check_console():
         # 双击执行是进入扩展UI
-        ui.run_ui()
+        gui.run()
     else:
         cmd()
