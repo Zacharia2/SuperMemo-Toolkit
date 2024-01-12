@@ -3,10 +3,9 @@
 """SMKit CLI Tool
 Usage:
     smkit config ( set <key> <value> | list )
+    smkit clist
     smkit e2sm ( [-t] | [-l] ) <epub-path> <targetfolder>
     smkit pathpix ( <collection> | [--clean=<collection>] | [--least-col] | [--fullpath=<htmlfullpath>] | --gui )
-    smkit clist
-    smkit indexer <epub> <output>
 
 Options:
     -h --help       Show Help doc.
