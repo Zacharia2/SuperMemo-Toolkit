@@ -1,11 +1,11 @@
 # encoding:utf-8
 #!/usr/bin/env python
-"""SMKit CLI Tool
+"""SMTK CLI Tool
 Usage:
-    smkit config ( set <key> <value> | list )
-    smkit clist
-    smkit e2sm ( [-t] | [-l] ) <epub-path> <targetfolder>
-    smkit pathpix ( <collection> | [--clean=<collection>] | [--least-col] | [--fullpath=<htmlfullpath>] | --gui )
+    smtk config ( set <key> <value> | list )
+    smtk clist
+    smtk e2sm ( [-t] | [-l] ) <epub-path> <targetfolder>
+    smtk pathpix ( <collection> | [--clean=<collection>] | [--least-col] | [--fullpath=<htmlfullpath>] | --gui )
 
 Options:
     -h --help       Show Help doc.
@@ -25,16 +25,8 @@ import os
 # def move_to_primaryStorage(source_folder_name, target_folder):
 #     shutil.move(source_folder_name, target_folder)
 
-# Main
-# 需要填写sm的位置
-# sm_location = "C:/Users/Snowy/Desktop/sm18"
-
-# def set_sm_location(sm_path):
-#     global sm_location
-#     sm_location = sm_path
-
-# pyinstaller --add-data "conf.json;." smkit.py
-# pyinstaller smkit.spec
+# pyinstaller --add-data "conf.json;." smtk.py
+# pyinstaller smtk.spec
 
 
 def cmd():
