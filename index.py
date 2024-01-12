@@ -2,8 +2,7 @@
 #!/usr/bin/env python
 """SMKit CLI Tool
 Usage:
-    smkit config set <key> <value>
-    smkit config list
+    smkit config ( set <key> <value> | list )
     smkit e2sm ( [-t] | [-l] ) <epub-path> <targetfolder>
     smkit pathpix ( <collection> | [--clean=<collection>] | [--least-col] | [--fullpath=<htmlfullpath>] | --gui )
     smkit clist
