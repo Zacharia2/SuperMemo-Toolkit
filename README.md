@@ -14,3 +14,7 @@ PathPix功能说明、下载安装使用文档：https://docs.qq.com/doc/DQnRpb0
 ## E2SM
 
 从epub图书生成xml格式的sm-book图书。（需要图书有良好的目录，没有需使用calibre生成并整理目录。）
+
+## LICENSE
+
+本软件遵守开源协议，协议类型为：GPLv2。
