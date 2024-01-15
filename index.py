@@ -6,7 +6,7 @@ Usage:
     smtk clist
     smtk e2sm ( [-t] | [-l] ) <epub-path> <targetfolder>
     smtk pathpix ( <collection> | [--clean=<collection>] | [--least-col] | [--fullpath=<htmlfullpath>] | --gui )
-
+    smtk latex2img <text> [<outpath>]
 Options:
     -h --help       Show Help doc.
     -v --version    Show Version.
@@ -20,7 +20,7 @@ from epub2sm import epub2sm
 from pathpix import index as pathpix
 from pathpix import gui
 import os
-
+from latex2img import index as latex2img
 
 # def move_to_primaryStorage(source_folder_name, target_folder):
 #     shutil.move(source_folder_name, target_folder)
@@ -93,6 +93,11 @@ def cmd():
         col_list = config.get_collections_primaryStorage(sm_location)
         for col_name in col_list:
             print("集合名称：", col_name)
+    elif args.get("latex2img"):
+        if args.get("<outpath>"):
+            latex2img.latex2img(args["<text>"], args["<outpath>"])
+        else:
+            latex2img.latex2img(args["<text>"], os.path.abspath("."))
 
 
 def check_console():

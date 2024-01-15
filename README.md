@@ -21,6 +21,14 @@ PathPix功能说明、下载安装使用文档：https://docs.qq.com/doc/DQnRpb0
 smtk e2sm -t epub_file out_folder
 ```
 
+## Install
+
+进入项目根目录，然后执行
+
+```py
+pip install .
+```
+
 ## LICENSE
 
 本软件遵守开源协议，协议类型为：GPLv2。
