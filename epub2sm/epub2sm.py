@@ -146,7 +146,7 @@ def modify_img_url(doc, foldername):
     for img in imgs:
         # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
         img_name = img.attrs["src"].split("/")[-1]
-        img.attrs["src"] = "file:///[PrimaryStorage]" + foldername + "/" + img_name
+        img.attrs["src"] = f"file:///[PrimaryStorage]local_pic/{foldername}/{img_name}"
     return make_escape_safe(str(soup))
 
 
