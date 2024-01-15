@@ -459,6 +459,22 @@ def relative_and_localize(
             print(item)
 
 
+def find_im(directory):
+    im_list = []
+    stack = [directory]
+    while stack:
+        current_path = stack.pop()
+        try:
+            for entry in os.scandir(current_path):
+                if entry.is_file():
+                    im_list.append(entry.path)
+                if entry.is_dir():
+                    stack.append(entry.path)
+        except FileNotFoundError:
+            pass
+    return im_list
+
+
 def organize_unused_im(elements_path):
     im_list = []
     doc_im_set = set()
@@ -468,22 +484,11 @@ def organize_unused_im(elements_path):
     temp_dir = os.path.normpath(os.path.join(elements_path, "../", "temp"))
     unused_pic = os.path.join(temp_dir, "unused_im")
 
-    # 读取单个HTML文件中的被引用的im名字。
-    def find_im(directory):
-        im_list = []
-        try:
-            with os.scandir(directory) as entries:
-                for entry in entries:
-                    if entry.is_file():
-                        im_list.append(entry.path)
-        except FileNotFoundError:
-            pass
-        return im_list
-
     is_exists_webpic = os.path.exists(webpic)
     is_exists_localpic = os.path.exists(localpic)
     if is_exists_webpic or is_exists_localpic:
         print("PathPix::", "清理web_pic, local_pic文件夹中未被使用的图片")
+        # 读取单个HTML文件中的被引用的im名字。
         im_list = find_im(webpic) + find_im(localpic)
 
         for htm_file_path in tqdm(
@@ -531,6 +536,13 @@ def organize_unused_im(elements_path):
                     print(f"移动至unused_pic时发生错误: {str(e)}")
         else:
             print("\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
+
+        # 删除空白图书图片文件夹。
+        # 查找localpic下的所有空白文件夹并删除
+        for entry in os.scandir(localpic):
+            # not os.listdir(entry.path)即为空文件夹。
+            if entry.is_dir() and not os.listdir(entry.path):
+                os.rmdir(entry.path)
     else:
         print("PathPix:: 未处理过此集合, web_pic 和 local_pic 文件夹不存在。")
 
