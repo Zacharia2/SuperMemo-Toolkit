@@ -4,9 +4,11 @@
 Usage:
     smtk config (set <key> <value> | list)
     smtk clist
-    smtk e2sm ( [-t] | [-l] ) <epub-path> <targetfolder>
+    smtk e2sm ( -t | -l ) <epub-path> <targetfolder>
     smtk imtex <formula_text> <outpath>
-    smtk pathpix ( <col_name> | --clean=<col_name> | --fullpath=<htmlpath> | --gui | --least-col )
+    smtk pathpix <col_name>
+    smtk pathpix [--clean=<col_name>] [--fullpath=<htmlpath>]
+    smtk pathpix [--gui] | [--least-col]
 Options:
     -h --help       Show Help doc.
     -v --version    Show Version.
