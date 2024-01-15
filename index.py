@@ -2,11 +2,11 @@
 #!/usr/bin/env python
 """SMTK CLI Tool
 Usage:
-    smtk config ( set <key> <value> | list )
+    smtk config (set <key> <value> | list)
     smtk clist
     smtk e2sm ( [-t] | [-l] ) <epub-path> <targetfolder>
-    smtk pathpix ( <collection> | [--clean=<collection>] | [--least-col] | [--fullpath=<htmlfullpath>] | --gui )
-    smtk latex2img <text> [<outpath>]
+    smtk imtex <formula_text> <outpath>
+    smtk pathpix ( <col_name> | --clean=<col_name> | --fullpath=<htmlpath> | --gui | --least-col )
 Options:
     -h --help       Show Help doc.
     -v --version    Show Version.
@@ -56,9 +56,13 @@ def cmd():
             config.update_config(conf_path, m_conf)
             m_conf = config.read_config(conf_path)
             print(m_conf)
-
     elif args.get("config") and args.get("list"):
         print(config.read_config(conf_path))
+
+    elif args.get("clist"):
+        col_list = config.get_collections_primaryStorage(sm_location)
+        for col_name in col_list:
+            print("集合名称：", col_name)
 
     elif args.get("e2sm"):
         # python index.py e2s a b
@@ -66,6 +70,14 @@ def cmd():
             epub2sm.start_with_toc(args["<epub-path>"], args["<targetfolder>"])
         if args.get("-l"):
             epub2sm.start_with_linear(args["<epub-path>"], args["<targetfolder>"])
+
+    elif args.get("imtex"):
+        latex2img.latex2img(
+            text=args["<formula_text>"],
+            size=48,
+            color=(0.1, 0.8, 0.8),
+            out=args["<outpath>"],
+        )
 
     elif args.get("pathpix"):
         # smkit pathpix --least-col
@@ -75,9 +87,9 @@ def cmd():
                 sm_location, sm_system1
             )
             pathpix.start(least_used_col)
-        elif args.get("<collection>"):
+        elif args.get("<col_name>"):
             elements_path = config.get_collection_primaryStorage(
-                sm_location, args["<collection>"]
+                sm_location, args["<col_name>"]
             )
             pathpix.start(elements_path)
         elif args.get("--clean"):
@@ -89,15 +101,6 @@ def cmd():
             pathpix.single(args["--fullpath"])
         elif args.get("--gui"):
             gui.run()
-    elif args.get("clist"):
-        col_list = config.get_collections_primaryStorage(sm_location)
-        for col_name in col_list:
-            print("集合名称：", col_name)
-    elif args.get("latex2img"):
-        if args.get("<outpath>"):
-            latex2img.latex2img(args["<text>"], args["<outpath>"])
-        else:
-            latex2img.latex2img(args["<text>"], os.path.abspath("."))
 
 
 def check_console():
