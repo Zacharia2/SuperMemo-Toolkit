@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="smtk",
-    version="0.0.1",
+    version="0.0.5",
     author="明玥",
     description="SuperMemo 增强工具集，命令工具",
     url="https://github.com/Zacharia2/SuperMemo-Toolkit",
