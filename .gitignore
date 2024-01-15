@@ -1,4 +1,4 @@
-smtk.egg-info/*
+*.egg-info/*
 *.epub
 __pycache__/*
 *.pyc
