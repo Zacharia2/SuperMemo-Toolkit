@@ -22,6 +22,15 @@ smtk e2sm -t epub_file out_folder  #（需要图书有良好的目录，没有�
 smtk e2sm -l epub_file out_folder  #（有书即可，按照图书文档文件的线性顺序生成）
 ```
 
+## latex2img
+
+latex 公式转图片。
+
+```
+smtk imtex <formula_text> <outpath>
+smtk imtex "$\sum_{i=0}^\infty x_i$" ./a.png
+```
+
 ## Install
 
 进入项目根目录，然后执行

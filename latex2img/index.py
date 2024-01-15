@@ -7,8 +7,12 @@ import numpy as np
 import matplotlib.font_manager as mfm
 from matplotlib import mathtext
 
+"""
+author: Python与数据挖掘 (知乎) 
+links: https://zhuanlan.zhihu.com/p/383951999
+"""
 
-# https://zhuanlan.zhihu.com/p/383951999
+
 def latex2img(text, size=32, color=(0.1, 0.1, 0.1), out=None, **kwds):
     """LaTex数学公式转图片
 
@@ -51,7 +55,7 @@ def latex2img(text, size=32, color=(0.1, 0.1, 0.1), out=None, **kwds):
         return im
     else:
         im.save(out)  # PIL图像对象保存为文件
-        print("生成的图片已保存为%s" % out)
+        print("latex2img:: 生成的图片已保存为%s" % out)
 
 
 # if __name__ == "__main__":
