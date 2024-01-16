@@ -20,10 +20,10 @@ from scripts import config  # noqa: E402
 
 config_dir = config.get_config_dir()
 if os.path.exists(config_dir):
-    LOG_FILE = os.path.join(config_dir, "supermemokit.log.txt")
+    LOG_FILE = os.path.join(config_dir, "smtk.log.txt")
 elif not os.path.exists(config_dir):
     os.makedirs(config_dir)
-    LOG_FILE = os.path.join(config_dir, "supermemokit.log.txt")
+    LOG_FILE = os.path.join(config_dir, "smtk.log.txt")
 
 
 def setup_logger():

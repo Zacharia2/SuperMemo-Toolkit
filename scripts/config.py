@@ -5,7 +5,7 @@ import os
 
 def get_config_dir():
     user_home_dir = os.path.expanduser("~")
-    config_dir = os.path.join(user_home_dir, ".supermemokit")
+    config_dir = os.path.join(user_home_dir, ".config", "supermemo_toolkit")
     return config_dir
 
 
