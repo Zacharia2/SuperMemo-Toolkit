@@ -51,6 +51,17 @@ def setup_logger():
 logger = setup_logger()
 
 
+# def anomaly_statistics(parameter_list):
+#     if len(anomaly_list) != 0:
+#         print("\033[0;31;40m", "一些文件处理失败, 请查看log文件", "\033[0m")
+#         os.startfile(LOG_FILE)
+# print("\033[0;31;40m", "以下文件处理失败：", "\033[0m")
+# for item in failed_process_htm_files:
+#     print(
+#         "\033[0;31;40m", f"Cannot process {item[0]}. \n\t{item[1]}", "\033[0m"
+#     )
+
+
 def makeNameSafe(name):
     illegalFilenameCharacters = r"/<|>|\:|\"|\/|\\|\||\?|\*|\^|\s/g"
     fixedTitle = re.sub(illegalFilenameCharacters, "_", name)
@@ -185,8 +196,8 @@ def is_data_url_scheme(str):
 
 
 def is_relative_path(string):
-    # string = "file:///[PrimaryStorage]path/to/file"
-    return string.startswith("file:///[PrimaryStorage]")
+    # string = "file:///[PrimaryStorage]path/to/file" or '../3\\39.gif'
+    return string.startswith("file:///[PrimaryStorage]") or os.path.isabs(string)
 
 
 # 还有这种：'file:///C:/Users/Snowy/Desktop/sm18/必读：旅途的开始.png'
@@ -315,21 +326,37 @@ def modify_img_src(
             # 如果是 Data URI scheme
             im_data_url_and_convert(htm_path)
         elif not is_relative_path(im_src):
-            # 绝对路径，去掉前缀
+            # ../ 等价于 file:///[PrimaryStorage] 等价于 elements_folder
+            if im_src.startswith("../"):
+                im_src = im_src.replace("../", elements_folder + "\\")
+
+            # 绝对路径是否以file协议开头。
             if im_src.startswith("file:///"):
+                # 还原绝对路径，去掉file协议。
                 fs_path = unquote(unified_path_separator(im_src.split("file:///")[1]))
             else:
                 fs_path = unquote(unified_path_separator(im_src))
-            # 判断在不在集合的元素文件夹中。
-            if is_in_elements_directory(fs_path, elements_folder):
-                im.attrs["src"] = relativized_path(fs_path)
-                is_modify = True
+
+            # if "file:///D:/Dropbox/21-Sandox/10-Picture/wine.png" == im_src:
+            #     pass
+
+            # 判断文件是否存在。
+            if os.path.exists(fs_path):
+                # 判断在不在集合的元素文件夹中。
+                if is_in_elements_directory(fs_path, elements_folder):
+                    # 在，修改为相对路径。
+                    im.attrs["src"] = relativized_path(fs_path)
+                    is_modify = True
+                else:
+                    # 不在，移动到集合元素文件夹的web_im_saved_path。
+                    im.attrs["src"] = relativized_path(
+                        unified_path_separator(
+                            copy_to_elements(fs_path, local_pic_folder)
+                        )
+                    )
+                    is_modify = True
             else:
-                # 不在，移动到集合元素文件夹的web_im_saved_path。
-                im.attrs["src"] = relativized_path(
-                    unified_path_separator(copy_to_elements(fs_path, local_pic_folder))
-                )
-                is_modify = True
+                logger.warning(f"{htm_path}, local-img {fs_path} not exists !")
         elif is_relative_path(im_src):
             is_modify = False
     if is_modify:
@@ -446,11 +473,6 @@ def relative_and_localize(
     if len(failed_process_htm_files) != 0:
         print("\033[0;31;40m", "一些文件处理失败, 请查看log文件", "\033[0m")
         os.startfile(LOG_FILE)
-        # print("\033[0;31;40m", "以下文件处理失败：", "\033[0m")
-        # for item in failed_process_htm_files:
-        #     print(
-        #         "\033[0;31;40m", f"Cannot process {item[0]}. \n\t{item[1]}", "\033[0m"
-        #     )
     if len(processed_htm_files) == 0:
         print("\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
     else:
