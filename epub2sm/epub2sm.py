@@ -135,6 +135,15 @@ def trans_pinyin(str):
 
 # 写入数据结构时，必要调用的函数之一。
 def modify_img_url(doc, foldername):
+    escapeSequence = {
+        "EM SPACE": (chr(0x2003), "&ensp;"),
+        "COPYRIGHT SIGN": (chr(0x00A9), "&copy;"),
+        "EM DASH": (chr(0x2014), "&#8212;"),
+        "chapterlast": (chr(0xF108), "&#10048;"),
+        "REPLACEMENT CHARACTER": (chr(0xFFFD), "&#65533;"),
+    }
+    for escape in escapeSequence.values():
+        doc = doc.replace(escape[0], escape[1])
     soup = BeautifulSoup(doc, "html.parser")
     # 删除DOCTYPE定义
     for item in soup.contents:
