@@ -11,7 +11,7 @@ sys.path.insert(0, sys.path[0] + "/../")
 from epub2sm.toc_units import org_toc, check_toc  # noqa: E402
 
 
-class SuperMemo_XML_Book:
+class Gen_SM_BookXML:
     def __init__(self, ebook: epub.EpubBook, savefolder: str, bookname: str):
         self.ebook = ebook
         self.savefolder = savefolder
@@ -228,51 +228,50 @@ def get_documents_by_docList(book, foldername):
     return mList
 
 
-def create_sm_book_by_toc(book, book_f_name, target_folder=os.getcwd()):
+def start_with_toc(epubfile, savefolder):
+    # UserWarning: In the future version we will turn default option ignore_ncx to True.
+    #   warnings.warn('In the future version we will turn default option ignore_ncx to True.')
+    book = epub.read_epub(epubfile, {"ignore_ncx": True})
+    book_f_name = makeNameSafe(trans_pinyin(book.title))
+    print("开始处理书籍：", book_f_name)
     # 创建数据结构
     toc = org_toc.merge_doc(book)
     diff_list = check_toc.contrast_diff_toc(toc, book)
     if len(diff_list) == 0:
         print("内容完整性: True")
-        res = get_documents_by_toc(book, toc, book_f_name)
         # 这个是Collection下的第一个SuperMemoElement
         rootElement = [
-            {"Title": book.title, "Type": "Concept", "SuperMemoElement": res}
+            {
+                "Title": book.title,
+                "Type": "Concept",
+                "SuperMemoElement": get_documents_by_toc(book, toc, book_f_name),
+            }
         ]
 
         # 根据数据结构创建XML文件
-        smbook = SuperMemo_XML_Book(book, target_folder, book_f_name)
+        smbook = Gen_SM_BookXML(book, os.getcwd(), book_f_name)
         smbook.create_xml(rootElement)
     else:
         print("内容完整性: False;/n", diff_list)
-
-
-def create_sm_book_by_docList(book, book_f_name, target_folder=os.getcwd()):
-    # 创建数据结构
-    res = get_documents_by_docList(book, book_f_name)
-    rootElement = [{"Title": book.title, "Type": "Concept", "SuperMemoElement": res}]
-
-    # 根据数据结构创建XML文件
-    smbook = SuperMemo_XML_Book(book, target_folder, book_f_name)
-    smbook.create_xml(rootElement)
-
-
-def start_with_toc(epubfile, savefolder):
-    # UserWarning: In the future version we will turn default option ignore_ncx to True.
-    #   warnings.warn('In the future version we will turn default option ignore_ncx to True.')
-    book = epub.read_epub(epubfile, {"ignore_ncx": True})
-    book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
-    print("开始处理书籍：", book_img_folder_name)
-    # 可以自定义输出路径。
-    create_sm_book_by_toc(book, book_img_folder_name, savefolder)
     print("转换完成，已存储至：", savefolder)
 
 
 def start_with_linear(epubfile, savefolder):
     book = epub.read_epub(epubfile, {"ignore_ncx": True})
-    book_img_folder_name = makeNameSafe(trans_pinyin(book.title))
-    print("开始处理书籍：", book_img_folder_name)
-    create_sm_book_by_docList(book, book_img_folder_name, savefolder)
+    book_f_name = makeNameSafe(trans_pinyin(book.title))
+    print("开始处理书籍：", book_f_name)
+
+    rootElement = [
+        {
+            "Title": book.title,
+            "Type": "Concept",
+            "SuperMemoElement": get_documents_by_docList(book, book_f_name),
+        }
+    ]
+
+    # 根据数据结构创建XML文件
+    smbook = Gen_SM_BookXML(book, os.getcwd(), book_f_name)
+    smbook.create_xml(rootElement)
     print("转换完成，已存储至：", savefolder)
 
 
