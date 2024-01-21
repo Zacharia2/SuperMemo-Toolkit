@@ -117,20 +117,20 @@ def trans_pinyin(str):
     return "".join(trans_list)
 
 
-# resolved：空格变问号的问题
-# https://blog.csdn.net/u013778905/article/details/53177042
-# 符号库：https://www.fuhaoku.net/U+00A9
-def make_escape_safe(html_str):
-    escapeSequence = {
-        "EM SPACE": (chr(0x2003), "&ensp;"),
-        "COPYRIGHT SIGN": (chr(0x00A9), "&copy;"),
-        "EM DASH": (chr(0x2014), "&#8212;"),
-        "chapterlast": (chr(0xF108), "&#10048;"),
-        "REPLACEMENT CHARACTER": (chr(0xFFFD), "&#65533;"),
-    }
-    for escape in escapeSequence.values():
-        html_str = html_str.replace(escape[0], escape[1])
-    return html_str
+# # resolved：空格变问号的问题
+# # https://blog.csdn.net/u013778905/article/details/53177042
+# # 符号库：https://www.fuhaoku.net/U+00A9
+# def make_escape_safe(html_str):
+#     escapeSequence = {
+#         "EM SPACE": (chr(0x2003), "&ensp;"),
+#         "COPYRIGHT SIGN": (chr(0x00A9), "&copy;"),
+#         "EM DASH": (chr(0x2014), "&#8212;"),
+#         "chapterlast": (chr(0xF108), "&#10048;"),
+#         "REPLACEMENT CHARACTER": (chr(0xFFFD), "&#65533;"),
+#     }
+#     for escape in escapeSequence.values():
+#         html_str = html_str.replace(escape[0], escape[1])
+#     return html_str
 
 
 # 写入数据结构时，必要调用的函数之一。
@@ -147,7 +147,7 @@ def modify_img_url(doc, foldername):
         # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
         img_name = img.attrs["src"].split("/")[-1]
         img.attrs["src"] = f"file:///[PrimaryStorage]local_pic/{foldername}/{img_name}"
-    return make_escape_safe(str(soup))
+    return soup.encode(encoding="ascii")
 
 
 def write_imgfile(ebook, target_folder, imgs_folder_name):
