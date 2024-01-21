@@ -12,7 +12,7 @@ from epub2sm.toc_units import org_toc, check_toc  # noqa: E402
 
 
 class Gen_SM_BookXML:
-    def __init__(self, ebook: epub.EpubBook, savefolder: str, bookname: str):
+    def __init__(self, ebook: epub.EpubBook, bookname: str, savefolder=os.getcwd()):
         self.ebook = ebook
         self.savefolder = savefolder
         self.bookname = bookname
@@ -65,25 +65,21 @@ class Gen_SM_BookXML:
                 count += self.count_ids(item["SuperMemoElement"])
         return count
 
-    def set_unique_id(self, data):
+    def set_unique_id(self, data: list):
         """为SuperMemo元素设置id
 
         Args:
             data (_type_): _description_
         """
         count = 1
-
-        def recursively_set_id(element):
-            nonlocal count
-            element["ID"] = count
+        stack = data + []
+        while stack:
+            current_element = stack.pop()
+            current_element["ID"] = count
             count += 1
-
-            if "SuperMemoElement" in element:
-                for sub_element in element["SuperMemoElement"]:
-                    recursively_set_id(sub_element)
-
-        for element in data:
-            recursively_set_id(element)
+            if "SuperMemoElement" in current_element:
+                for sub_element in current_element["SuperMemoElement"]:
+                    stack.append(sub_element)
 
     def write_imgfile(self):
         """写出img文件到SuperMemo-XML-Book文件旁边的文件夹中。"""
@@ -249,7 +245,7 @@ def start_with_toc(epubfile, savefolder):
         ]
 
         # 根据数据结构创建XML文件
-        smbook = Gen_SM_BookXML(book, os.getcwd(), book_f_name)
+        smbook = Gen_SM_BookXML(book, book_f_name, savefolder)
         smbook.create_xml(rootElement)
     else:
         print("内容完整性: False;/n", diff_list)
@@ -270,7 +266,7 @@ def start_with_linear(epubfile, savefolder):
     ]
 
     # 根据数据结构创建XML文件
-    smbook = Gen_SM_BookXML(book, os.getcwd(), book_f_name)
+    smbook = Gen_SM_BookXML(book, book_f_name, savefolder)
     smbook.create_xml(rootElement)
     print("转换完成，已存储至：", savefolder)
 
