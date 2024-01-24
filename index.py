@@ -14,7 +14,7 @@ Options:
     -v --version    Show Version.
 """
 # import shutil
-import ctypes
+
 import psutil
 from scripts import config
 from docopt import docopt
@@ -115,12 +115,12 @@ def check_console():
 
 # 使用kernel32.GetConsoleWindow()获取命令行窗口的句柄，
 # 然后使用user32.ShowWindow()将其隐藏起来
-def hide_console():
-    kernel32 = ctypes.WinDLL("kernel32")
-    user32 = ctypes.WinDLL("user32")
-    SW_HIDE = 0
-    hWnd = kernel32.GetConsoleWindow()
-    user32.ShowWindow(hWnd, SW_HIDE)
+# def hide_console():
+#     kernel32 = ctypes.WinDLL("kernel32")
+#     user32 = ctypes.WinDLL("user32")
+#     SW_HIDE = 0
+#     hWnd = kernel32.GetConsoleWindow()
+#     user32.ShowWindow(hWnd, SW_HIDE)
 
 
 if __name__ == "__main__":
