@@ -159,22 +159,21 @@ def modify_img_url(doc, foldername):
     imgs = soup.find_all("img")
     for img in imgs:
         # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
-        img_name = img.attrs["src"].split("/")[-1]
+        img_name = os.path.basename(img.attrs["src"])
         img.attrs["src"] = f"file:///[PrimaryStorage]local_pic/{foldername}/{img_name}"
     return str(soup.encode(encoding="ascii"), "utf-8")
 
 
 def split_section(html, doc_id):
     soup = BeautifulSoup(html, "html.parser")
-    elements_with_id = soup.find(id=doc_id)
-    tag_name = elements_with_id.name
+    element = soup.find(id=doc_id)
+    tag_name = element.name
     # 获取带有id属性的元素
-    element_with_id = soup.find(tag_name, id=doc_id)
     # 提取这一节内容
     # 把它自己（分割标记）也放进去。
-    content = str(element_with_id)
-    if element_with_id is not None:
-        for sibling in element_with_id.find_next_siblings():
+    content = str(element)
+    if element is not None:
+        for sibling in element.find_next_siblings():
             if sibling.name == tag_name:
                 break
             else:
@@ -292,4 +291,4 @@ def start_with_linear(epubfile, savefolder):
     print("转换完成，已存储至：", savefolder)
 
 
-# start_with_toc("C:/Users/Snowy/Desktop/LuoJiZheXueLun.epub", "C:/Users/Snowy/Desktop")
+# start_with_toc("C:/Users/Snowy/Desktop/精准学习.epub", "C:/Users/Snowy/Desktop")
