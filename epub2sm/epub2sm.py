@@ -164,15 +164,36 @@ def modify_img_url(doc, foldername):
     return str(soup.encode(encoding="ascii"), "utf-8")
 
 
+def split_section(html, doc_id):
+    soup = BeautifulSoup(html, "html.parser")
+    elements_with_id = soup.find(id=doc_id)
+    tag_name = elements_with_id.name
+    # 获取带有id属性的元素
+    element_with_id = soup.find(tag_name, id=doc_id)
+    # 提取这一节内容
+    # 把它自己（分割标记）也放进去。
+    content = str(element_with_id)
+    if element_with_id is not None:
+        for sibling in element_with_id.find_next_siblings():
+            if sibling.name == tag_name:
+                break
+            else:
+                content += str(sibling)
+    return content
+
+
 def getContent(book, href):
     if href.find("#") != -1:
+        doc_id = href.split("#")[-1]
         doc_href = href.split("#")[0]
         doc = book.get_item_with_href(doc_href)
-        Content = doc.content.decode("utf-8") if doc else ""
+        # 分割文本
+        section = split_section(doc.content.decode("utf-8"), doc_id) if doc else " "
+        return section
     else:
         # 没有锚点。说明是一个文件。
         doc = book.get_item_with_href(href)
-        Content = doc.content.decode("utf-8") if doc else ""
+        Content = doc.content.decode("utf-8") if doc else " "
     return Content
 
 
@@ -271,4 +292,4 @@ def start_with_linear(epubfile, savefolder):
     print("转换完成，已存储至：", savefolder)
 
 
-start_with_toc("C:/Users/Snowy/Desktop/LuoJiZheXueLun.epub", "C:/Users/Snowy/Desktop")
+# start_with_toc("C:/Users/Snowy/Desktop/LuoJiZheXueLun.epub", "C:/Users/Snowy/Desktop")
