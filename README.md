@@ -36,11 +36,7 @@ smtk imtex "$\sum_{i=0}^\infty x_i$" ./a.png
 
 ## Install
 
-进入项目根目录，然后执行
 
-```py
-pip install .
-```
 
 ## LICENSE
 

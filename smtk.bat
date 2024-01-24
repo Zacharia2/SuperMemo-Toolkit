@@ -1,1 +1,1 @@
-python %~dp0index.py %*
+python %~dp0cli.py %*
