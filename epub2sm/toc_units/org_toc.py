@@ -72,15 +72,15 @@ def insert_doc(book, chapters, f_href, sub_doc_list):
     f_href = f_href.split("#")[0]
 
     while stack:
-        chapters = stack.pop()
-        for chapter in chapters:
+        curr_chapters = stack.pop()
+        for chapter in curr_chapters:
             # 转换为tuple(epub.Section，list=epub.Link)
             if isinstance(chapter, epub.Link):
                 # title = chapter.title
                 file_name = chapter.href.split("#")[0]
                 if f_href == file_name:
                     # 改成元组，第一个元素存储epub.Section，第二个元素存储list ，epub.Link
-                    index_chapter = chapters.index(chapter)
+                    index_chapter = curr_chapters.index(chapter)
                     section = epub.Section(chapter.title, chapter.href)
                     link_list = []
                     for item in sub_doc_list:
@@ -93,7 +93,7 @@ def insert_doc(book, chapters, f_href, sub_doc_list):
                         )[:50]
                         link_list.append(epub.Link(href=item, title=item_title))
                     # 替换为新的
-                    chapters[index_chapter] = tuple((section, link_list))
+                    curr_chapters[index_chapter] = tuple((section, link_list))
             if isinstance(chapter, tuple):
                 if isinstance(chapter[0], epub.Section):
                     # title = chapter[0].title
@@ -133,8 +133,8 @@ def find_all_anchor_point_of_toc(chapters):
     stack = [chapters]
     anchor_point = set()
     while stack:
-        chapters = stack.pop()
-        for chapter in chapters:
+        curr_chapters = stack.pop()
+        for chapter in curr_chapters:
             if isinstance(chapter, epub.Link):
                 # file_name = chapter.href.split("#")[0]
                 if "#" in chapter.href:
@@ -153,8 +153,8 @@ def count_anchors_in_toc(count_anchor_point, chapters):
     stack = [chapters]
     duplicate_anchor_count = 0
     while stack:
-        chapters = stack.pop()
-        for chapter in chapters:
+        curr_chapters = stack.pop()
+        for chapter in curr_chapters:
             if isinstance(chapter, epub.Link):
                 if count_anchor_point in chapter.href:
                     duplicate_anchor_count += 1
@@ -167,36 +167,35 @@ def count_anchors_in_toc(count_anchor_point, chapters):
     return duplicate_anchor_count
 
 
-def remove_anchors_in_toc(anchor_sharp, chapters):
-    stack = [chapters]
-    while stack:
-        chapters = stack.pop()
-        for chapter in chapters:
-            if isinstance(chapter, tuple):
-                # 保留chapter[0]里面的，删除sub_chapter[1]里面的。
-                # 用不到isinstance(chapter, epub.Link)
-                if (
-                    isinstance(chapter[0], epub.Section)
-                    and anchor_sharp in chapter[0].href
-                ):
-                    for sub_chapter in chapter[1]:
-                        # 删除epub.Link
-                        if (
-                            isinstance(sub_chapter, epub.Link)
-                            and anchor_sharp in sub_chapter.href
-                        ):
-                            index_chapter = chapter[1].index(sub_chapter)
-                            del chapter[1][index_chapter]
-                        if isinstance(sub_chapter, tuple) or isinstance(
-                            sub_chapter, list
-                        ):
-                            stack.append(sub_chapter)
-                if isinstance(chapter[1], list):
-                    stack.append(chapter[1])
+# def remove_anchors_in_toc(anchor_sharp, chapters):
+#     stack = [chapters]
+#     while stack:
+#         curr_chapters = stack.pop()
+#         for chapter in curr_chapters:
+#             if isinstance(chapter, tuple):
+#                 # 保留chapter[0]里面的，删除sub_chapter[1]里面的。
+#                 # 用不到isinstance(chapter, epub.Link)
+#                 if (
+#                     isinstance(chapter[0], epub.Section)
+#                     and anchor_sharp in chapter[0].href
+#                 ):
+#                     for sub_chapter in chapter[1]:
+#                         # 删除epub.Link
+#                         if (
+#                             isinstance(sub_chapter, epub.Link)
+#                             and anchor_sharp in sub_chapter.href
+#                         ):
+#                             index_chapter = chapter[1].index(sub_chapter)
+#                             del chapter[1][index_chapter]
+#                         if isinstance(sub_chapter, tuple) or isinstance(
+#                             sub_chapter, list
+#                         ):
+#                             stack.append(sub_chapter)
+#                 if isinstance(chapter[1], list):
+#                     stack.append(chapter[1])
 
 
 def merge_doc(book):
-    # 去重
     M_list = organize_linear_documents(book)
     Head, Body = M_list
     # 合并没有列入toc的doc。
@@ -221,16 +220,18 @@ def merge_doc(book):
             if len(sub_doc_list) != 0:
                 B_list.append(item)
 
+    # TODO: 删除重复文件，去重。
     # 查找doc文件（anchor_point href去掉锚点）所有的锚点href数量
     # doc文档也可以自己就是锚点。
-    anchor_points = find_all_anchor_point_of_toc(chapters)
-    duplicate_anchor = {}
-    for anchor_point in anchor_points:
-        duplicate_anchor[anchor_point] = count_anchors_in_toc(anchor_point, chapters)
-    for key, vaule in duplicate_anchor.items():
-        if vaule > 1:
-            # 锚点href数量大于1，则查找删除所有锚点，只保留文档。
-            remove_anchors_in_toc(key + "#", chapters)
+    # anchor_points = find_all_anchor_point_of_toc(chapters)
+    # duplicate_anchor = {}
+    # for anchor_point in anchor_points:
+    #     # 计算某个文件的锚点数量。
+    #     duplicate_anchor[anchor_point] = count_anchors_in_toc(anchor_point, chapters)
+    # for key, vaule in duplicate_anchor.items():
+    #     if vaule > 1:
+    #         # 若某文件的锚点href数量 > 1，则查找删除所有锚点，只保留文档。
+    #         remove_anchors_in_toc(key + "#", chapters)
 
     # chapters, 查找符合的href，加入到此toc的子集中。
     # 可变对象：list dict set
@@ -244,7 +245,5 @@ def merge_doc(book):
 
 
 # book = epub.read_epub("C:/Users/Snowy/Desktop/心理学与生活.epub", {"ignore_ncx": True})
-# book = epub.read_epub(
-#     "C:/Users/Snowy/Desktop/魔鬼沟通学 - 阮琦.epub", {"ignore_ncx": True}
-# )
+# book = epub.read_epub("D:/Dropbox/00-TMP/资本论.epub", {"ignore_ncx": True})
 # merge_doc(book)
