@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup, Doctype
 import pypinyin
 
 sys.path.insert(0, sys.path[0] + "/../")
-from epub2sm.toc_units import org_toc, check_toc  # noqa: E402
+from smtk.epub2sm.toc_units import org_toc, check_toc  # noqa: E402
 
 
 class Gen_SM_BookXML:
@@ -291,4 +291,4 @@ def start_with_linear(epubfile, savefolder):
     print("转换完成，已存储至：", savefolder)
 
 
-# start_with_toc("C:/Users/Snowy/Desktop/精准学习.epub", "C:/Users/Snowy/Desktop")
+# start_with_toc("C:/Users/Snowy/Desktop/资本论.epub", "C:/Users/Snowy/Desktop")
