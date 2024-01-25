@@ -1,5 +1,4 @@
 import chardet
-import codecs
 
 
 def is_utf8_supported_in_gb2312(char):

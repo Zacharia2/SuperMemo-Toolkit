@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 import requests
 
 sys.path.insert(0, sys.path[0] + "/../")
-from epub2sm.epub2sm import create_xml, set_unique_id  # noqa: E402
+from smtk.epub2sm.epub2sm import create_xml, set_unique_id  # noqa: E402
 
 
 def H5_filter(soup):
