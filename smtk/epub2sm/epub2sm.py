@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup, Doctype
 import pypinyin
 
 sys.path.insert(0, sys.path[0] + "/../")
-from smtk.epub2sm.toc_units import org_toc, check_toc  # noqa: E402
+from epub2sm.toc_units import org_toc, check_toc  # noqa: E402
 
 
 class Gen_SM_BookXML:
