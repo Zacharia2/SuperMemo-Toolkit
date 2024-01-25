@@ -4,11 +4,10 @@
 Usage:
     smtk config (set <key> <value> | list)
     smtk clist
-    smtk e2sm ( -t | -l ) <epub-path> <targetfolder>
+    smtk e2sm (-t | -l) <epub-path> <targetfolder>
+    smtk pathpix (<col_name> [--clean] | --fullpath=<htmlpath> | --gui | --least-col)
     smtk imtex <formula_text> <outpath>
-    smtk pathpix <col_name>
-    smtk pathpix [--clean=<col_name>] [--fullpath=<htmlpath>]
-    smtk pathpix [--gui] | [--least-col]
+    smtk placeholders
 Options:
     -h --help       Show Help doc.
     -v --version    Show Version.
@@ -93,12 +92,10 @@ def cmd():
             elements_path = config.get_collection_primaryStorage(
                 sm_location, args["<col_name>"]
             )
-            pathpix.start(elements_path)
-        elif args.get("--clean"):
-            elements_path = config.get_collection_primaryStorage(
-                sm_location, args["--clean"]
-            )
-            pathpix.organize_unused_im(elements_path)
+            if args.get("--clean"):
+                pathpix.organize_unused_im(elements_path)
+            else:
+                pathpix.start(elements_path)
         elif args.get("--fullpath"):
             pathpix.single(args["--fullpath"])
         elif args.get("--gui"):
