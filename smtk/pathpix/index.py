@@ -413,7 +413,7 @@ def collect_documents(elements_path):
         list: 找到的HTM的文件列表
     """
     htm_file_list = []
-    processed_count = 0
+    count_processed = 0
 
     stack = [elements_path]
     while stack:
@@ -421,12 +421,13 @@ def collect_documents(elements_path):
         for entry in os.scandir(current_path):
             if entry.is_file() and is_html_file(entry.path):
                 htm_file_list.append(entry.path)
-                processed_count += 1
-                print(
-                    "PathPix:: 正在计算HTM文件总数",
-                    f"[{processed_count}]\r",
-                    end="",
-                )
+                count_processed += 1
+                if count_processed % 100 == 0:
+                    print(
+                        "PathPix:: 正在计算HTM文件总数",
+                        f"[{count_processed}]",
+                        end="\r",
+                    )
             if entry.is_dir():
                 stack.append(entry.path)
     return htm_file_list
@@ -447,8 +448,8 @@ def read_in_list(list: list) -> list:
         )
         print(
             "PathPix:: 正在读取文件数据",
-            f"[{index+1}/{len(list)}]\r",
-            end="",
+            f"[{index+1}/{len(list)}]",
+            end="\r",
         )
     print("\nPathPix:: Done!")
     return path_data
