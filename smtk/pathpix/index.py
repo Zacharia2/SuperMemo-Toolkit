@@ -423,13 +423,12 @@ def collect_documents(elements_path):
                 htm_file_list.append(entry.path)
                 processed_count += 1
                 print(
-                    "PathPix:: 正在收集HTM文件, 请稍后.",
+                    "PathPix:: 正在计算HTM文件总数",
                     f"[{processed_count}]\r",
                     end="",
                 )
             if entry.is_dir():
                 stack.append(entry.path)
-    print("\nPathPix:: Done!")
     return htm_file_list
 
 
@@ -447,8 +446,8 @@ def read_in_list(list: list) -> list:
             )
         )
         print(
-            "PathPix:: 正在读取文件数据.",
-            f"[{index+1}]\r",
+            "PathPix:: 正在读取文件数据",
+            f"[{index+1}/{len(list)}]\r",
             end="",
         )
     print("\nPathPix:: Done!")
