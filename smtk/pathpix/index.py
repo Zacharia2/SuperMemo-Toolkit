@@ -433,9 +433,29 @@ def collect_documents(elements_path):
     return htm_file_list
 
 
-def relative_and_localize(
-    waiting_process_list, elements_folder, collection_temp_folder
-):
+def read_in_list(list: list) -> list:
+    path_data = []
+    for index, htm_path in enumerate(list):
+        with open(htm_path, "rb") as f:
+            raw_data = f.read()
+            result = chardet.detect(raw_data)
+            encoding = result["encoding"]
+        path_data.append(
+            (
+                htm_path,
+                raw_data.decode(encoding=encoding, errors="xmlcharrefreplace"),
+            )
+        )
+        print(
+            "PathPix:: 正在读取文件数据.",
+            f"[{index+1}]\r",
+            end="",
+        )
+    print("\nPathPix:: Done!")
+    return path_data
+
+
+def relative_and_localize(wait_htm_path_list, elements_folder, collection_temp_folder):
     """在遍历查找到的html文挡, 一个个处理他们。
 
     Args:
@@ -446,29 +466,24 @@ def relative_and_localize(
     # elements_path, im_saved_path, collection_temp_path
     failed_process_htm_files = []
     processed_htm_files = []
-    for htm_file_path in tqdm(waiting_process_list, desc="Doc-LinkCP"):
-        try:
-            with open(htm_file_path, "rb") as f:
-                raw_data = f.read()
-                result = chardet.detect(raw_data)
-                encoding = result["encoding"]
-            content = raw_data.decode(encoding=encoding, errors="xmlcharrefreplace")
+    # [(path,data),(path,data),...]
+    htm_files = read_in_list(wait_htm_path_list)
 
+    for htm_path, htm_data in tqdm(htm_files, desc="Doc-LinkCP"):
+        try:
             modified_content = modify_img_src(
-                content,
+                htm_data,
                 elements_folder,
                 collection_temp_folder,
-                htm_file_path,
+                htm_path,
             )
 
             if modified_content:
-                secure_file_write(
-                    modified_content, htm_file_path, collection_temp_folder
-                )
-                processed_htm_files.append(htm_file_path)
+                secure_file_write(modified_content, htm_path, collection_temp_folder)
+                processed_htm_files.append(htm_path)
         except Exception as e:
-            failed_process_htm_files.append((htm_file_path, e))
-            logger.warning((htm_file_path, e))
+            failed_process_htm_files.append((htm_path, e))
+            logger.warning((htm_path, e))
 
     if len(failed_process_htm_files) != 0:
         print("\033[0;31;40m", "一些文件处理失败, 请查看log文件", "\033[0m")
@@ -600,9 +615,9 @@ def start(elements_folder):
     print("集合元素：", elements_folder)
     print("图片位置：", [web_pic_folder, local_pic_folder])
     print("临时文件：", collection_temp_folder)
-    waiting_process_list = collect_documents(elements_folder)
+    wait_htm_path_list = collect_documents(elements_folder)
     relative_and_localize(
-        waiting_process_list,
+        wait_htm_path_list,
         elements_folder,
         collection_temp_folder,
     )
