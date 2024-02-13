@@ -434,6 +434,7 @@ def collect_documents(elements_path):
 
 
 def read_in_list(list: list) -> list:
+    start = time.time()
     path_data = []
     for index, htm_path in enumerate(list):
         with open(htm_path, "rb") as f:
@@ -451,7 +452,8 @@ def read_in_list(list: list) -> list:
             f"[{index+1}/{len(list)}]",
             end="\r",
         )
-    print("\nPathPix:: Done!")
+    end = time.time()
+    print("\nPathPix:: Done!", f" 读取数据耗时 {end - start:.2f} 秒。")
     return path_data
 
 
