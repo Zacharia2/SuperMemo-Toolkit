@@ -430,7 +430,7 @@ def collect_documents(elements_folder):
                 )
             if entry.is_dir():
                 stack.append(entry.path)
-        print("\033[K", end="", flush=True)
+    print("\033[K", end="", flush=True)
     return htm_file_list
 
 
