@@ -430,6 +430,7 @@ def collect_documents(elements_folder):
                 )
             if entry.is_dir():
                 stack.append(entry.path)
+        print("\033[K", end="", flush=True)
     return htm_file_list
 
 
@@ -646,6 +647,7 @@ def start(elements_folder):
                 htm_path_filtered_list.append(path)
             # 读取字典有的，生成字典没有的，是被删除的。
     else:
+        # 第一次添加生成字典。所谓的初始化数据库。
         for path in gen_dict_filter.keys():
             htm_path_filtered_list.append(path)
 
