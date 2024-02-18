@@ -403,31 +403,31 @@ def secure_file_write(modified_content, target_file, temp_folder):
             os.remove(backup_file)
 
 
-def collect_documents(elements_path):
+def collect_documents(elements_folder):
     """在遍历查找HTM文档并返回文件路径列表。
 
     Args:
         element_path (str): elements路径
 
     Returns:
-        list: 找到的HTM的文件列表
+        tuple: (path, mtime)
     """
     htm_file_list = []
     count_processed = 0
 
-    stack = [elements_path]
+    stack = [elements_folder]
     while stack:
         current_path = stack.pop()
         for entry in os.scandir(current_path):
             if entry.is_file() and is_html_file(entry.path):
-                htm_file_list.append(entry.path)
+                htm_file_list.append((entry.path, os.path.getmtime(entry.path)))
                 count_processed += 1
-                if count_processed % 100 == 0:
-                    print(
-                        "PathPix:: 正在计算HTM文件总数",
-                        f"[{count_processed}]",
-                        end="\r",
-                    )
+                # if count_processed % 100 == 0:
+                print(
+                    "PathPix:: 正在计算HTM文件总数",
+                    f"[{count_processed}]",
+                    end="\r",
+                )
             if entry.is_dir():
                 stack.append(entry.path)
     return htm_file_list
@@ -514,13 +514,13 @@ def find_im(directory):
     return im_list
 
 
-def organize_unused_im(elements_path):
+def organize_unused_im(elements_folder):
     im_list = []
     doc_im_set = set()
 
-    webpic = os.path.join(elements_path, "web_pic")
-    localpic = os.path.join(elements_path, "local_pic")
-    temp_dir = os.path.normpath(os.path.join(elements_path, "../", "temp"))
+    webpic = os.path.join(elements_folder, "web_pic")
+    localpic = os.path.join(elements_folder, "local_pic")
+    temp_dir = os.path.normpath(os.path.join(elements_folder, "../", "temp"))
     unused_pic = os.path.join(temp_dir, "unused_im")
 
     is_exists_webpic = os.path.exists(webpic)
@@ -529,10 +529,8 @@ def organize_unused_im(elements_path):
         print("PathPix::", "清理web_pic, local_pic文件夹中未被使用的图片")
         # 读取单个HTML文件中的被引用的im名字。
         im_list = find_im(webpic) + find_im(localpic)
-
-        for htm_file_path in tqdm(
-            collect_documents(elements_path), desc="Doc-ImGather"
-        ):
+        htm_path_mdate_list = collect_documents(elements_folder)
+        for htm_file_path, mtime in tqdm(htm_path_mdate_list, desc="Doc-ImGather"):
             try:
                 with open(htm_file_path, "rb") as f:
                     raw_data = f.read()
@@ -617,12 +615,51 @@ def start(elements_folder):
     print("集合元素：", elements_folder)
     print("图片位置：", [web_pic_folder, local_pic_folder])
     print("临时文件：", collection_temp_folder)
-    wait_htm_path_list = collect_documents(elements_folder)
-    relative_and_localize(
-        wait_htm_path_list,
-        elements_folder,
-        collection_temp_folder,
+
+    # 读取旧列表
+    conf_old_dict_filter_path = os.path.join(
+        config_dir, f"old_{makeNameSafe(elements_folder)}_dict_filter.json"
     )
+    if os.path.exists(conf_old_dict_filter_path):
+        old_dict_filter = config.read_config(conf_old_dict_filter_path)
+    else:
+        old_dict_filter = dict()
+
+    # 构建一个字典 { path: mtime }
+    gen_dict_filter = dict()
+    htm_path_mdate_list = collect_documents(elements_folder)
+    for path, mtime in htm_path_mdate_list:
+        gen_dict_filter[path] = mtime
+
+    htm_path_filtered_list = list()
+    # 判断字典非空，存在默认为True。
+    if old_dict_filter:
+        # 使用生成字典去迭代读取字典。
+        for path, mtime in gen_dict_filter.items():
+            # 说明文件是存在的
+            if path in old_dict_filter.keys():
+                # 应该找出修改的文件。
+                if mtime != old_dict_filter[path]:
+                    htm_path_filtered_list.append(path)
+            # 说明文件是新增的
+            else:
+                htm_path_filtered_list.append(path)
+            # 读取字典有的，生成字典没有的，是被删除的。
+    else:
+        for path in gen_dict_filter.keys():
+            htm_path_filtered_list.append(path)
+
+    if htm_path_filtered_list:
+        relative_and_localize(
+            htm_path_filtered_list,
+            elements_folder,
+            collection_temp_folder,
+        )
+    else:
+        print("\n\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
+
+    # 保存生成字典
+    config.update_config(conf_old_dict_filter_path, gen_dict_filter)
 
 
 # 区分文件和文件夹路径。文件就使用path，文件夹就使用folder
