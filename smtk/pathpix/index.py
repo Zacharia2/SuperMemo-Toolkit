@@ -62,7 +62,7 @@ logger = setup_logger()
 #     )
 
 
-def makeNameSafe(name):
+def makeNameSafe(name: str) -> str:
     illegalFilenameCharacters = r"/<|>|\:|\"|\/|\\|\||\?|\*|\^|\s/g"
     fixedTitle = re.sub(illegalFilenameCharacters, "_", name)
     return fixedTitle
@@ -83,7 +83,7 @@ def full_to_half(text: str):  # 输入为一个句子
     return _text
 
 
-def trans_pinyin(str):
+def trans_pinyin(str: str):
     trans_list = []
     half_text = full_to_half(str)
     for pinyin_name in pypinyin.pinyin(half_text, style=pypinyin.NORMAL):
@@ -93,7 +93,7 @@ def trans_pinyin(str):
     return "".join(trans_list)
 
 
-def copy_to_elements(file_path, target_folder):
+def copy_to_elements(file_path: str, target_folder: str) -> str:
     # unescape_fs_path = html.unescape(file_path)
     old_full_file_name = os.path.basename(file_path)
     name, ext = os.path.splitext(old_full_file_name)
@@ -109,7 +109,7 @@ def copy_to_elements(file_path, target_folder):
     return target
 
 
-def mkdir(path):
+def mkdir(path: str):
     if not os.path.exists(path):
         os.makedirs(path)
         print("创建文件夹:: " + path)
@@ -181,12 +181,18 @@ def is_html_ext_file(file_path):
 
 
 def verify_mime_is_html(htm_path_list: list) -> list:
-    """需要全路径文件列表
-    """
-    for index, path in enumerate(htm_path_list):
-        file_type = magic.Magic(mime=True).from_file(path)
-        if file_type != "text/html":
+    """需要全路径文件列表"""
+    for index, file_path in enumerate(htm_path_list):
+        file_type = magic.Magic(mime=True).from_file(file_path)
+        file_ext = os.path.splitext(file_path)[1].lower()
+        if not (file_type == "text/html" or file_ext in [".html", ".htm"]):
             del htm_path_list[index]
+        print(
+            "PathPix:: 正在验证HTM文件",
+            f"[{index+1}/{len(htm_path_list)}]",
+            end="\r",
+        )
+    print("\033[K", end="\r")
     return htm_path_list
 
 
@@ -439,7 +445,7 @@ def collect_documents(elements_folder):
                 )
             if entry.is_dir():
                 stack.append(entry.path)
-    print("\033[K", end="", flush=True)
+    print(f"\nPathPix:: 共找到 {count_processed} 个HTM文件")
     return htm_file_list
 
 
@@ -464,7 +470,7 @@ def read_in_list(path_list: list) -> list:
             end="\r",
         )
     end = time.time()
-    print("\nPathPix:: Done!", f" 读取数据耗时 {end - start:.2f} 秒。")
+    print("\nPathPix:: Done!", f" 验证并读取数据耗时 {end - start:.2f} 秒。")
     return path_data
 
 
@@ -629,7 +635,7 @@ def start(elements_folder):
 
     # 读取旧列表
     conf_old_dict_filter_path = os.path.join(
-        config_dir, f"old_{makeNameSafe(elements_folder)}_dict_filter.json"
+        config_dir, f"old_{makeNameSafe(elements_folder).lower()}_dict_filter.json"
     )
     if os.path.exists(conf_old_dict_filter_path):
         old_dict_filter = config.read_config(conf_old_dict_filter_path)
