@@ -168,27 +168,26 @@ def assure_image_url(url):
         print("响应解析异常: ", e)
 
 
-# Windows 下需要安装 libmagic 的 DLL，否则报错
-# https://github.com/ahupp/python-magic
 def is_html_ext_file(file_path):
     file_ext = os.path.splitext(file_path)[1].lower()
     return file_ext in [".html", ".htm"]
 
 
-def verify_mime_is_html(htm_path_list: list) -> list:
-    """需要全路径文件列表"""
-    for index, file_path in enumerate(htm_path_list):
-        file_type = magic.Magic(mime=True).from_file(file_path)
-        file_ext = os.path.splitext(file_path)[1].lower()
-        if not (file_type == "text/html" or file_ext in [".html", ".htm"]):
-            del htm_path_list[index]
-        print(
-            "PathPix:: 正在验证HTM文件",
-            f"[{index+1}/{len(htm_path_list)}]",
-            end="\r",
-        )
-    print("\033[K", end="\r")
-    return htm_path_list
+# Windows 下需要安装 libmagic 的 DLL，否则报错
+# https://github.com/ahupp/python-magic
+# def verify_mime_is_html(htm_path_list: list) -> list:
+#     """需要全路径文件列表"""
+#     for index, file_path in enumerate(htm_path_list):
+#         file_type = magic.Magic(mime=True).from_file(file_path)
+#         if not (file_type == "text/html" or file_type == "text/plain"):
+#             del htm_path_list[index]
+#         print(
+#             "PathPix:: 正在验证HTM文件",
+#             f"[{index+1}/{len(htm_path_list)}]",
+#             end="\r",
+#         )
+#     print("\033[K", end="\r")
+#     return htm_path_list
 
 
 def is_http_url_scheme(str):
@@ -447,11 +446,17 @@ def collect_documents(elements_folder):
 def read_in_list(path_list: list) -> list:
     start = time.time()
     path_data = []
-    path_list = verify_mime_is_html(path_list)
     for index, htm_path in enumerate(path_list):
         try:
             with open(htm_path, "rb") as f:
                 raw_data = f.read()
+                file_type = magic.from_buffer(raw_data[:2048], mime=True)
+                if not (
+                    file_type == "text/html"
+                    or file_type == "text/xml"
+                    or file_type == "text/plain"
+                ):
+                    continue
                 result = chardet.detect(raw_data)
                 encoding = result["encoding"]
             path_data.append(
