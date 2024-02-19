@@ -175,10 +175,19 @@ def assure_image_url(url):
 
 # Windows 下需要安装 libmagic 的 DLL，否则报错
 # https://github.com/ahupp/python-magic
-def is_html_file(file_path):
-    file_type = magic.Magic(mime=True).from_file(file_path)
+def is_html_ext_file(file_path):
     file_ext = os.path.splitext(file_path)[1].lower()
-    return file_type == "text/html" or file_ext in [".html", ".htm"]
+    return file_ext in [".html", ".htm"]
+
+
+def verify_mime_is_html(htm_path_list: list) -> list:
+    """需要全路径文件列表
+    """
+    for index, path in enumerate(htm_path_list):
+        file_type = magic.Magic(mime=True).from_file(path)
+        if file_type != "text/html":
+            del htm_path_list[index]
+    return htm_path_list
 
 
 def is_http_url_scheme(str):
@@ -419,7 +428,7 @@ def collect_documents(elements_folder):
     while stack:
         current_path = stack.pop()
         for entry in os.scandir(current_path):
-            if entry.is_file() and is_html_file(entry.path):
+            if entry.is_file() and is_html_ext_file(entry.path):
                 htm_file_list.append((entry.path, os.path.getmtime(entry.path)))
                 count_processed += 1
                 # if count_processed % 100 == 0:
@@ -434,10 +443,11 @@ def collect_documents(elements_folder):
     return htm_file_list
 
 
-def read_in_list(list: list) -> list:
+def read_in_list(path_list: list) -> list:
     start = time.time()
     path_data = []
-    for index, htm_path in enumerate(list):
+    path_list = verify_mime_is_html(path_list)
+    for index, htm_path in enumerate(path_list):
         with open(htm_path, "rb") as f:
             raw_data = f.read()
             result = chardet.detect(raw_data)
@@ -450,7 +460,7 @@ def read_in_list(list: list) -> list:
         )
         print(
             "PathPix:: 正在读取文件数据",
-            f"[{index+1}/{len(list)}]",
+            f"[{index+1}/{len(path_list)}]",
             end="\r",
         )
     end = time.time()
@@ -469,7 +479,7 @@ def relative_and_localize(wait_htm_path_list, elements_folder, collection_temp_f
     # elements_path, im_saved_path, collection_temp_path
     failed_process_htm_files = []
     processed_htm_files = []
-    # [(path,data),(path,data),...]
+    # 读取路径列表获得路径数据对列表：[(path,data),(path,data),...]
     htm_files = read_in_list(wait_htm_path_list)
 
     for htm_path, htm_data in tqdm(htm_files, desc="Doc-LinkCP"):
