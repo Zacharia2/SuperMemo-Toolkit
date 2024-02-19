@@ -49,17 +49,12 @@ def setup_logger():
 
 
 logger = setup_logger()
+report_list = list()
 
 
-# def anomaly_statistics(parameter_list):
-#     if len(anomaly_list) != 0:
-#         print("\033[0;31;40m", "一些文件处理失败, 请查看log文件", "\033[0m")
-#         os.startfile(LOG_FILE)
-# print("\033[0;31;40m", "以下文件处理失败：", "\033[0m")
-# for item in failed_process_htm_files:
-#     print(
-#         "\033[0;31;40m", f"Cannot process {item[0]}. \n\t{item[1]}", "\033[0m"
-#     )
+def report(msg: str):
+    logger.warning(msg)
+    report_list.append({"warning": msg})
 
 
 def makeNameSafe(name: str) -> str:
@@ -285,7 +280,7 @@ def im_download_and_convert(url, web_pic_folder, collection_temp_folder, htm_pat
                     im.save(saved_path, "png")
                     return saved_path
             except Exception as e:
-                logger.warning(
+                report(
                     f"发生一个异常: {e}! \n\tFile:{htm_path}, \n\tCannot convert {url}"
                 )
         else:
@@ -298,7 +293,7 @@ def im_download_and_convert(url, web_pic_folder, collection_temp_folder, htm_pat
                 f.write(im_bytes)
             return saved_path
     else:
-        logger.warning(f"警告! File:{htm_path}, 非图片资源链接 {url}")
+        report(f"警告! File:{htm_path}, 非图片资源链接 {url}")
 
 
 def im_data_url_and_convert(htm_path):
@@ -371,7 +366,7 @@ def modify_img_src(
                     )
                     is_modify = True
             else:
-                logger.warning(f"{htm_path}, local-img {fs_path} not exists !")
+                report(f"{htm_path}, local-img {fs_path} not exists !")
         elif is_relative_path(im_src):
             is_modify = False
     if is_modify:
@@ -454,16 +449,19 @@ def read_in_list(path_list: list) -> list:
     path_data = []
     path_list = verify_mime_is_html(path_list)
     for index, htm_path in enumerate(path_list):
-        with open(htm_path, "rb") as f:
-            raw_data = f.read()
-            result = chardet.detect(raw_data)
-            encoding = result["encoding"]
-        path_data.append(
-            (
-                htm_path,
-                raw_data.decode(encoding=encoding, errors="xmlcharrefreplace"),
+        try:
+            with open(htm_path, "rb") as f:
+                raw_data = f.read()
+                result = chardet.detect(raw_data)
+                encoding = result["encoding"]
+            path_data.append(
+                (
+                    htm_path,
+                    raw_data.decode(encoding=encoding, errors="xmlcharrefreplace"),
+                )
             )
-        )
+        except Exception as e:
+            report((htm_path, e))
         print(
             "PathPix:: 正在读取文件数据",
             f"[{index+1}/{len(path_list)}]",
@@ -483,7 +481,6 @@ def relative_and_localize(wait_htm_path_list, elements_folder, collection_temp_f
         collection_temp_path (_type_): _description_
     """
     # elements_path, im_saved_path, collection_temp_path
-    failed_process_htm_files = []
     processed_htm_files = []
     # 读取路径列表获得路径数据对列表：[(path,data),(path,data),...]
     htm_files = read_in_list(wait_htm_path_list)
@@ -501,10 +498,9 @@ def relative_and_localize(wait_htm_path_list, elements_folder, collection_temp_f
                 secure_file_write(modified_content, htm_path, collection_temp_folder)
                 processed_htm_files.append(htm_path)
         except Exception as e:
-            failed_process_htm_files.append((htm_path, e))
-            logger.warning((htm_path, e))
+            report((htm_path, e))
 
-    if len(failed_process_htm_files) != 0:
+    if len(report_list) != 0:
         print("\033[0;31;40m", "一些文件处理失败, 请查看log文件", "\033[0m")
         os.startfile(LOG_FILE)
     if len(processed_htm_files) == 0:
