@@ -450,7 +450,7 @@ def read_in_list(path_list: list) -> list:
         try:
             with open(htm_path, "rb") as f:
                 raw_data = f.read()
-                file_type = magic.from_buffer(raw_data[:2048], mime=True)
+                file_type = magic.from_buffer(raw_data[:3072], mime=True)
                 if not (
                     file_type == "text/html"
                     or file_type == "text/xml"
