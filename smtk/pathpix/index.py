@@ -1,3 +1,4 @@
+import hashlib
 import imghdr
 import logging
 import shutil
@@ -52,9 +53,9 @@ logger = setup_logger()
 report_list = list()
 
 
-def report(msg: str):
+def report(msg: str, *args):
     logger.warning(msg)
-    report_list.append({"warning": msg})
+    report_list.append((args[0], msg))
 
 
 def makeNameSafe(name: str) -> str:
@@ -138,26 +139,32 @@ def is_in_elements_directory(fs_path, directory):
     return directory_name.startswith(directory)
 
 
-def assure_image_url(url):
+def verify_image_url(url: str):
     """
-    接受URL, 返回图片类型和响应, 不是图片返回False。
+    验证图片链接，返回(图片类型, 图片名称, 图片数据) | None
     """
     try:
+        sha1_hash = hashlib.sha1()
         response = requests.get(url, stream=True)
         content_type = response.headers.get("content-type")
         content = response.content
+        # Read and update hash in chunks of 4K
+        field_length = 4096
+        for byte_block in [
+            content[i : i + field_length] for i in range(0, len(content), field_length)
+        ]:
+            sha1_hash.update(byte_block)
+        file_name = f"im_{sha1_hash.hexdigest()}"
         if content_type:
             # 处理可能的字符编码，如：image/jpeg; charset=utf-8
             content_type = content_type.split(";")[0]
-        # 仅读取文件头用于确定文件类型
         filetype = imghdr.what(None, content)
-        # 文件头信息、文件内容。
         if content_type and "image" in content_type:
-            return (content_type, content)
+            return (content_type, file_name, content)
         elif filetype is not None:
-            return ("image/" + filetype, content)
+            return (f"image/{filetype}", file_name, content)
         else:
-            return False
+            return None
     except requests.exceptions.ConnectionError as e:
         print("网络连接异常: ", e)
     except requests.exceptions.Timeout as e:
@@ -211,7 +218,7 @@ def is_relative_path(string):
 
 # 还有这种：'file:///C:/Users/Snowy/Desktop/sm18/必读：旅途的开始.png'
 # 'C:/Users/Snowy/Desktop/sm18/systems/Noname/elements/web_pic\\im_2023-11-09-20_39_50_plot_19.jpeg'
-def relativized_path(win_path):
+def relativization_path(win_path):
     """将位于sm的elements文件夹中的文件的绝对路径转换为相对路径.
 
     Args:
@@ -252,15 +259,14 @@ def im_download_and_convert(url, web_pic_folder, collection_temp_folder, htm_pat
         "image/gif",
         "image/bmp",
     ]
-    now = time.strftime("%Y-%m-%d-%H_%M", time.localtime(time.time()))
-    file_name = "im_" + now + "_uuid_" + str(uuid.uuid4())
-
-    result_is_im = assure_image_url(url)
+    # now = time.strftime("%Y-%m-%d-%H_%M", time.localtime(time.time()))
+    # file_name = "im_" + now + "_uuid_" + str(uuid.uuid4())
+    result_is_im = verify_image_url(url)
 
     if result_is_im:
-        im_bytes = result_is_im[1]
-        if result_is_im[0] not in supports_im_type:
-            extension = result_is_im[0].split("/")[1]
+        (content_type, file_name, im_bytes) = result_is_im
+        if content_type not in supports_im_type:
+            extension = content_type.split("/")[1]
             try:
                 mkdir(collection_temp_folder)
                 temp_file_path = os.path.join(
@@ -280,10 +286,11 @@ def im_download_and_convert(url, web_pic_folder, collection_temp_folder, htm_pat
                     return saved_path
             except Exception as e:
                 report(
-                    f"发生一个异常: {e}! \n\tFile:{htm_path}, \n\tCannot convert {url}"
+                    f"发生一个异常: {e}! \n\tFile:{htm_path}, \n\tCannot convert {url}",
+                    htm_path,
                 )
         else:
-            extension = result_is_im[0].split("/")[1]
+            extension = content_type.split("/")[1]
             # 如果支持的话，就直接写入的路径中即可。
             mkdir(web_pic_folder)
             saved_path = os.path.join(web_pic_folder, file_name + f".{extension}")
@@ -329,7 +336,7 @@ def modify_img_src(
                 htm_path,
             )
             standard_path = unified_path_separator(im_web_local_path)
-            im.attrs["src"] = relativized_path(standard_path)
+            im.attrs["src"] = relativization_path(standard_path)
             is_modify = True
         elif is_data_url_scheme(im_src):
             # 如果是 Data URI scheme
@@ -354,11 +361,11 @@ def modify_img_src(
                 # 判断在不在集合的元素文件夹中。
                 if is_in_elements_directory(fs_path, elements_folder):
                     # 在，修改为相对路径。
-                    im.attrs["src"] = relativized_path(fs_path)
+                    im.attrs["src"] = relativization_path(fs_path)
                     is_modify = True
                 else:
                     # 不在，移动到集合元素文件夹的web_im_saved_path。
-                    im.attrs["src"] = relativized_path(
+                    im.attrs["src"] = relativization_path(
                         unified_path_separator(
                             copy_to_elements(fs_path, local_pic_folder)
                         )
@@ -466,7 +473,7 @@ def read_in_list(path_list: list) -> list:
                 )
             )
         except Exception as e:
-            report((htm_path, e))
+            report((htm_path, e), htm_path)
         print(
             "PathPix:: 正在读取文件数据",
             f"[{index+1}/{len(path_list)}]",
@@ -503,7 +510,7 @@ def relative_and_localize(wait_htm_path_list, elements_folder, collection_temp_f
                 secure_file_write(modified_content, htm_path, collection_temp_folder)
                 processed_htm_files.append(htm_path)
         except Exception as e:
-            report((htm_path, e))
+            report((htm_path, e), htm_path)
 
     if len(report_list) != 0:
         print("\033[0;31;40m", "一些文件处理失败, 请查看log文件", "\033[0m")
@@ -665,6 +672,7 @@ def start(elements_folder):
             # 读取字典有的，生成字典没有的，是被删除的。
     else:
         # 第一次添加生成字典。所谓的初始化数据库。
+        print("PathPix:: 未检测到历史记录，本次将会全部整理。")
         for path in gen_dict_filter.keys():
             htm_path_filtered_list.append(path)
 
@@ -676,7 +684,9 @@ def start(elements_folder):
         )
     else:
         print("\n\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
-
+    # 把处理失败的文件剔除掉，下次重新试过一次。
+    for key, msg in report_list:
+        del gen_dict_filter[key]
     # 保存生成字典
     config.update_config(conf_old_dict_filter_path, gen_dict_filter)
 
