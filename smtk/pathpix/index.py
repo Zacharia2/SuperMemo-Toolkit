@@ -565,6 +565,7 @@ def organize_unused_im(elements_folder):
                 content = raw_data.decode(encoding=encoding, errors="xmlcharrefreplace")
                 soup = BeautifulSoup(content, "html.parser")
                 img_tags = soup.find_all("img")
+
                 filtered_im_list = list(
                     filter(
                         lambda im: "src" in im.attrs and im.attrs["src"] != "",

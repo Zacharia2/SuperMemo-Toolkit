@@ -2,6 +2,7 @@ import base64
 import hashlib
 import json
 import urllib.request
+from bs4 import BeautifulSoup
 
 import requests
 import filetype
@@ -32,6 +33,11 @@ def invoke(action, **params):
 # invoke("createDeck", deck="test1")
 # result = invoke("deckNames")
 # print(f"got list of decks: {result}")
+# class = resultsSet、dictionary-entry-2
+# <span class="HYPHENATION" _mstmutation="1">dic‧tion‧a‧ry</span>
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0",
+}
 
 
 def download_words(words: str, us_or_uk: int):
@@ -51,7 +57,7 @@ def download_words(words: str, us_or_uk: int):
     try:
         url = f"https://dict.youdao.com/dictvoice?audio={words}&type={us_or_uk}"
         sha1_hash = hashlib.sha1()
-        response = requests.get(url, stream=True)
+        response = requests.get(url, stream=True, headers=headers)
         content_type = response.headers.get("content-type")
         # Read and update hash in chunks of 4K
         for byte_block in [
@@ -83,28 +89,137 @@ def download_words(words: str, us_or_uk: int):
         print("响应解析异常: ", e)
 
 
+def updata_segmentation_of_word(words):
+    try:
+        url = f"https://www.ldoceonline.com/dictionary/{words}"
+        soup = BeautifulSoup(
+            requests.get(url, stream=True, headers=headers).text, "html.parser"
+        )
+        # 注意是class_，不是class，因为class是python的关键字，所以后面要加个尾巴，防止冲突
+        seg = soup.find("span", class_="HYPHENATION")
+        if seg:
+            text = seg.getText()
+            return text
+    except requests.exceptions.ConnectionError as e:
+        print("网络连接异常: ", e)
+    except requests.exceptions.Timeout as e:
+        print("连接超时: ", e)
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP错误, 状态码: {e.response.status_code}, {e}")
+    except ValueError as e:
+        print("响应解析异常: ", e)
+
+
+def download_words_explain(words: str):
+    try:
+        url = f"https://www.oed.com/search/dictionary/?scope=Entries&q={words}&tl=true"
+        response = requests.get(url, stream=True, headers=headers)
+        soup = BeautifulSoup(response.text, "html.parser")
+        explain_resultsSet = soup.find_all("div", class_="resultsSet")
+        explain_words = str()
+        for explain in explain_resultsSet:
+            resultsSetItemBody: list = explain.findAll(
+                "div", class_="resultsSetItemBody"
+            )
+            for item in resultsSetItemBody:
+                link = item.find("a")
+                del link.attrs["href"]
+                explain_words = str(item) + "<b></b>" + explain_words
+        # print(explain_words)
+        if resultsSetItemBody:
+            return explain_words
+    except requests.exceptions.ConnectionError as e:
+        print("网络连接异常: ", e)
+    except requests.exceptions.Timeout as e:
+        print("连接超时: ", e)
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP错误, 状态码: {e.response.status_code}, {e}")
+    except ValueError as e:
+        print("响应解析异常: ", e)
+
+
+def cmp_field(query_, key1, key2):
+    note_id_list = invoke("findNotes", query=query_)
+    notesInfo = invoke("notesInfo", notes=note_id_list)
+    for noteInfo in notesInfo:
+        # noteId = noteInfo["noteId"]
+        # tag = noteInfo["tags"]
+        fields = noteInfo["fields"]
+        if fields[key1]["value"] != fields[key2]["value"]:
+            print(fields[key1]["value"], "::", fields[key2]["value"])
+
+
+# note_id_list = invoke(
+#     "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
+# )
+# notesInfo = invoke("notesInfo", notes=note_id_list)
+# for noteInfo in notesInfo:
+#     noteId = noteInfo["noteId"]
+#     tag = noteInfo["tags"]
+#     fields = noteInfo["fields"]
+#     if tag == ["缺失媒体文件"]:
+#         # 下载单词音频
+#         (word, data) = download_words(fields["单词"]["value"], 1)
+#         # 存储音频到anki
+#         result_filename = invoke("storeMediaFile", filename=word, data=data)
+#         if result_filename:
+#             # 更新笔记
+#             anki_audio_value = f"[sound:{result_filename}]"
+#             invoke(
+#                 "updateNote",
+#                 note={
+#                     "id": noteId,
+#                     "fields": {"单词音频": anki_audio_value},
+#                     "tags": [],
+#                 },
+#             )
+#             print(noteId, result_filename)
+
+
 note_id_list = invoke(
     "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
 )
 notesInfo = invoke("notesInfo", notes=note_id_list)
 for noteInfo in notesInfo:
     noteId = noteInfo["noteId"]
-    tag = noteInfo["tags"]
+    tags = noteInfo["tags"]
     fields = noteInfo["fields"]
-    if tag == ["缺失媒体文件"]:
-        # 下载单词音频
-        (word, data) = download_words(fields["单词"]["value"], 1)
-        # 存储音频到anki
-        result_filename = invoke("storeMediaFile", filename=word, data=data)
-        if result_filename:
+    mtags = list()
+    mtags.append("segment")
+    # 下载断词
+    if "‧" not in fields["断词"]["value"] or "segment" not in tags:
+        segment = updata_segmentation_of_word(fields["单词"]["value"])
+        if segment:
             # 更新笔记
-            anki_audio_value = f"[sound:{result_filename}]"
             invoke(
                 "updateNote",
                 note={
                     "id": noteId,
-                    "fields": {"单词音频": anki_audio_value},
-                    "tags": [],
+                    "fields": {"断词": segment},
+                    "tags": mtags,
                 },
             )
-            print(noteId, result_filename)
+            print(noteId, segment)
+    elif "‧" in fields["断词"]["value"] or "segment" in tags:
+        invoke(
+            "updateNote",
+            note={
+                "id": noteId,
+                "tags": mtags,
+            },
+        )
+    explain = download_words_explain(fields["word"]["value"])
+    mtags.append("explain")
+    if explain and "explain" not in tags:
+        invoke(
+            "updateNote",
+            note={
+                "id": noteId,
+                "fields": {"英英释义": explain},
+                "tags": mtags,
+            },
+        )
+        print(noteId, "explain")
+    mtags.pop()
+    mtags.pop()
+# cmp_field("deck:2024红宝书考研词汇（必考词+基础词+超纲词）", "单词", "word")
