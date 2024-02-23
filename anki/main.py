@@ -203,7 +203,11 @@ def cmp_field(query_, key1, key2):
 #             )
 #             print(fields["word"]["value"], "explain")
 
-#
+# <br>
+# with open("./mdict.json", "rb") as f:
+#     raw_data = f.read()
+#     mdict = json.loads(raw_data)
+
 # note_id_list = invoke(
 #     "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
 # )
@@ -214,9 +218,13 @@ def cmp_field(query_, key1, key2):
 #     fields = noteInfo["fields"]
 #     word: str = fields["word"]["value"]
 #     if word in mdict.keys():
-#         cyfl = mdict[word]
-#         if len(cyfl) >= 1:
-#             cyfl_path = cyfl[0]
+#         if len(mdict[word]) >= 1:
+#             more_meaning = mdict[word]
+#             cpath = list()
+#             for single in more_meaning:
+#                 if len(single) >= 1:
+#                     cpath.append(single[0])
+#             cyfl_path = "<br>".join(cpath)
 #             invoke(
 #                 "updateNote",
 #                 note={
@@ -227,6 +235,7 @@ def cmp_field(query_, key1, key2):
 #             )
 #             print(noteId, cyfl_path, word)
 # pass
+
 # note_id_list = invoke(
 #     "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
 # )
