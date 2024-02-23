@@ -1,3 +1,4 @@
+import json
 import os
 import re
 
@@ -63,7 +64,7 @@ def read_file(path_list):
     result_dict = dict()
     for path in path_list:
         RText = "D:/Dropbox/00-TMP/英语词义分类数据库（大学版）（带词汇表目录）/英语词义分类数据库（大学版）"
-        cclass = path.split(RText)[1].split(".")[0].replace("\\", "/")
+        fpath = path.split(RText)[1].split(".")[0].replace("\\", "/")
         with open(path, "r", encoding="utf-8") as f:
             origin_list = f.readlines()
 
@@ -105,6 +106,26 @@ def read_file(path_list):
                 if len(voc) == 2 and "vocabulary" in voc[0]:
                     soup = BeautifulSoup(voc[0], "html.parser")
                     a_voc = re.findall(r"\*\*(.*?)\*\*", soup.get_text())[0]
-                    result_dict.update({a_voc: [cclass + "/" + a_category, voc]})
-                    print(cclass + "/" + a_category + a_voc)
+                    cpath = fpath + "/" + a_category
+                    if a_voc in result_dict.keys():
+                        result_dict[a_voc].append(((cpath, voc)))
+                    else:
+                        result_dict.update({a_voc: [(cpath, voc)]})
+                    print(cpath + a_voc)
     return result_dict
+
+
+# mdict = read_file(
+#     iter_dir(
+#         "D:/Dropbox/00-TMP/英语词义分类数据库（大学版）（带词汇表目录）/英语词义分类数据库（大学版）"
+#     )
+# )
+# mdict_bytes = json.dumps(mdict, ensure_ascii=False).encode()
+# with open("./mdict.json", "wb") as f:
+#     f.write(mdict_bytes)
+
+# with open("./mdict.json", "rb") as f:
+#     raw_data = f.read()
+#     json_data = json.loads(raw_data)
+
+# pass
