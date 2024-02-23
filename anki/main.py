@@ -112,7 +112,7 @@ def updata_segmentation_of_word(words):
 
 def download_words_explain(words: str):
     try:
-        url = f"https://www.oed.com/search/dictionary/?scope=Entries&q={words}&tl=true"
+        url = f"https://www.oed.com/search/dictionary/?scope=Entries&q={words}"
         response = requests.get(url, stream=True, headers=headers)
         soup = BeautifulSoup(response.text, "html.parser")
         explain_resultsSet = soup.find_all("div", class_="resultsSet")
@@ -124,10 +124,10 @@ def download_words_explain(words: str):
             for item in resultsSetItemBody:
                 link = item.find("a")
                 del link.attrs["href"]
-                explain_words = str(item) + "<b></b>" + explain_words
-        # print(explain_words)
-        if resultsSetItemBody:
-            return explain_words
+                explain_words = explain_words + "<b></b>" + str(item)
+            # print(explain_words)
+            if resultsSetItemBody:
+                return explain_words
     except requests.exceptions.ConnectionError as e:
         print("网络连接异常: ", e)
     except requests.exceptions.Timeout as e:
@@ -182,44 +182,17 @@ note_id_list = invoke(
 notesInfo = invoke("notesInfo", notes=note_id_list)
 for noteInfo in notesInfo:
     noteId = noteInfo["noteId"]
-    tags = noteInfo["tags"]
+    tags: list = noteInfo["tags"]
     fields = noteInfo["fields"]
-    mtags = list()
-    mtags.append("segment")
-    # 下载断词
-    if "‧" not in fields["断词"]["value"] or "segment" not in tags:
-        segment = updata_segmentation_of_word(fields["单词"]["value"])
-        if segment:
-            # 更新笔记
+    if "explain" not in tags:
+        explain = download_words_explain(fields["word"]["value"])
+        if explain:
             invoke(
                 "updateNote",
                 note={
                     "id": noteId,
-                    "fields": {"断词": segment},
-                    "tags": mtags,
+                    "fields": {"英英释义": explain},
+                    "tags": ["explain"],
                 },
             )
-            print(noteId, segment)
-    elif "‧" in fields["断词"]["value"] or "segment" in tags:
-        invoke(
-            "updateNote",
-            note={
-                "id": noteId,
-                "tags": mtags,
-            },
-        )
-    explain = download_words_explain(fields["word"]["value"])
-    mtags.append("explain")
-    if explain and "explain" not in tags:
-        invoke(
-            "updateNote",
-            note={
-                "id": noteId,
-                "fields": {"英英释义": explain},
-                "tags": mtags,
-            },
-        )
-        print(noteId, "explain")
-    mtags.pop()
-    mtags.pop()
-# cmp_field("deck:2024红宝书考研词汇（必考词+基础词+超纲词）", "单词", "word")
+            print(fields["word"]["value"], "explain")
