@@ -7,6 +7,13 @@ from bs4 import BeautifulSoup
 import requests
 import filetype
 
+# import semantic_classification as sc
+
+# path_list = sc.iter_dir(
+#     "D:/Dropbox/00-TMP/英语词义分类数据库（大学版）（带词汇表目录）/英语词义分类数据库（大学版）"
+# )
+# mdict = sc.read_file(path_list)
+
 
 def request(action, **params):
     return {"action": action, "params": params, "version": 6}
@@ -116,7 +123,6 @@ def download_words_explain(words: str):
         response = requests.get(url, stream=True, headers=headers)
         soup = BeautifulSoup(response.text, "html.parser")
         explain_resultsSet = soup.find_all("div", class_="resultsSet")
-        explain_words = str()
         for explain in explain_resultsSet:
             resultsSetItemBody: list = explain.findAll(
                 "div", class_="resultsSetItemBody"
@@ -124,7 +130,7 @@ def download_words_explain(words: str):
             for item in resultsSetItemBody:
                 link = item.find("a")
                 del link.attrs["href"]
-                explain_words = explain_words + "<b></b>" + str(item)
+            explain_words = "<b></b>".join(resultsSetItemBody)
             # print(explain_words)
             if resultsSetItemBody:
                 return explain_words
@@ -176,23 +182,75 @@ def cmp_field(query_, key1, key2):
 #             print(noteId, result_filename)
 
 
-note_id_list = invoke(
-    "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
-)
-notesInfo = invoke("notesInfo", notes=note_id_list)
-for noteInfo in notesInfo:
-    noteId = noteInfo["noteId"]
-    tags: list = noteInfo["tags"]
-    fields = noteInfo["fields"]
-    if "explain" not in tags:
-        explain = download_words_explain(fields["word"]["value"])
-        if explain:
-            invoke(
-                "updateNote",
-                note={
-                    "id": noteId,
-                    "fields": {"英英释义": explain},
-                    "tags": ["explain"],
-                },
-            )
-            print(fields["word"]["value"], "explain")
+# note_id_list = invoke(
+#     "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
+# )
+# notesInfo = invoke("notesInfo", notes=note_id_list)
+# for noteInfo in notesInfo:
+#     noteId = noteInfo["noteId"]
+#     tags: list = noteInfo["tags"]
+#     fields = noteInfo["fields"]
+#     if "explain" not in tags:
+#         explain = download_words_explain(fields["word"]["value"])
+#         if explain:
+#             invoke(
+#                 "updateNote",
+#                 note={
+#                     "id": noteId,
+#                     "fields": {"英英释义": explain},
+#                     "tags": ["explain"],
+#                 },
+#             )
+#             print(fields["word"]["value"], "explain")
+
+#
+# note_id_list = invoke(
+#     "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
+# )
+# notesInfo = invoke("notesInfo", notes=note_id_list)
+# for noteInfo in notesInfo:
+#     noteId = noteInfo["noteId"]
+#     tags: list = noteInfo["tags"]
+#     fields = noteInfo["fields"]
+#     word: str = fields["word"]["value"]
+#     if word in mdict.keys():
+#         cyfl = mdict[word]
+#         if len(cyfl) >= 1:
+#             cyfl_path = cyfl[0]
+#             invoke(
+#                 "updateNote",
+#                 note={
+#                     "id": noteId,
+#                     "fields": {"词义分类": cyfl_path},
+#                     "tags": [""],
+#                 },
+#             )
+#             print(noteId, cyfl_path, word)
+# pass
+# note_id_list = invoke(
+#     "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
+# )
+# notesInfo = invoke("notesInfo", notes=note_id_list)
+# for noteInfo in notesInfo:
+#     noteId = noteInfo["noteId"]
+#     # tag = noteInfo["tags"]
+#     fields = noteInfo["fields"]
+#     if fields["word"]["value"] != fields["单词"]["value"]:
+#         (word, data) = download_words(fields["word"]["value"], 1)
+#         # 存储音频到anki
+#         result_filename = invoke("storeMediaFile", filename=word, data=data)
+#         if result_filename:
+#             # 更新笔记
+#             anki_audio_value = f"[sound:{result_filename}]"
+#             invoke(
+#                 "updateNote",
+#                 note={
+#                     "id": noteId,
+#                     "fields": {"单词音频": anki_audio_value},
+#                 },
+#             )
+#             print(
+#                 noteId,
+#                 result_filename,
+#                 fields["单词"]["value"] + "::" + fields["word"]["value"],
+#             )
