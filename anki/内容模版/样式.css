@@ -235,7 +235,7 @@
 }
 
 .wordx {
-    display: none
+    display: inline-block;
 }
 
 .phonetic .uk,
