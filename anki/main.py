@@ -66,24 +66,22 @@ def download_words(words: str, us_or_uk: int):
         sha1_hash = hashlib.sha1()
         response = requests.get(url, stream=True, headers=headers)
         content_type = response.headers.get("content-type")
+        content = response.content
         # Read and update hash in chunks of 4K
-        for byte_block in [
-            response.content[i : i + 4096]
-            for i in range(0, len(response.content), 4096)
-        ]:
+        for byte_block in [content[i : i + 4096] for i in range(0, len(content), 4096)]:
             sha1_hash.update(byte_block)
-        if b'{"code": 403}' not in response.content:
+        if b'{"code": 403}' not in content:
             if content_type:
                 file_name = (
                     f"youdao-{words}-{sha1_hash.hexdigest()}.{audio_mime[content_type]}"
                 )
             else:
                 try:
-                    audio_kind = filetype.guess(response.content)
+                    audio_kind = filetype.guess(content)
                     file_name = f"youdao-{words}-{sha1_hash.hexdigest()}.{audio_mime[audio_kind.mime]}"
                 except Exception:
                     print(f"{words} 未下载！")
-            return (file_name, base64.b64encode(response.content).decode())
+            return (file_name, base64.b64encode(content).decode())
         else:
             return None
     except requests.exceptions.ConnectionError as e:
@@ -117,7 +115,7 @@ def updata_segmentation_of_word(words):
         print("响应解析异常: ", e)
 
 
-def download_words_explain(words: str):
+def download_oed_words_explain(words: str):
     try:
         url = f"https://www.oed.com/search/dictionary/?scope=Entries&q={words}"
         response = requests.get(url, stream=True, headers=headers)
@@ -142,6 +140,9 @@ def download_words_explain(words: str):
         print(f"HTTP错误, 状态码: {e.response.status_code}, {e}")
     except ValueError as e:
         print("响应解析异常: ", e)
+
+
+# dictionary / ldoceEntry Entry / Sense / DEF
 
 
 def cmp_field(query_, key1, key2):
@@ -235,31 +236,3 @@ def cmp_field(query_, key1, key2):
 #             )
 #             print(noteId, cyfl_path, word)
 # pass
-
-# note_id_list = invoke(
-#     "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
-# )
-# notesInfo = invoke("notesInfo", notes=note_id_list)
-# for noteInfo in notesInfo:
-#     noteId = noteInfo["noteId"]
-#     # tag = noteInfo["tags"]
-#     fields = noteInfo["fields"]
-#     if fields["word"]["value"] != fields["单词"]["value"]:
-#         (word, data) = download_words(fields["word"]["value"], 1)
-#         # 存储音频到anki
-#         result_filename = invoke("storeMediaFile", filename=word, data=data)
-#         if result_filename:
-#             # 更新笔记
-#             anki_audio_value = f"[sound:{result_filename}]"
-#             invoke(
-#                 "updateNote",
-#                 note={
-#                     "id": noteId,
-#                     "fields": {"单词音频": anki_audio_value},
-#                 },
-#             )
-#             print(
-#                 noteId,
-#                 result_filename,
-#                 fields["单词"]["value"] + "::" + fields["word"]["value"],
-#             )
