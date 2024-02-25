@@ -1,0 +1,16 @@
+name: Publish Python 🐍 distributions 📦
+
+on: push
+
+jobs:
+  pyinstaller-build:
+    name: Build and publish Python 🐍 distributions 📦
+    runs-on: windows-latest
+    steps:
+      - name: Create Executable
+        uses: Martin005/pyinstaller-action@v1.2.0
+        with:
+          python_ver: '3.10'
+          spec: 'smtk\smtk.spec'
+          requirements: 'requirements.txt'
+          options: --name "smtk"
