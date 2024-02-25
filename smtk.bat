@@ -1,1 +1,1 @@
-python %~dp0cli.py %*
+python %~dp0smtk.py %*

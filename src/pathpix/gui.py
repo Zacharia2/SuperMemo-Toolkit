@@ -5,8 +5,8 @@ from tkinter import filedialog
 
 sys.path.insert(0, os.path.normpath(sys.path[0] + "/../../"))
 
-from smtk.utilscripts import config  # noqa: E402
-from smtk.pathpix import index as pathpix  # noqa: E402
+from src.utilscripts import config  # noqa: E402
+from src.pathpix import index as pathpix  # noqa: E402
 
 """
 author: st

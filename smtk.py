@@ -12,21 +12,18 @@ Options:
     -h --help       Show Help doc.
     -v --version    Show Version.
 """
-# import shutil
 
 import psutil
-from smtk.utilscripts import config
-from docopt import docopt
-from smtk.epub2sm import epub2sm
-from smtk.pathpix import index as pathpix 
-from smtk.pathpix import gui
 import os
-from smtk.latex2img import index as latex2img
 
-# def move_to_primaryStorage(source_folder_name, target_folder):
-#     shutil.move(source_folder_name, target_folder)
+from docopt import docopt
+from src.utilscripts import config
+from src.epub2sm import epub2sm
+from src.pathpix import index as pathpix
+from src.pathpix import gui
+from src.latex2img import index as latex2img
 
-# pyinstaller --add-data "conf.json;." smtk.py
+
 # pyinstaller smtk.spec
 
 
@@ -108,16 +105,6 @@ def check_console():
     if s.name() == image_name or s.parent().name() == image_name:
         return True
     return False
-
-
-# 使用kernel32.GetConsoleWindow()获取命令行窗口的句柄，
-# 然后使用user32.ShowWindow()将其隐藏起来
-# def hide_console():
-#     kernel32 = ctypes.WinDLL("kernel32")
-#     user32 = ctypes.WinDLL("user32")
-#     SW_HIDE = 0
-#     hWnd = kernel32.GetConsoleWindow()
-#     user32.ShowWindow(hWnd, SW_HIDE)
 
 
 if __name__ == "__main__":
