@@ -1,6 +1,21 @@
-name: Publish Python 🐍 distributions 📦
+name: Release 📦
 
-on: push
+on:
+    push:
+      tags:
+        - 'v*.*.*'
+      paths-ignore:
+        - 'README.md'
+        - '.vscode'
+        - '.idea'
+    pull_request:
+      branches:
+        - master
+        - main
+      paths-ignore:
+        - 'README.md'
+        - '.vscode'
+        - '.idea'
 
 jobs:
   pyinstaller-build:
