@@ -5,7 +5,7 @@ block_cipher = None
 
 
 a = Analysis(
-    ['cli.py'],
+    ['smtk.py'],
     pathex=[],
     binaries=[],
     datas=[],
