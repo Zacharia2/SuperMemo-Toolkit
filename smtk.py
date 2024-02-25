@@ -13,7 +13,6 @@ Options:
     -v --version    Show Version.
 """
 
-import psutil
 import os
 
 from docopt import docopt
@@ -97,14 +96,6 @@ def cmd():
             pathpix.single(args["--fullpath"])
         elif args.get("--gui"):
             gui.run()
-
-
-def check_console():
-    image_name = "explorer.exe"
-    s = psutil.Process().parent()
-    if s.name() == image_name or s.parent().name() == image_name:
-        return True
-    return False
 
 
 if __name__ == "__main__":
