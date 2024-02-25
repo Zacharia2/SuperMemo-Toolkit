@@ -28,4 +28,4 @@ jobs:
           python_ver: '3.10'
           spec: 'smtk\smtk.spec'
           requirements: 'requirements.txt'
-          options: --name "smtk"
+          upload_exe_with_name: 'smtk'
