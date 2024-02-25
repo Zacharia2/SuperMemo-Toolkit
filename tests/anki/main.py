@@ -94,7 +94,7 @@ def download_words(words: str, us_or_uk: int):
         print("响应解析异常: ", e)
 
 
-def updata_segmentation_of_word(words):
+def updata_segmentation_of_words(words: str):
     try:
         url = f"https://www.ldoceonline.com/dictionary/{words}"
         soup = BeautifulSoup(
@@ -145,6 +145,62 @@ def download_oed_words_explain(words: str):
 # dictionary / ldoceEntry Entry / Sense / DEF
 
 
+# <style>
+# .dsense_h,.ddef_block {padding-left: 10px;padding-right: 10px;}
+# .dsense_h {margin-bottom: 12px;padding-top: 10px;color: #5d2fc1;font-size: 1rem;font-weight: 700;}
+# .dexamp {position: relative;padding-left: 12px;display: block;}
+# .dexamp::before {content: "•";position: absolute;top: 0;left: 0;}
+# .def {line-height: 24px;font-size: 18px;}
+# .dxref {margin-right: 3px;padding: 2px 6px;color: #fff;font-weight: 700;font-size: .75rem;text-align: center;background-color: #1d2956;border-radius: 50px;}
+# .ddef_d {margin-top: 10px;font-size: 18px;line-height: 1.5;display: block;}
+# .db {font-weight: 700;}
+# .ddef_b {margin-bottom: 20px;font-size: 18px;}
+# </style>
+def download_cambridge_words_explain(words: str):
+    # https://dictionary.cambridge.org/dictionary/learner-english/entertain
+    try:
+        url = f"https://dictionary.cambridge.org/dictionary/learner-english/{words}"
+        response = requests.get(url, stream=True, headers=headers)
+        soup = BeautifulSoup(response.text, "html.parser")
+        explain_entry = soup.find_all("div", class_="entry")
+        # 仅一个entry
+        for explain in explain_entry:
+            script_tags = explain.find_all("script")
+            ad_ringlinkslot = explain.find_all("div", id="ad_ringlinkslot")
+            del_tags = script_tags + ad_ringlinkslot
+            for del_tag in del_tags:
+                del_tag.decompose()
+            pos_body = explain.find("div", class_="pos-body")
+            if pos_body:
+                # for pr in pos_body:
+                # dsense_h = pr_dsense.find("h3", class_="dsense_h").getText().strip()
+                # dsense_b = pos_body.find("div", class_="sense-body dsense_b")
+                dwl_hax = pos_body.find("div", class_="dwl hax")
+                dwl_hax.replace_with("", soup.new_tag("hr"))
+                return str(pos_body)
+    except requests.exceptions.ConnectionError as e:
+        print("网络连接异常: ", e)
+    except requests.exceptions.Timeout as e:
+        print("连接超时: ", e)
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP错误, 状态码: {e.response.status_code}, {e}")
+    except ValueError as e:
+        print("响应解析异常: ", e)
+
+
+def download_collins_words_explain(words: str):
+    try:
+        url = f"https://www.collinsdictionary.com/dictionary/english/{words}"
+    except requests.exceptions.ConnectionError as e:
+        print("网络连接异常: ", e)
+    except requests.exceptions.Timeout as e:
+        print("连接超时: ", e)
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP错误, 状态码: {e.response.status_code}, {e}")
+    except ValueError as e:
+        print("响应解析异常: ", e)
+
+
 def cmp_field(query_, key1, key2):
     note_id_list = invoke("findNotes", query=query_)
     notesInfo = invoke("notesInfo", notes=note_id_list)
@@ -183,26 +239,26 @@ def cmp_field(query_, key1, key2):
 #             print(noteId, result_filename)
 
 
-# note_id_list = invoke(
-#     "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
-# )
-# notesInfo = invoke("notesInfo", notes=note_id_list)
-# for noteInfo in notesInfo:
-#     noteId = noteInfo["noteId"]
-#     tags: list = noteInfo["tags"]
-#     fields = noteInfo["fields"]
-#     if "explain" not in tags:
-#         explain = download_words_explain(fields["word"]["value"])
-#         if explain:
-#             invoke(
-#                 "updateNote",
-#                 note={
-#                     "id": noteId,
-#                     "fields": {"英英释义": explain},
-#                     "tags": ["explain"],
-#                 },
-#             )
-#             print(fields["word"]["value"], "explain")
+note_id_list = invoke(
+    "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
+)
+notesInfo = invoke("notesInfo", notes=note_id_list)
+for index, noteInfo in enumerate(notesInfo):
+    noteId = noteInfo["noteId"]
+    tags: list = noteInfo["tags"]
+    fields = noteInfo["fields"]
+    if "剑桥LE" not in tags:
+        explain = download_cambridge_words_explain(fields["word"]["value"])
+        if explain:
+            invoke(
+                "updateNote",
+                note={
+                    "id": noteId,
+                    "fields": {"剑桥LE英英释义": explain},
+                    "tags": ["剑桥LE"],
+                },
+            )
+            print(fields["word"]["value"], "explain", f"{index+1}/{len(notesInfo)}")
 
 # <br>
 # with open("./mdict.json", "rb") as f:
