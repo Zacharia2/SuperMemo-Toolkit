@@ -26,6 +26,6 @@ jobs:
         uses: Martin005/pyinstaller-action@v1.2.0
         with:
           python_ver: '3.10'
-          spec: 'smtk\smtk.spec'
+          spec: 'smtk.spec'
           requirements: 'requirements.txt'
           upload_exe_with_name: 'smtk'

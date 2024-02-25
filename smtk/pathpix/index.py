@@ -16,8 +16,8 @@ from tqdm import tqdm
 import magic
 from urllib.parse import unquote, urlparse
 
-sys.path.insert(0, sys.path[0] + "/../")
-from scripts import config  # noqa: E402
+sys.path.insert(0, os.path.normpath(sys.path[0] + "/../../"))
+from smtk.utilscripts import config  # noqa: E402
 
 config_dir = config.get_config_dir()
 if os.path.exists(config_dir):

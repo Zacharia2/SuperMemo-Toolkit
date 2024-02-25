@@ -15,13 +15,13 @@ Options:
 # import shutil
 
 import psutil
-from scripts import config
+from smtk.utilscripts import config
 from docopt import docopt
-from epub2sm import epub2sm
-from pathpix import index as pathpix
-from pathpix import gui
+from smtk.epub2sm import epub2sm
+from smtk.pathpix import index as pathpix 
+from smtk.pathpix import gui
 import os
-from latex2img import index as latex2img
+from smtk.latex2img import index as latex2img
 
 # def move_to_primaryStorage(source_folder_name, target_folder):
 #     shutil.move(source_folder_name, target_folder)
