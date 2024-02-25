@@ -10,8 +10,8 @@ from flask import send_from_directory
 import random
 import time
 
-sys.path.insert(0, sys.path[0] + "/../")
-from scripts import config  # noqa: E402
+sys.path.insert(0, os.path.normpath(sys.path[0] + "/../../"))
+from smtk.utilscripts import config  # noqa: E402
 
 
 # 配置设置
