@@ -239,26 +239,26 @@ def cmp_field(query_, key1, key2):
 #             print(noteId, result_filename)
 
 
-note_id_list = invoke(
-    "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
-)
-notesInfo = invoke("notesInfo", notes=note_id_list)
-for index, noteInfo in enumerate(notesInfo):
-    noteId = noteInfo["noteId"]
-    tags: list = noteInfo["tags"]
-    fields = noteInfo["fields"]
-    if "剑桥LE" not in tags:
-        explain = download_cambridge_words_explain(fields["word"]["value"])
-        if explain:
-            invoke(
-                "updateNote",
-                note={
-                    "id": noteId,
-                    "fields": {"剑桥LE英英释义": explain},
-                    "tags": ["剑桥LE"],
-                },
-            )
-            print(fields["word"]["value"], "explain", f"{index+1}/{len(notesInfo)}")
+# note_id_list = invoke(
+#     "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
+# )
+# notesInfo = invoke("notesInfo", notes=note_id_list)
+# for index, noteInfo in enumerate(notesInfo):
+#     noteId = noteInfo["noteId"]
+#     tags: list = noteInfo["tags"]
+#     fields = noteInfo["fields"]
+#     if "剑桥LE" not in tags:
+#         explain = download_cambridge_words_explain(fields["word"]["value"])
+#         if explain:
+#             invoke(
+#                 "updateNote",
+#                 note={
+#                     "id": noteId,
+#                     "fields": {"剑桥LE英英释义": explain},
+#                     "tags": ["剑桥LE"],
+#                 },
+#             )
+#             print(fields["word"]["value"], "explain", f"{index+1}/{len(notesInfo)}")
 
 # <br>
 # with open("./mdict.json", "rb") as f:
@@ -292,3 +292,77 @@ for index, noteInfo in enumerate(notesInfo):
 #             )
 #             print(noteId, cyfl_path, word)
 # pass
+
+# note_id_list1 = invoke(
+#     "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
+# )
+# notesInfo1 = invoke("notesInfo", notes=note_id_list1)
+
+# words = dict()
+# for noteInfo in notesInfo1:
+#     words.update({noteInfo["fields"]["word"]["value"]: noteInfo["noteId"]})
+
+
+# note_id_list2 = invoke("findNotes", query="deck:Anki创享岛-2024恋练有词")
+# notesInfo2 = invoke("notesInfo", notes=note_id_list2)
+# wait_list = dict()
+# for index, noteInfo in enumerate(notesInfo2):
+#     noteId = noteInfo["noteId"]
+#     tags: list = noteInfo["tags"]
+#     fields = noteInfo["fields"]
+#     if fields["英"]["value"] not in words:
+#         yin = fields["音"]["value"]
+#         yi = fields["译"]["value"]
+#         zu = fields["组"]["value"].replace(" ","-")
+#         wait_list.update({fields["英"]["value"]: (yin, yi, zu)})
+
+# for word, tup in wait_list.items():
+#     (yin, yi, zu) = tup
+#     invoke(
+#         "addNote",
+#         note={
+#             "deckName": "2024红宝书考研词汇（必考词+基础词+超纲词）::D - 扩展词",
+#             "modelName": "新模板 6.0",
+#             "fields": {
+#                 "word": word,
+#                 "单词": word,
+#                 "US": yin,
+#                 "释义": yi,
+#             },
+#             "options": {
+#                 "allowDuplicate": False,
+#                 "duplicateScope": "deck",
+#                 "duplicateScopeOptions": {
+#                     "deckName": "Default",
+#                     "checkChildren": False,
+#                     "checkAllModels": False,
+#                 },
+#             },
+#             "tags": ["2024恋练有词", zu],
+#         },
+#     )
+#     print(word, "add")
+
+
+# pass
+
+note_id_list = invoke(
+    "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
+)
+notesInfo = invoke("notesInfo", notes=note_id_list)
+for index, noteInfo in enumerate(notesInfo):
+    noteId = noteInfo["noteId"]
+    tags: list = noteInfo["tags"]
+    fields = noteInfo["fields"]
+    if "剑桥LE" not in tags:
+        explain = download_cambridge_words_explain(fields["word"]["value"])
+        if explain:
+            invoke(
+                "updateNote",
+                note={
+                    "id": noteId,
+                    "fields": {"剑桥LE英英释义": explain},
+                    "tags": ["剑桥LE"],
+                },
+            )
+            print(fields["word"]["value"], "explain", f"{index+1}/{len(notesInfo)}")
