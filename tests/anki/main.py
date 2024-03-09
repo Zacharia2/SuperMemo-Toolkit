@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 import requests
 import filetype
 
-# from pyquery import PyQuery
+from pyquery import PyQuery
 from readmdict import MDX
 
 # import semantic_classification as sc
@@ -192,42 +192,35 @@ def download_cambridge_words_explain(words: str):
         print("响应解析异常: ", e)
 
 
-def download_collins_words_explain(words: str):
-    # # https://www.collinsdictionary.com/dictionary/english/discuss
-    # try:
-    #     url = f"https://www.collinsdictionary.com/dictionary/english/{words}"
-    #     session = requests.Session()
-    #     response = session.get(url, stream=True, headers=headers)
-    #     if response.status_code != 403:
-    #         pqdoc = PyQuery(response.text)
-    #         explain_entrys = pqdoc(
-    #             f"#{words}__1 > div.content.definitions.cobuild.br > div.hom"
-    #         )
-    #         # 删除广告以及多余内容
-    #         explain_entrys(".thes").remove()
-    #         explain_entrys(".mpuslot_b-container").remove()
-    #         explain_entrys("img").remove()
-    #         return str(explain_entrys)
-    #     else:
-    #         print("code: 403")
-    #         return None
-    # except requests.exceptions.ConnectionError as e:
-    #     print("网络连接异常: ", e)
-    # except requests.exceptions.Timeout as e:
-    #     print("连接超时: ", e)
-    # except requests.exceptions.HTTPError as e:
-    #     print(f"HTTP错误, 状态码: {e.response.status_code}, {e}")
-    # except ValueError as e:
-    #     print("响应解析异常: ", e)
+# def download_collins_words_explain(words: str):
+# # https://www.collinsdictionary.com/dictionary/english/discuss
+# try:
+#     url = f"https://www.collinsdictionary.com/dictionary/english/{words}"
+#     session = requests.Session()
+#     response = session.get(url, stream=True, headers=headers)
+#     if response.status_code != 403:
+#         pqdoc = PyQuery(response.text)
+#         explain_entrys = pqdoc(
+#             f"#{words}__1 > div.content.definitions.cobuild.br > div.hom"
+#         )
+#         # 删除广告以及多余内容
+#         explain_entrys(".thes").remove()
+#         explain_entrys(".mpuslot_b-container").remove()
+#         explain_entrys("img").remove()
+#         return str(explain_entrys)
+#     else:
+#         print("code: 403")
+#         return None
+# except requests.exceptions.ConnectionError as e:
+#     print("网络连接异常: ", e)
+# except requests.exceptions.Timeout as e:
+#     print("连接超时: ", e)
+# except requests.exceptions.HTTPError as e:
+#     print(f"HTTP错误, 状态码: {e.response.status_code}, {e}")
+# except ValueError as e:
+#     print("响应解析异常: ", e)
 
-    # 查词，返回单词和html文件
-    if words in headwords:
-        word, html = items[headwords.index(words)]
-        word, html = word.decode(), html.decode()
-        return html
-    else:
-        print(f"【未找到单词：{words}】")
-        return None
+# 查词，返回单词和html文件
 
 
 def cmp_field(query_, key1, key2):
@@ -397,6 +390,7 @@ def cmp_field(query_, key1, key2):
 #             print(fields["word"]["value"], "explain", f"{index+1}/{len(notesInfo)}")
 
 
+# download_collins_words_explain
 note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
 notesInfo = invoke("notesInfo", notes=note_id_list)
 
@@ -412,18 +406,31 @@ for index, noteInfo in enumerate(notesInfo):
     noteId = noteInfo["noteId"]
     tags: list = noteInfo["tags"]
     fields = noteInfo["fields"]
-    if "Mdict柯林斯" not in tags:
-        explain = download_collins_words_explain(fields["word"]["value"])
-        tags.append("Mdict柯林斯")
-        # if "柯林斯" in tags:
-        #     tags.remove("柯林斯")
-        if explain:
-            invoke(
-                "updateNote",
-                note={
-                    "id": noteId,
-                    "fields": {"柯林斯": explain},
-                    "tags": tags,
-                },
-            )
-            print(fields["word"]["value"], "explain", f"{index+1}/{len(notesInfo)}")
+    words = fields["word"]["value"]
+    if words.encode() in headwords:
+        word, html = items[headwords.index(words.encode())]
+        word, html = word.decode(), html.decode()
+        pqdoc = PyQuery(html)
+        explain_entrys = pqdoc("div > div.cobuild > div.definitions")
+        # # 遍历所有的<a>标签
+        # for a in explain_entrys("a"):
+        #     # 创建一个新的<u>标签，并将<a>标签的文本内容赋值给它
+        #     u_tag = PyQuery("<u></u>").text(PyQuery(a).text())
+        #     # 将新的<u>标签替换原来的<a>标签
+        #     explain_entrys(a).replaceWith(u_tag)
+        explain = str(explain_entrys)
+        invoke(
+            "updateNote",
+            note={
+                "id": noteId,
+                "fields": {"柯林斯": explain},
+                # "tags": tags,
+            },
+        )
+        print(fields["word"]["value"], "explain", f"{index+1}/{len(notesInfo)}")
+    else:
+        print(f"【未找到单词】：{words}")
+    # if "柯林斯" not in tags:
+    # tags.append("柯林斯")
+    # if "Mdict柯林斯" in tags:
+    #     tags.remove("Mdict柯林斯")
