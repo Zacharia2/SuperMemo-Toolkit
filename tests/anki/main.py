@@ -7,6 +7,9 @@ from bs4 import BeautifulSoup
 import requests
 import filetype
 
+# from pyquery import PyQuery
+from readmdict import MDX
+
 # import semantic_classification as sc
 
 # path_list = sc.iter_dir(
@@ -43,7 +46,8 @@ def invoke(action, **params):
 # class = resultsSet、dictionary-entry-2
 # <span class="HYPHENATION" _mstmutation="1">dic‧tion‧a‧ry</span>
 headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
 }
 
 
@@ -189,16 +193,41 @@ def download_cambridge_words_explain(words: str):
 
 
 def download_collins_words_explain(words: str):
-    try:
-        url = f"https://www.collinsdictionary.com/dictionary/english/{words}"
-    except requests.exceptions.ConnectionError as e:
-        print("网络连接异常: ", e)
-    except requests.exceptions.Timeout as e:
-        print("连接超时: ", e)
-    except requests.exceptions.HTTPError as e:
-        print(f"HTTP错误, 状态码: {e.response.status_code}, {e}")
-    except ValueError as e:
-        print("响应解析异常: ", e)
+    # # https://www.collinsdictionary.com/dictionary/english/discuss
+    # try:
+    #     url = f"https://www.collinsdictionary.com/dictionary/english/{words}"
+    #     session = requests.Session()
+    #     response = session.get(url, stream=True, headers=headers)
+    #     if response.status_code != 403:
+    #         pqdoc = PyQuery(response.text)
+    #         explain_entrys = pqdoc(
+    #             f"#{words}__1 > div.content.definitions.cobuild.br > div.hom"
+    #         )
+    #         # 删除广告以及多余内容
+    #         explain_entrys(".thes").remove()
+    #         explain_entrys(".mpuslot_b-container").remove()
+    #         explain_entrys("img").remove()
+    #         return str(explain_entrys)
+    #     else:
+    #         print("code: 403")
+    #         return None
+    # except requests.exceptions.ConnectionError as e:
+    #     print("网络连接异常: ", e)
+    # except requests.exceptions.Timeout as e:
+    #     print("连接超时: ", e)
+    # except requests.exceptions.HTTPError as e:
+    #     print(f"HTTP错误, 状态码: {e.response.status_code}, {e}")
+    # except ValueError as e:
+    #     print("响应解析异常: ", e)
+
+    # 查词，返回单词和html文件
+    if words in headwords:
+        word, html = items[headwords.index(words)]
+        word, html = word.decode(), html.decode()
+        return html
+    else:
+        print(f"【未找到单词：{words}】")
+        return None
 
 
 def cmp_field(query_, key1, key2):
@@ -346,23 +375,55 @@ def cmp_field(query_, key1, key2):
 
 # pass
 
-note_id_list = invoke(
-    "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
-)
+# note_id_list = invoke(
+#     "findNotes", query="deck:2024红宝书考研词汇（必考词+基础词+超纲词）"
+# )
+# notesInfo = invoke("notesInfo", notes=note_id_list)
+# for index, noteInfo in enumerate(notesInfo):
+#     noteId = noteInfo["noteId"]
+#     tags: list = noteInfo["tags"]
+#     fields = noteInfo["fields"]
+#     if "剑桥LE" not in tags:
+#         explain = download_cambridge_words_explain(fields["word"]["value"])
+#         if explain:
+#             invoke(
+#                 "updateNote",
+#                 note={
+#                     "id": noteId,
+#                     "fields": {"剑桥LE英英释义": explain},
+#                     "tags": ["剑桥LE"],
+#                 },
+#             )
+#             print(fields["word"]["value"], "explain", f"{index+1}/{len(notesInfo)}")
+
+
+note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
 notesInfo = invoke("notesInfo", notes=note_id_list)
+
+mdx = MDX("C:/Users/Snowy/Desktop/cobuild2024.mdx")
+headwords = [*mdx]  # 单词名列表
+items = [*mdx.items()]  # 释义html源码列表
+if len(headwords) == len(items):
+    print(f"加载成功：共{len(headwords)}条")
+else:
+    print(f"【ERROR】加载失败{len(headwords)}，{len(items)}")
+
 for index, noteInfo in enumerate(notesInfo):
     noteId = noteInfo["noteId"]
     tags: list = noteInfo["tags"]
     fields = noteInfo["fields"]
-    if "剑桥LE" not in tags:
-        explain = download_cambridge_words_explain(fields["word"]["value"])
+    if "Mdict柯林斯" not in tags:
+        explain = download_collins_words_explain(fields["word"]["value"])
+        tags.append("Mdict柯林斯")
+        # if "柯林斯" in tags:
+        #     tags.remove("柯林斯")
         if explain:
             invoke(
                 "updateNote",
                 note={
                     "id": noteId,
-                    "fields": {"剑桥LE英英释义": explain},
-                    "tags": ["剑桥LE"],
+                    "fields": {"柯林斯": explain},
+                    "tags": tags,
                 },
             )
             print(fields["word"]["value"], "explain", f"{index+1}/{len(notesInfo)}")
