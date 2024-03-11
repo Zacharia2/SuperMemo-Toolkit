@@ -394,7 +394,7 @@ def cmp_field(query_, key1, key2):
 note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
 notesInfo = invoke("notesInfo", notes=note_id_list)
 
-mdx = MDX("C:/Users/Snowy/Desktop/cobuild2024.mdx")
+mdx = MDX("D:\\Software\\MDictPC\\doc\\Collins\cobuild2024.mdx")
 headwords = [*mdx]  # 单词名列表
 items = [*mdx.items()]  # 释义html源码列表
 if len(headwords) == len(items):
@@ -412,12 +412,13 @@ for index, noteInfo in enumerate(notesInfo):
         word, html = word.decode(), html.decode()
         pqdoc = PyQuery(html)
         explain_entrys = pqdoc("div > div.cobuild > div.definitions")
-        # # 遍历所有的<a>标签
-        # for a in explain_entrys("a"):
-        #     # 创建一个新的<u>标签，并将<a>标签的文本内容赋值给它
-        #     u_tag = PyQuery("<u></u>").text(PyQuery(a).text())
-        #     # 将新的<u>标签替换原来的<a>标签
-        #     explain_entrys(a).replaceWith(u_tag)
+        for a_tag in explain_entrys("div.def > a"):
+            # 创建一个新的<u>标签，并将<a>标签的文本内容赋值给它
+            span_tag = PyQuery("<span></span>")
+            span_tag.attr["class"] = a_tag.attrib["class"]
+            span_tag.text(a_tag.text)
+            explain_entrys(a_tag).replaceWith(span_tag)
+        # PyQuery有定义__str__魔法方法，当试图将一个对象转换为字符串时会调用此方法。
         explain = str(explain_entrys)
         invoke(
             "updateNote",
