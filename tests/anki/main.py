@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import re
 import urllib.request
 from bs4 import BeautifulSoup
 
@@ -391,47 +392,94 @@ def cmp_field(query_, key1, key2):
 
 
 # download_collins_words_explain
+# note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
+# notesInfo = invoke("notesInfo", notes=note_id_list)
+
+# mdx = MDX("D:\\Software\\MDictPC\\doc\\Collins\cobuild2024.mdx")
+# headwords = [*mdx]  # 单词名列表
+# items = [*mdx.items()]  # 释义html源码列表
+# if len(headwords) == len(items):
+#     print(f"加载成功：共{len(headwords)}条")
+# else:
+#     print(f"【ERROR】加载失败{len(headwords)}，{len(items)}")
+
+# for index, noteInfo in enumerate(notesInfo):
+#     noteId = noteInfo["noteId"]
+#     tags: list = noteInfo["tags"]
+#     fields = noteInfo["fields"]
+#     words = fields["word"]["value"]
+#     if words.encode() in headwords:
+#         word, html = items[headwords.index(words.encode())]
+#         word, html = word.decode(), html.decode()
+#         pqdoc = PyQuery(html)
+#         explain_entrys = pqdoc("div > div.cobuild > div.definitions")
+#         for a_tag in explain_entrys("div.def > a"):
+#             # 创建一个新的<u>标签，并将<a>标签的文本内容赋值给它
+#             span_tag = PyQuery("<span></span>")
+#             span_tag.attr["class"] = a_tag.attrib["class"]
+#             span_tag.text(a_tag.text)
+#             explain_entrys(a_tag).replaceWith(span_tag)
+#         # PyQuery有定义__str__魔法方法，当试图将一个对象转换为字符串时会调用此方法。
+#         explain = str(explain_entrys)
+#         invoke(
+#             "updateNote",
+#             note={
+#                 "id": noteId,
+#                 "fields": {"柯林斯": explain},
+#                 # "tags": tags,
+#             },
+#         )
+#         print(fields["word"]["value"], "explain", f"{index+1}/{len(notesInfo)}")
+#     else:
+#         print(f"【未找到单词】：{words}")
+#     # if "柯林斯" not in tags:
+#     # tags.append("柯林斯")
+#     # if "Mdict柯林斯" in tags:
+#     #     tags.remove("Mdict柯林斯")
+
+
 note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
 notesInfo = invoke("notesInfo", notes=note_id_list)
-
-mdx = MDX("D:\\Software\\MDictPC\\doc\\Collins\cobuild2024.mdx")
-headwords = [*mdx]  # 单词名列表
-items = [*mdx.items()]  # 释义html源码列表
-if len(headwords) == len(items):
-    print(f"加载成功：共{len(headwords)}条")
-else:
-    print(f"【ERROR】加载失败{len(headwords)}，{len(items)}")
 
 for index, noteInfo in enumerate(notesInfo):
     noteId = noteInfo["noteId"]
     tags: list = noteInfo["tags"]
     fields = noteInfo["fields"]
-    words = fields["word"]["value"]
-    if words.encode() in headwords:
-        word, html = items[headwords.index(words.encode())]
-        word, html = word.decode(), html.decode()
-        pqdoc = PyQuery(html)
-        explain_entrys = pqdoc("div > div.cobuild > div.definitions")
-        for a_tag in explain_entrys("div.def > a"):
-            # 创建一个新的<u>标签，并将<a>标签的文本内容赋值给它
-            span_tag = PyQuery("<span></span>")
-            span_tag.attr["class"] = a_tag.attrib["class"]
-            span_tag.text(a_tag.text)
-            explain_entrys(a_tag).replaceWith(span_tag)
-        # PyQuery有定义__str__魔法方法，当试图将一个对象转换为字符串时会调用此方法。
-        explain = str(explain_entrys)
-        invoke(
-            "updateNote",
-            note={
-                "id": noteId,
-                "fields": {"柯林斯": explain},
-                # "tags": tags,
-            },
-        )
-        print(fields["word"]["value"], "explain", f"{index+1}/{len(notesInfo)}")
-    else:
-        print(f"【未找到单词】：{words}")
-    # if "柯林斯" not in tags:
-    # tags.append("柯林斯")
-    # if "Mdict柯林斯" in tags:
-    #     tags.remove("Mdict柯林斯")
+    yuanshu = fields["原书"]["value"]
+    if yuanshu != "":
+        pqdoc = PyQuery(yuanshu)
+        example_c_entrys = pqdoc("span.example_c")
+        pattern = r"[\u4e00-\u9fa5。]+"
+        ol_tag = PyQuery("<ol></ol>")
+        ol_tag.add_class("example_english_sentiment")
+        for example_c_entry in example_c_entrys:
+            li_tag = PyQuery("<li></li>")
+            zh_matches = re.findall(pattern, example_c_entry.text)
+            if len(zh_matches) > 0:
+                en = example_c_entry.text.replace(zh_matches[0], "")
+                li_tag.text(en)
+                ol_tag.append(li_tag)
+        if len(ol_tag.children()) != 0:
+            tags.append("english_sentiment")
+            invoke(
+                "updateNote",
+                note={
+                    "id": noteId,
+                    "fields": {"英文意境": str(ol_tag)},
+                    "tags": tags,
+                },
+            )
+            print(
+                "es",
+                f"{index+1}/{len(notesInfo)}",
+                ol_tag,
+            )
+    # else:
+    # invoke(
+    #     "updateNote",
+    #     note={
+    #         "id": noteId,
+    #         "fields": {"英文意境": ""},
+    #     },
+    # )
+    # print("clear", f"{index+1}/{len(notesInfo)}")
