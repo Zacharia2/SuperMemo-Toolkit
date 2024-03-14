@@ -2,7 +2,6 @@ import base64
 import hashlib
 import json
 
-import string
 import urllib.request
 from bs4 import BeautifulSoup
 
@@ -42,21 +41,16 @@ def invoke(action, **params):
     return response["result"]
 
 
-def is_en(w):
-    if "a" <= w <= "z" or "A" <= w <= "Z":
-        return True
-    elif w in string.punctuation:
-        return True
+def str_en_zh_split(mstring: str):
+    for i, s in enumerate(mstring):
+        if not s.isascii():
+            return (mstring[:i], mstring[i:])
 
 
-def str_en_zh_split(string: str):
-    for i, s in enumerate(string):
-        if not is_en(s):
-            return (string[:i], string[i:])
-        else:
-            return (string, None)
-
-
+# a = str_en_zh_split(
+#     "The hotel guests tried their best to ~ from the burning building.旅客们奋力从燃烧的大楼中逃出来。"
+# )
+# b = str_en_zh_split("The thief jumped into a car and made his ~.小偷跳上汽车逃走了。")
 # invoke("createDeck", deck="test1")
 # result = invoke("deckNames")
 # print(f"got list of decks: {result}")
@@ -468,49 +462,40 @@ def cmp_field(query_, key1, key2):
 #     #     tags.remove("Mdict柯林斯")
 
 
-# note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
-# notesInfo = invoke("notesInfo", notes=note_id_list)
+note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
+notesInfo = invoke("notesInfo", notes=note_id_list)
 
-# for index, noteInfo in enumerate(notesInfo):
-#     noteId = noteInfo["noteId"]
-#     tags: list = noteInfo["tags"]
-#     fields = noteInfo["fields"]
-#     yuanshu = fields["原书"]["value"]
-#     if yuanshu != "" and "english_sentiment" in tags:
-#         pqdoc = PyQuery(yuanshu)
-#         example_c_entrys = pqdoc("span.example_c")
-#         ol_tag = PyQuery("<ol></ol>")
-#         ol_tag.add_class("example_english_sentiment")
-#         for example_c_entry in example_c_entrys:
-#             li_tag = PyQuery("<li></li>")
-#             matches = str_en_zh_split(example_c_entry.text)
-#             if matches or matches[1]:
-#                 li_tag.text(matches[0])
-#                 ol_tag.append(li_tag)
-#         if len(ol_tag.children()) != 0:
-#             # tags.append("english_sentiment")
-#             invoke(
-#                 "updateNote",
-#                 note={
-#                     "id": noteId,
-#                     "fields": {"英文意境": str(ol_tag)},
-#                     # "tags": tags,
-#                 },
-#             )
-#             print(
-#                 "es",
-#                 f"{index+1}/{len(notesInfo)}",
-#                 # ol_tag,
-#             )
-# else:
-# invoke(
-#     "updateNote",
-#     note={
-#         "id": noteId,
-#         "fields": {"英文意境": ""},
-#     },
-# )
-# print("clear", f"{index+1}/{len(notesInfo)}")
+for index, noteInfo in enumerate(notesInfo):
+    noteId = noteInfo["noteId"]
+    tags: list = noteInfo["tags"]
+    fields = noteInfo["fields"]
+    yuanshu = fields["原书"]["value"]
+    if yuanshu != "" and "english_sentiment" in tags:
+        pqdoc = PyQuery(yuanshu)
+        example_c_entrys = pqdoc("span.example_c")
+        ol_tag = PyQuery("<ol></ol>")
+        ol_tag.add_class("example_english_sentiment")
+        for example_c_entry in example_c_entrys:
+            li_tag = PyQuery("<li></li>")
+            matches = str_en_zh_split(example_c_entry.text)
+            if matches:
+                li_tag.text(matches[0])
+                ol_tag.append(li_tag)
+        if len(ol_tag.children()) != 0:
+            # tags.append("english_sentiment")
+            invoke(
+                "updateNote",
+                note={
+                    "id": noteId,
+                    "fields": {"英文意境": str(ol_tag)},
+                    # "tags": tags,
+                },
+            )
+            print(
+                "es",
+                f"{index+1}/{len(notesInfo)}",
+                # ol_tag,
+            )
 
 
 # note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
@@ -547,40 +532,40 @@ def cmp_field(query_, key1, key2):
 #         print(f"【未找到单词】：{words}")
 
 
-note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
-notesInfo = invoke("notesInfo", notes=note_id_list)
+# note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
+# notesInfo = invoke("notesInfo", notes=note_id_list)
 
-mdx = MDX("D:/Software/MDictPC/doc/mwa/mwa.mdx")
-headwords = [*mdx]  # 单词名列表
-items = [*mdx.items()]  # 释义html源码列表
-if len(headwords) == len(items):
-    print(f"[TRUE]加载成功：共{len(headwords)}条")
-else:
-    print(f"[ERROR]加载失败{len(headwords)}, {len(items)}")
+# mdx = MDX("D:/Software/MDictPC/doc/mwa/mwa.mdx")
+# headwords = [*mdx]  # 单词名列表
+# items = [*mdx.items()]  # 释义html源码列表
+# if len(headwords) == len(items):
+#     print(f"[TRUE]加载成功：共{len(headwords)}条")
+# else:
+#     print(f"[ERROR]加载失败{len(headwords)}, {len(items)}")
 
-for index, noteInfo in enumerate(notesInfo):
-    noteId = noteInfo["noteId"]
-    tags: list = noteInfo["tags"]
-    fields = noteInfo["fields"]
-    words = fields["word"]["value"]
-    if words.encode() in headwords and "english_sentiment" not in tags:
-        word, html = items[headwords.index(words.encode())]
-        word, html = word.decode(), html.decode()
-        pqdoc = PyQuery(html)
-        explain_entrys = pqdoc(
-            "#ld_entries_v2_all > div:nth-child(2) > div.sblocks > div > div > div > div.sense > div > ul > li > div"
-        )
-        a = str(explain_entrys)
-        if str(html) != "":
-            # tags.append("english_sentiment")
-            # invoke(
-            #     "updateNote",
-            #     note={
-            #         "id": noteId,
-            #         "fields": {"英文意境": str(html)},
-            #         "tags": tags,
-            #     },
-            # )
-            print(fields["word"]["value"], "explain", f"{index+1}/{len(notesInfo)}")
-    else:
-        print(f"【未找到单词】：{words}")
+# for index, noteInfo in enumerate(notesInfo):
+#     noteId = noteInfo["noteId"]
+#     tags: list = noteInfo["tags"]
+#     fields = noteInfo["fields"]
+#     words = fields["word"]["value"]
+#     if words.encode() in headwords and "english_sentiment" not in tags:
+#         word, html = items[headwords.index(words.encode())]
+#         word, html = word.decode(), html.decode()
+#         pqdoc = PyQuery(html)
+#         explain_entrys = pqdoc(
+#             "#ld_entries_v2_all > div:nth-child(2) > div.sblocks > div > div > div > div.sense > div > ul > li > div"
+#         )
+#         a = str(explain_entrys)
+#         if str(html) != "":
+#             # tags.append("english_sentiment")
+#             # invoke(
+#             #     "updateNote",
+#             #     note={
+#             #         "id": noteId,
+#             #         "fields": {"英文意境": str(html)},
+#             #         "tags": tags,
+#             #     },
+#             # )
+#             print(fields["word"]["value"], "explain", f"{index+1}/{len(notesInfo)}")
+#     else:
+#         print(f"【未找到单词】：{words}")
