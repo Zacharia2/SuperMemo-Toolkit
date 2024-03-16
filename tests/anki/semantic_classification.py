@@ -64,7 +64,7 @@ def read_file(path_list):
     result_dict = dict()
     for path in path_list:
         RText = "D:/Dropbox/00-TMP/英语词义分类数据库（大学版）（带词汇表目录）/英语词义分类数据库（大学版）"
-        fpath = path.split(RText)[1].split(".")[0].replace("\\", "/")
+        class_path = path.split(RText)[1].split(".")[0].replace("\\", "/")
         with open(path, "r", encoding="utf-8") as f:
             origin_list = f.readlines()
 
@@ -106,7 +106,7 @@ def read_file(path_list):
                 if len(voc) == 2 and "vocabulary" in voc[0]:
                     soup = BeautifulSoup(voc[0], "html.parser")
                     a_voc = re.findall(r"\*\*(.*?)\*\*", soup.get_text())[0]
-                    cpath = fpath + "/" + a_category
+                    cpath = class_path + "/" + a_category
                     if a_voc in result_dict.keys():
                         result_dict[a_voc].append(((cpath, voc)))
                     else:
