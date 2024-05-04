@@ -28,6 +28,7 @@ sent_list = sent_dataFrame + aa_sent_dataFrame
 note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
 notesInfo = invoke("notesInfo", notes=note_id_list)
 
+count = 0
 for index, noteInfo in enumerate(notesInfo):
     noteId = noteInfo["noteId"]
     tags: list = noteInfo["tags"]
@@ -36,8 +37,14 @@ for index, noteInfo in enumerate(notesInfo):
     for sigsent in sent_list:
         for cword in sigsent["词集"]:
             if cmp_2word(word, cword):
+                count += 1
                 replaced_text = re.sub(
-                    r"\[(.*?)\]", r'<font color="red">\1</font>', sigsent["句子"]
+                    r"\[" + cword + r"\]",
+                    f'<font color="red"><b>{cword}</b></font>',
+                    sigsent["句子"],
+                )
+                replaced_text = re.sub(
+                    r"\[(.*?)\]", r'<font color="blue">\1</font>', replaced_text
                 )
                 num = int(sigsent["序列"])
                 invoke(
@@ -51,4 +58,4 @@ for index, noteInfo in enumerate(notesInfo):
                         },
                     },
                 )
-                print(f"{word}:{cword}, {index+1}/{len(notesInfo)}")
+                print(f"{count}::{word}:{cword}, {index+1}/{len(notesInfo)}")
