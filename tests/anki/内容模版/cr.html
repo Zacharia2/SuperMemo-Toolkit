@@ -1,0 +1,97 @@
+<audio id="audio_c"></audio>
+<div class="word_c">{{单词}}</div>
+<div class="wordx">{{断词}}</div>
+<div class="phonetic">
+  <div class="yinbiao_Only">
+    <img src="_us4.png" alt="S" class="yinbiao_img" />
+    <div class="us">{{US}}</div>
+  </div>
+  <div class="yinbiao_Only">
+    <img src="_uk4.png" alt="K" class="yinbiao_img" />
+    <div class="uk">{{UK}}</div>
+  </div>
+  <div class="phonetic">{{单词音频}}</div>
+</div>
+<div class="locat">{{所在组}} - {{序号}}</div>
+
+<div class="english_sentiment" style="font-family: 'Arial'; font-size: 1.2em">
+  {{嵌入词义}}
+</div>
+<div style="font-family: 'Arial'; font-size: 15px; text-align: right">
+  <br /><i>{{Sent}}</i>
+</div>
+
+<style>
+  ol.english_sentiment > li {
+    margin-bottom: 10px;
+  }
+
+  .mw_zh {
+    display: none;
+  }
+
+  .mw_spm_it,
+  .mw_spm_phrase {
+    margin-left: 0.3em;
+    font-size: 90%;
+    color: red;
+    display: inline;
+    /*    display: none;*/
+  }
+
+  .word_c {
+    opacity: 0;
+    transform: translateY(-20px);
+    animation: fade-in-up 0.3s ease-in-out forwards;
+  }
+
+  .locat,
+  .phonetic,
+  .yinpin_Cat {
+    opacity: 0;
+    animation: fade-in 0.4s ease forwards;
+  }
+
+  .phonetic {
+    animation-delay: 0.3s;
+  }
+
+  .yinpin_Cat {
+    animation-delay: 0.4s;
+  }
+
+  .locat {
+    animation-delay: 0.7s;
+  }
+</style>
+
+<script>
+  var $jscomp = $jscomp || {};
+  $jscomp.scope = {};
+  $jscomp.createTemplateTagFirstArg = function (a) {
+    return (a.raw = a);
+  };
+  $jscomp.createTemplateTagFirstArgWithRaw = function (a, b) {
+    a.raw = b;
+    return a;
+  };
+  CreatClick($(".yinbiao_Only .us"), play3, 1);
+  CreatClick($(".yinbiao_Only .uk"), play3, 2);
+  function CreatClick(a, b, c) {
+    [].forEach.call(a, function (d) {
+      d.onclick = function () {
+        b(d, c);
+      };
+    });
+  }
+  function play3(a, b) {
+    a = $(".word_c").text();
+    console.log(a);
+    play(a, b);
+  }
+  function play(a, b) {
+    var c = document.querySelector("#audio_c");
+    c.src = "https://dict.youdao.com/dictvoice?audio=" + a + "&type=" + b;
+    c.play();
+  }
+</script>
