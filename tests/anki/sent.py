@@ -47,6 +47,7 @@ for index, noteInfo in enumerate(notesInfo):
                     r"\[(.*?)\]", r'<span class="other_word">\1</span>', replaced_text
                 )
                 num = int(sigsent["序列"])
+                meaning = re.sub(r"\s+", "", sigsent["句意"])
                 invoke(
                     "updateNote",
                     note={
@@ -54,7 +55,7 @@ for index, noteInfo in enumerate(notesInfo):
                         "fields": {
                             "SentID": f"{num:04d}",
                             "Sent": replaced_text,
-                            "Trans": sigsent["句意"],
+                            "Trans": meaning,
                         },
                     },
                 )
