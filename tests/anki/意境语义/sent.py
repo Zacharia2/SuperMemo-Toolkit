@@ -3,9 +3,8 @@ import re
 import sys
 import pandas as pd
 
-from until.cmp_2word import cmp_2word
-
 sys.path.insert(0, os.path.normpath(sys.path[0] + "/../"))
+from until.cmp_2word import cmp_2word
 from main import invoke  # noqa: E402
 
 df = pd.read_excel("C:/Users/Snowy/Desktop/2000.xlsx", sheet_name="Sheet1")
@@ -27,6 +26,24 @@ for index, sent in enumerate(aa_sent_dataFrame):
 
 note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
 notesInfo = invoke("notesInfo", notes=note_id_list)
+
+for index, noteInfo in enumerate(notesInfo):
+    noteId = noteInfo["noteId"]
+    tags: list = noteInfo["tags"]
+    fields = noteInfo["fields"]
+    SentID = fields["SentID"]["value"]
+    invoke(
+        "updateNote",
+        note={
+            "id": noteId,
+            "fields": {
+                "SentID": "",
+                "Sent": "",
+                "Trans": "",
+            },
+        },
+    )
+    print(f"clearly:: {index+1}/{len(notesInfo)}")
 
 count = 0
 for index, noteInfo in enumerate(notesInfo):

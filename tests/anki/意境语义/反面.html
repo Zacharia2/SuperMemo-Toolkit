@@ -1,0 +1,718 @@
+<div style="font-family: 'Arial'; font-size: 12px; text-align: right">
+    【{{同义句}}】{{同义句释义}}
+  </div>
+  <audio id="audio_c" autoplay>{{单词音频}}</audio>
+  <link rel="stylesheet" href="_cobuild2024.css" />
+  <div class="Cat transition_none">
+    <div class="word_c">{{单词}}</div>
+    <div class="wordx">{{语音音节}}</div>
+    <div class="phonetic">
+      <div class="yinbiao_Only">
+        <img src="_us4.png" alt="S" class="yinbiao_img" />
+        <div class="us">{{US}}</div>
+      </div>
+      <div class="yinbiao_Only">
+        <img src="_uk4.png" alt="K" class="yinbiao_img" />
+        <div class="uk">{{UK}}</div>
+      </div>
+    </div>
+  
+    <div class="locat">{{所在组}} - {{序号}}</div>
+    <div class="cp">
+      <a>{{重要程度}}</a>
+      <ul>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+        <li></li>
+      </ul>
+    </div>
+  
+    <div class="sent" id="sent_card">
+      <div id="sent">{{Sent}}</div>
+      <div id="trans" style="display: none">{{Trans}}</div>
+    </div>
+  
+    <section class="pattern-section">
+      <div class="sect-content">
+        <ul class="tab-list" data-features-nav1 data-nav>
+          <li>
+            <a href="#all1-positions">总览</a>
+          </li>
+          <li class="active">
+            <a href="#book-positions" class="__active">书本</a>
+          </li>
+          <li>
+            <a href="#dictionary-positions">词典</a>
+          </li>
+          <!-- <li>
+              <a href="#discrimination-positions">辨析</a>
+            </li> -->
+          <li>
+            <a href="#exams-positions">真题</a>
+          </li>
+          <li>
+            <a href="#custom-positions">自定</a>
+          </li>
+        </ul>
+        <div id="tabs-container" data-features-tabs1 data-tabs>
+          <div id="all1-positions" class="tab-content"></div>
+          <div id="book-positions" class="tab-content __active">
+            <div class="card_cat">
+              <div class="base_cat">{{释义}}</div>
+            </div>
+            <div class="card_cat">
+              <div
+                class="yingwenyijing"
+                style="font-family: 'Arial'; font-size: 20px"
+              >
+                {{嵌入词义}}
+              </div>
+            </div>
+            <!-- <div class="card_cat">
+              <div>{{Trans}}</div>
+            </div> -->
+          </div>
+          <div id="dictionary-positions" class="tab-content position">
+            <div class="card_cat">
+              <div style="font-family: 'Arial'; font-size: 20px">{{柯林斯}}</div>
+            </div>
+            <div class="card_cat">
+              <div class="pieG">
+                <section>
+                  <div class="pieID pie"></div>
+                  <ul class="pieID legend"></ul>
+                </section>
+              </div>
+              <div class="coca" style="display: none">{{分布}}</div>
+              <div class="card_cat">{{辨析}}</div>
+            </div>
+            <div class="card_cat">{{真题分布}}</div>
+          </div>
+          <!-- <div id="discrimination-positions" class="tab-content position"></div> -->
+          <div id="exams-positions" class="tab-content position">
+            <div class="card_cat">{{真题例句}}</div>
+          </div>
+          <div id="custom-positions" class="tab-content">{{我的笔记}}</div>
+        </div>
+      </div>
+    </section>
+  </div>
+  
+  
+  
+  <!-- 立即调用的函数表达式（IIFE） -->
+  
+  <script>
+    (function checkInputOnLoad() {
+      var sentence = document.getElementById("sent");
+      var sent_card = document.getElementById("sent_card");
+      if (sentence.getInnerHTML().trim() === "") {
+        sent_card.style.display = "none";
+      }
+    })();
+  </script>
+  
+  <!-- 立即调用的函数表达式（IIFE） -->
+  <script>
+    (function span_to_link() {
+      var words = document.querySelectorAll(".other_word");
+      words.forEach(function (wordSpan) {
+        var word = wordSpan.textContent;
+        var url = `https://m.youdao.com/singledict?le=eng&dict=blng_sents&more=true&q=${encodeURIComponent(
+          word
+        )}`;
+        var englishLink = document.createElement("a");
+        englishLink.href = url;
+        englishLink.textContent = word;
+        englishLink.addEventListener("click", function (event) {
+          // 阻止事件冒泡
+          event.stopPropagation();
+        });
+        wordSpan.parentNode.replaceChild(englishLink, wordSpan);
+      });
+    })();
+  </script>
+  
+  
+  <!-- 立即调用的函数表达式（IIFE） -->
+  <script>
+    (function languageChance() {
+      var div = document.getElementById("sent_card");
+      var sent = document.getElementById("sent");
+      var trans = document.getElementById("trans");
+      var isChinese = false;
+  
+      // 为div添加点击事件监听器
+      div.addEventListener("click", function () {
+        if (isChinese) {
+          sent.style.display = "block";
+          trans.style.display = "none";
+        } else {
+          sent.style.display = "none";
+          trans.style.display = "block";
+        }
+        isChinese = !isChinese;
+      });
+    })();
+  </script>
+  
+  
+  <!-- 在线词典友情链接 -->
+  <div id="links" style="text-align: center;"></div>
+  <script>
+    // 友情链接
+    var word = `{{word}}`;
+    var links_div = document.getElementById("links");
+    // 创建一个字典链接的数组
+    var dictLinks = [
+      {
+        href: `https://dict.eudic.net/dicts/en/${word}`,
+        favicon: "https://dict.eudic.net/Images/en/favicon.ico",
+        text: "欧路词典(网页)",
+      },
+      {
+        href: `https://www.youdao.com/result?word=${word}&lang=en`,
+        favicon: "https://shared-https.ydstatic.com/images/favicon.ico",
+        text: "有道词典",
+      },
+      {
+        href: `https://dict.cn/search?q=${word}`,
+        favicon: "https://i1.haidii.com/favicon.ico",
+        text: "海词词典",
+      },
+      {
+        href: `https://www.bing.com/dict/search?q=${word}&FORM=HDRSC6`,
+        favicon: "https://cn.bing.com/sa/simg/favicon-trans-bg-blue-mg.ico",
+        text: "必应词典",
+      },
+      {
+        href: `https://fanyi.sogou.com/text?keyword=${word}&transfrom=en&transto=zh-CHS&model=general`,
+        favicon: "https://dlweb.sogoucdn.com/translate/favicon.ico?v=20180424",
+        text: "搜狗翻译",
+      },
+    ];
+  
+    // 使用map和join方法创建链接字符串
+    var linkHTML = dictLinks
+      .map((link) => {
+        return `<a href="${link.href}" target="_blank">
+                <img src="${link.favicon}" alt="" style="width:16px">
+                ${link.text}
+              </a>`;
+      })
+      .join("");
+    links_div.innerHTML = `<div style="display: inline-block;margin-top:0.5em;">${linkHTML}</div>`;
+  </script>
+  
+  
+  
+  <!-- 样式 -->
+  <style>
+    /* 中文例句 */
+    ol.english_sentiment>li {
+        margin-bottom: 12px;
+    }
+  
+    .mw_zh {
+        font-size: 90%;
+        color: green;
+        display: block;
+    }
+  
+    .mw_spm_it,
+    .mw_spm_phrase {
+        margin-left: 0.3em;
+        font-size: 90%;
+        color: red;
+        display: inline;
+        /*    display: none;*/
+    }
+  
+    /*  */
+  
+    .card {
+        --ssyy: #537afa;
+        --lljj: #333;
+        --lljjfy: #b1acac;
+        --zhuji: #e45401;
+    }
+  
+    .card.nightMode {
+        --ssyy: #46fadc;
+        --lljj: dbdbdb;
+        --lljjfy: #666;
+        --zhuji: #ffae80;
+        --xxx: #dbdbdb;
+    }
+  
+    .other_c,
+    .yuanshu {
+        min-width: 320px;
+        color: var(--xxx);
+        font-size: 0.9rem;
+    }
+  
+    .yuanshu .example_c,
+    .yuanshu .example_t,
+    .yuanshu .meaning_c {
+        display: block;
+        margin: 0.4rem 0;
+        line-height: 1.5rem;
+    }
+  
+    .yuanshu .meaning_c {
+        margin-left: 50px;
+        text-indent: -51px;
+    }
+  
+    .yuanshu .example_c,
+    .yuanshu .example_t {
+        margin-left: 50px;
+    }
+  
+    .yuanshu .meaning_c:before {
+        content: "「释义」";
+        font-size: 0.8rem;
+    }
+  
+    .yuanshu .example_t {
+        margin-bottom: 0.8rem;
+    }
+  
+    .meaning_c,
+    .meaning_c a {
+        color: var(--ssyy);
+    }
+  
+    .meaning_c a {
+        margin-right: 5px;
+    }
+  
+    .example_c {
+        color: var(--lljj);
+    }
+  
+    .example_t {
+        color: var(--lljjfy);
+    }
+  
+    .ant_c,
+    .com_c,
+    .der_c,
+    .dis_c,
+    .exam_c,
+    .phr_c,
+    .rel_c,
+    .sup_c,
+    .typ_c {
+        margin: 0.4rem 0 0.4rem 50px;
+        text-indent: -51px;
+        font-size: 0.9rem;
+        line-height: 1.5rem;
+    }
+  
+    .ant_c:before,
+    .com_c:before,
+    .der_c:before,
+    .dis_c:before,
+    .exam_c:before,
+    .phr_c:before,
+    .rel_c:before,
+    .sup_c:before,
+    .syn_c:before,
+    .typ_c:before {
+        font-size: 0.8rem;
+    }
+  
+    .sup_c {
+        color: var(--zhuji);
+    }
+  
+    .sup_c:before {
+        content: "「助记」";
+    }
+  
+    .phr_c:before {
+        content: "「词组」";
+    }
+  
+    .syn_c:before {
+        content: "「同义」";
+    }
+  
+    .ant_c:before {
+        content: "「反义」";
+    }
+  
+    .der_c:before {
+        content: "「派生」";
+    }
+  
+    .com_c:before {
+        content: "「复合」";
+    }
+  
+    .dis_c:before {
+        content: "「辨析」";
+    }
+  
+    .rel_c:before {
+        content: "「相关」";
+    }
+  
+    .exam_c:before {
+        content: "「考题」";
+    }
+  </style>
+  
+  <script>
+    var $jscomp = $jscomp || {};
+    $jscomp.scope = {};
+    $jscomp.createTemplateTagFirstArg = function (a) {
+      return (a.raw = a);
+    };
+    $jscomp.createTemplateTagFirstArgWithRaw = function (a, b) {
+      a.raw = b;
+      return a;
+    };
+    re();
+    function re() {
+      $(".Cat").removeClass("transition_none");
+      cigencizhui();
+      autoHeight();
+      createPie(".pieID.legend", ".pieID.pie");
+      deleEmpty();
+      tabs(1);
+      tabs(2);
+      bx();
+      show();
+      ztre();
+      cipin();
+      showfblj();
+      defaultAcitve(1, "custom");
+      CreatClick($(".yinbiao_Only .us"), play3, 1);
+      CreatClick($(".yinbiao_Only .uk"), play3, 2);
+      CreatClick($(".Trans"), Trans);
+      CreatClick($(".Play-uk"), play2, "2");
+      CreatClick($(".Play-us"), play2, "1");
+      CreateClick($(".pos_icon"), oxford_pos_icon);
+      CreateClick($(".m_icon"), oxford_m_icon);
+      CreateClick($(".trans_icon"), oxford_trans_icon);
+      CreateClick($(".idm_icon"), oxford_idm_icon);
+      CreateClick($(".point"), play_sentence, 2);
+      CreatClick($(".mnemonic .mne_i"), mnemonic);
+    }
+    function deleEmpty() {
+      $.each($(".card_cat"), function (a, b) {
+        0 >= $(b).text().length && $(b).remove();
+      });
+      $.each($(".tab-list li a"), function (a, b) {
+        $(b.hash).hasClass("position") &&
+          0 >= $(b.hash).text().length &&
+          ($(b.hash).remove(), $(b).parent().remove());
+      });
+      0 >= $(".coca").text().length &&
+        $(".pie").parentsUntil(".tab-content").remove();
+    }
+    function defaultAcitve(a, b) {
+      0 != getCustom(b) &&
+        $(
+          'a[href="#' + b + '-positions"]',
+          "[data-features-nav" + a + "]"
+        ).trigger("click");
+    }
+    function cigencizhui() {
+      var a = new IntersectionObserver(function (b, c) {
+        b.forEach(function (e) {
+          e.isIntersecting &&
+            ($(".affix-box .line").css({
+              "margin-left":
+                $("#sub-content-box .word:first").outerWidth(!0) / 2 - 1,
+              "margin-right":
+                $("#sub-content-box .word:last").outerWidth(!0) / 2 - 14,
+            }),
+            c.unobserve(e.target));
+        });
+      });
+      document.querySelectorAll(".affix-box").forEach(function (b) {
+        a.observe(b);
+      });
+    }
+    function cipin() {
+      "" != $(".cp a").html() &&
+        $(".cp li:nth-child(" + $(".cp a").text() + ")").addClass("cp_active");
+    }
+    function getCustom(a) {
+      return getComputedStyle(document.documentElement)
+        .getPropertyValue("--" + a)
+        .trim();
+    }
+    function tabs(a) {
+      var b = "[data-features-nav" + a + "]",
+        c = "[data-features-tabs" + a + "]";
+      $("a", b).on("click", function (e) {
+        var f = $(this)[0];
+        $(this).index();
+        $(".__active", b).removeClass("__active");
+        $(f).addClass("__active");
+        $("div", c).removeClass("__active");
+        $(f.hash, c).addClass("__active");
+        $("li a.__active", b).attr("href") === "#all" + a + "-positions" &&
+          $(".tab-content", c).addClass("__active");
+        "#custom-positions" === $("li a.__active", b).attr("href") &&
+          ($(".__active", "[data-features-nav2]").removeClass("__active"),
+          $(".__active", "[data-features-tabs2]").removeClass("__active"),
+          0 != getCustom("book") &&
+            $("#book-positions", "[data-tabs]").addClass("__active"),
+          0 != getCustom("etymology") &&
+            $("#etymology-positions", "[data-tabs]").addClass("__active"),
+          0 != getCustom("discrimination") &&
+            $("#discrimination-positions", "[data-tabs]").addClass("__active"),
+          0 != getCustom("basic") &&
+            $("#basic-positions", "[data-tabs]").addClass("__active"),
+          0 != getCustom("distribution") &&
+            $("#distribution-positions", "[data-tabs]").addClass("__active"),
+          0 != getCustom("exams") &&
+            $("#exams-positions", "[data-tabs]").addClass("__active"),
+          0 != getCustom("oxford") &&
+            $("#oxford-positions", "[data-tabs]").addClass("__active"));
+        if (
+          $(f.hash, c).attr("id") === "all" + a + "-positions" ||
+          "custom-positions" === $(f.hash, c).attr("id")
+        ) {
+          var d = 0;
+          $.each($(".tab-content.__active", c), function (g, h) {
+            d += $(h).outerHeight(!0);
+          });
+          $(f.hash, c).parent().css("height", d);
+        } else $(f.hash, c).parent().css("height", $(f.hash, c).outerHeight(!0));
+        e.preventDefault();
+        return !1;
+      });
+    }
+    function autoHeight() {
+      var a = new ResizeObserver(function (b) {
+        var c = 0;
+        b.forEach(function (e) {
+          $("#custom-positions").hasClass("__active") ||
+          $("#all2-positions").hasClass("__active") ||
+          $("#all1-positions").hasClass("__active")
+            ? ($.each($(e.target).parent().find(".__active"), function (f, d) {
+                c += $(d).outerHeight(!0);
+              }),
+              $(e.target)
+                .parent()
+                .css("height", "" + c),
+              (c = 0))
+            : 0 != e.contentRect.height &&
+              $(e.target)
+                .parent()
+                .css("height", "" + e.contentRect.height);
+        });
+      });
+      document.querySelectorAll(".tab-content").forEach(function (b) {
+        return a.observe(b);
+      });
+    }
+    function bx() {
+      var a = document.querySelectorAll(".para-lj");
+      [].forEach.call(a, function (b) {
+        b.onclick = function () {
+          var c = $(b).find(".syn-val");
+          $(b).toggleClass("para-active");
+          $(b).hasClass("para-active")
+            ? c.css("max-height", c.outerWidth())
+            : c.css("max-height", "30px");
+        };
+      });
+    }
+    function show() {
+      var a = document.querySelectorAll(".zt_Cat div");
+      [].forEach.call(a, function (b) {
+        b.onclick = function () {
+          var c = $(b).next();
+          $(b).parent().toggleClass("zt_active");
+          $(b).parent().hasClass("zt_active")
+            ? c.css("max-height", c.outerWidth())
+            : c.css("max-height", "0px");
+        };
+      });
+    }
+    function ztre() {
+      $.each($(".zt_syfb b a"), function (a, b) {
+        0 == $(b).text()
+          ? $(b).parent().next().children(".progress-bar").css("width", "0%")
+          : $(b)
+              .parent()
+              .next()
+              .next()
+              .children(".progress-bar")
+              .css(
+                "width",
+                ($(b).html() / $(".zt_syfb .fbl").html()) * 100 + "%"
+              );
+      });
+      $.each($(".zt_txfb b a"), function (a, b) {
+        $(b)
+          .parent()
+          .next()
+          .children(".progress-bar")
+          .css("width", 100 * $(b).html() + "%");
+        $(b).html("" + Number(100 * $(b).html()).toFixed(2));
+      });
+    }
+    function showfblj() {
+      [].forEach.call($(".zt_syfb b"), function (a) {
+        a.onclick = function () {
+          $(a).next().toggleClass("showfblj");
+          $(a).toggleClass("zt_icon");
+        };
+      });
+    }
+    function sliceSize(a, b) {
+      return (a / b) * 360;
+    }
+    function addSlice(a, b, c, e, f) {
+      $(b).append("<div class='slice " + e + "'><span></span></div>");
+      --c;
+      a = -179 + a;
+      $("." + e).css({ transform: "rotate(" + c + "deg) translate3d(0,0,0)" });
+      $("." + e + " span").css({
+        transform: "rotate(" + a + "deg) translate3d(0,0,0)",
+        "background-color": f,
+      });
+    }
+    function iterateSlices(a, b, c, e, f, d) {
+      var g = "s" + e + "-" + f;
+      179 >= a
+        ? addSlice(a, b, c, g, d)
+        : (addSlice(179, b, c, g, d),
+          iterateSlices(a - 179, b, c + 179, e, f + 1, d));
+    }
+    function createPie(a, b) {
+      var c = document.querySelectorAll(".coca2 font"),
+        e = document.querySelector(".coca2");
+      if (e) {
+        for (var f = 0; f < c.length; f++)
+          $("<li><em></em><span></span></li>").appendTo(".legend");
+        f = document.querySelectorAll(".legend span");
+        var d = document.querySelectorAll(".legend em");
+        f.forEach(function (m, k) {
+          m.innerHTML = c[k].innerHTML.substring(0, c[k].innerText.length - 1);
+        });
+        d.forEach(function (m, k) {
+          m.innerHTML = e.innerText.split("\uff0c")[k].split("(")[0];
+        });
+        var g = [];
+        $(a + " span").each(function () {
+          g.push(Number($(this).html()));
+        });
+        for (d = f = 0; d < g.length; d++) f += g[d];
+        var h = 0,
+          l = [];
+        for (d = 0; 11 > d; d++)
+          l.push(
+            getComputedStyle(document.body).getPropertyValue("--circle" + d)
+          );
+        for (d = 0; d < g.length; d++) {
+          var n = sliceSize(g[d], f);
+          iterateSlices(n, b, h, d, 0, l[d]);
+          $(a + " li:nth-child(" + (d + 1) + ")").css({
+            "border-color": l[d],
+            color: l[d],
+          });
+          h += n;
+        }
+      }
+    }
+    function CreateClick(a, b, c) {
+      [].forEach.call(a, function (e) {
+        e.onclick = function () {
+          b(e, c);
+        };
+      });
+    }
+    function oxford_pos_icon(a) {
+      $(a).parent().parent().toggleClass("pos_inactive");
+      $(a).parent().next().slideToggle(600);
+    }
+    function oxford_m_icon(a) {
+      $(a).parent().parent().toggleClass("m_inactive");
+      $(a).parent().parent().next().children(".li_exs").slideToggle(400);
+    }
+    function oxford_trans_icon(a) {
+      $(a).parent().parent().toggleClass("trans_inactive");
+      $(a).parent().parent().next().find(".bil_ex").slideToggle(400);
+    }
+    function oxford_idm_icon(a) {
+      $(a).parent().parent().toggleClass("idm_inactive");
+      $(a).parent().next().slideToggle(400);
+    }
+    function play_sentence(a, b) {
+      sentence = $(a).parents("td").next().find(".val_ex").html();
+      a = document.querySelector("#audio_c");
+      a.src =
+        "https://dict.youdao.com/dictvoice?audio=" + sentence + "&type=" + b;
+      a.load();
+      a.play();
+    }
+    function CreatClick(a, b, c) {
+      [].forEach.call(a, function (e) {
+        e.onclick = function () {
+          b(e, c);
+        };
+      });
+    }
+    function Trans(a) {
+      $(a).parent().parent().find(".cn").slideToggle(200);
+      $(a).parent().parent().find(".cn_option").slideToggle(200);
+      $(a).parent().parent().toggleClass("active");
+    }
+    function mnemonic(a) {
+      $(a).parent().toggleClass("active");
+      $(a).parent().find(".mne_c").slideToggle(400);
+    }
+    function play2(a, b) {
+      $(a).addClass("iconPlay");
+      $(a)
+        .get(0)
+        .addEventListener("animationend", function () {
+          $(a).removeClass("iconPlay");
+        });
+      var c = $(a).parent().parent().find(".en").text();
+      play(c, b);
+    }
+    function play3(a, b) {
+      a = $(".word_c").text();
+      play(a, b);
+    }
+    function play(a, b) {
+      var c = document.querySelector("#audio_c");
+      c.src = "https://dict.youdao.com/dictvoice?audio=" + a + "&type=" + b;
+      c.play();
+    }
+  </script>
+  <script>
+    yuanshu();
+    function yuanshu() {
+      let reg = /[\u4e00-\u9fa5]+/g;
+      $.each($(".example_c"), (index, e) => {
+        let local = $(e).html().search(reg);
+        if (local != -1) {
+          $(e).after(
+            `<div class='example_t'>${$(e).html().substring(local)}</div>`
+          );
+          $(e).html($(e).html().substring(0, local));
+        }
+      });
+  
+      if ($(".other_c").length > 0) {
+        k = `<div class='other_c'>${$(".other_c").html()}</div>`;
+        $(".other_c").remove();
+        $(".yuanshu").parent().after(`<div class='card_cat'>${k}</div>`);
+      }
+    }
+  </script>
+  

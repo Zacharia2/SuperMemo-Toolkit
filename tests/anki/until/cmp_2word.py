@@ -25,7 +25,7 @@ def jaccard_similarity(set1, set2):
 def cmp_2word(word1, word2):
     if word1 == word2:
         return True
-    if jaccard_similarity(set(word1), set(word2)) < 0.75:
+    if jaccard_similarity(set(word1), set(word2)) < 0.76:
         return False
     else:
         # 剩下百分比[80, 100)交给它处理。

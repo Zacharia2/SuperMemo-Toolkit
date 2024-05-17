@@ -1,0 +1,140 @@
+<!-- 立即调用的函数表达式（IIFE） -->
+<!-- 若为空不显示 -->
+<script>
+  (function checkInputOnLoad() {
+    var sentence = document.getElementById("sent");
+    var sent_card = document.getElementById("sent_card");
+    if (sentence.getInnerHTML().trim() === "") {
+      sent_card.style.display = "none";
+    }
+  })();
+</script>
+
+<!-- 立即调用的函数表达式（IIFE） -->
+<script>
+  (function span_to_link() {
+    var words = document.querySelectorAll(".other_word");
+    words.forEach(function (wordSpan) {
+      var word = wordSpan.textContent;
+      var url = `https://m.youdao.com/singledict?le=eng&dict=blng_sents&more=true&q=${encodeURIComponent(
+        word
+      )}`;
+      var englishLink = document.createElement("a");
+      englishLink.href = url;
+      englishLink.textContent = word;
+      englishLink.addEventListener("click", function (event) {
+        // 阻止事件冒泡
+        event.stopPropagation();
+      });
+      wordSpan.parentNode.replaceChild(englishLink, wordSpan);
+    });
+  })();
+</script>
+
+<!-- 立即调用的函数表达式（IIFE） -->
+<script>
+  (function languageChance() {
+    var div = document.getElementById("sent_card");
+    var sent = document.getElementById("sent");
+    var trans = document.getElementById("trans");
+    var isChinese = false;
+
+    // 为div添加点击事件监听器
+    div.addEventListener("click", function () {
+      if (isChinese) {
+        sent.style.display = "block";
+        trans.style.display = "none";
+      } else {
+        sent.style.display = "none";
+        trans.style.display = "block";
+      }
+      isChinese = !isChinese;
+    });
+  })();
+</script>
+
+<!-- 在线词典友情链接 -->
+<div id="links" style="text-align: center"></div>
+<script>
+  // 友情链接
+  var word = `{{word}}`;
+  var links_div = document.getElementById("links");
+  // 创建一个字典链接的数组
+  var dictLinks = [
+    {
+      href: `https://dict.eudic.net/dicts/en/${word}`,
+      favicon: "https://dict.eudic.net/Images/en/favicon.ico",
+      text: "欧路词典(网页)",
+    },
+    {
+      href: `https://www.youdao.com/result?word=${word}&lang=en`,
+      favicon: "https://shared-https.ydstatic.com/images/favicon.ico",
+      text: "有道词典",
+    },
+    {
+      href: `https://dict.cn/search?q=${word}`,
+      favicon: "https://i1.haidii.com/favicon.ico",
+      text: "海词词典",
+    },
+    {
+      href: `https://www.bing.com/dict/search?q=${word}&FORM=HDRSC6`,
+      favicon: "https://cn.bing.com/sa/simg/favicon-trans-bg-blue-mg.ico",
+      text: "必应词典",
+    },
+    {
+      href: `https://fanyi.sogou.com/text?keyword=${word}&transfrom=en&transto=zh-CHS&model=general`,
+      favicon: "https://dlweb.sogoucdn.com/translate/favicon.ico?v=20180424",
+      text: "搜狗翻译",
+    },
+  ];
+
+  // 使用map和join方法创建链接字符串
+  var linkHTML = dictLinks
+    .map((link) => {
+      return `<a href="${link.href}" target="_blank">
+                <img src="${link.favicon}" alt="" style="width:16px">
+                ${link.text}
+              </a>`;
+    })
+    .join("");
+  links_div.innerHTML = `<div style="display: inline-block;margin-top:0.5em;">${linkHTML}</div>`;
+</script>
+
+<!-- 立即调用的函数表达式（IIFE） -->
+<div
+  style="font-family: 'Arial'; font-size: 12px; text-align: left"
+  id="tyj_card"
+>
+  <span id="tyj_sent">{{同义句}}</span>
+  &emsp;
+  <span id="tyj_trans" style="display: none">{{同义句释义}}</span>
+</div>
+<script>
+  var tyj_card = document.getElementById("tyj_card");
+  var tyj_trans = document.getElementById("tyj_trans");
+  var is_show_trans = false;
+
+  // 为div添加点击事件监听器
+  tyj_card.addEventListener("click", function () {
+    if (is_show_trans) {
+      tyj_trans.style.display = "none";
+    } else {
+      tyj_trans.style.display = "inline-block";
+    }
+    is_show_trans = !is_show_trans;
+  });
+</script>
+
+<!-- 同近反解析 -->
+<div class="dictTJF" id="TJF" style="text-align: left"></div>
+<script>
+  var strTJF = `{{同近反}}`;
+  var tjfs_div = document.getElementById("TJF");
+  var dictTJF = JSON.parse(strTJF.replace(/'/g, '"'));
+  // 使用map和join方法创建链接字符串
+  var TJFHTML =
+    `<span class="synonyms">同: ${dictTJF["synonyms"].join(", ")}</span><br>` +
+    `<span class="related">近: ${dictTJF["related"].join(", ")}</span><br>` +
+    `<span class="antonyms">反: ${dictTJF["antonyms"].join(", ")}</span>`;
+  tjfs_div.innerHTML = TJFHTML;
+</script>
