@@ -94,10 +94,8 @@ def copy_to_elements(file_path: str, target_folder: str) -> str:
     old_full_file_name = os.path.basename(file_path)
     name, ext = os.path.splitext(old_full_file_name)
     new_full_file_name = (
-        makeNameSafe(trans_pinyin(full_to_half(name)))
-        + "_uuid_"
-        + str(uuid.uuid4())
-        + ext
+        # makeNameSafe(trans_pinyin(full_to_half(name)))
+        "im5_uuid_" + str(uuid.uuid4()) + ext
     )
     target = os.path.join(target_folder, new_full_file_name)
     mkdir(target_folder)
