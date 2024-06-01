@@ -16,17 +16,17 @@ Options:
 import os
 
 from docopt import docopt
-from src.utilscripts import config
-from src.epub2sm import epub2sm
-from src.pathpix import index as pathpix
-from src.pathpix import gui
-from src.latex2img import index as latex2img
+from supermemo_toolkit.utilscripts import config
+from supermemo_toolkit.epub2sm import epub2sm
+from supermemo_toolkit.pathpix import index as pathpix
+from supermemo_toolkit.pathpix import gui
+from supermemo_toolkit.latex2img import index as latex2img
 
 
 # pyinstaller smtk.spec
 
 
-def cmd():
+def main():
     args = docopt(__doc__)
 
     config_dir = config.get_config_dir()
@@ -99,4 +99,4 @@ def cmd():
 
 
 if __name__ == "__main__":
-    cmd()
+    main()

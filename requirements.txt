@@ -6,7 +6,7 @@ pillow==10.2.0
 pypinyin==0.50.0
 matplotlib==3.8.2
 numpy==1.26.3
-python-magic-bin==0.4.14;platform_system=="windows"
-# python-magic==0.4.27
+python-magic-bin==0.4.14; sys_platform=='win32'
+python-magic==0.4.27; sys_platform!='win32'
 tqdm==4.66.1
 requests==2.31.0
