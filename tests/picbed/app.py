@@ -11,7 +11,7 @@ import random
 import time
 
 sys.path.insert(0, os.path.normpath(sys.path[0] + "/../../"))
-from src.utilscripts import config  # noqa: E402
+from supermemo_toolkit.utilscripts import config  # noqa: E402
 
 
 # 配置设置

@@ -1,10 +1,29 @@
 [tool.poetry]
-name = "smtk"
-version = "0.0.8"
-description = "SuperMemo 增强工具集，命令工具"
-authors = ["mingyue"]
-license = "GPLv2"
+name = "supermemo-toolkit"
+version = "0.1.3"
+description = "SuperMemo CLI增强工具, 包含图链整理、EPUB图书转换导入、Latex公式转图片等。"
+license = "GPL-2.0-only"
+authors = ["mingyue <mingyue42w@outlook.com>"]
 readme = "README.md"
+homepage = "https://github.com/Zacharia2/SuperMemo-Toolkit"
+repository = "https://github.com/Zacharia2/SuperMemo-Toolkit"
+documentation = "https://docs.qq.com/doc/DQnRpb0VNUEVvR3dl"
+keywords = ["supermemo", "cli-app", "tooltik"]
+classifiers = [
+    "Topic :: Utilities",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+]
+packages = [{ include = "supermemo_toolkit" }]
+include = ["docs"]
+exclude = [
+    "docs/samples",
+    "docs/epub2sm_Ideas.md",
+    "docs/indexer_idea.md",
+    "docs/json Invalid escape.md",
+    "docs/pathpix_Ideas.md",
+]
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -14,16 +33,24 @@ docopt = "^0.6.2"
 ebooklib = "^0.18"
 pillow = "^10.2.0"
 pypinyin = "^0.50.0"
-requests = "^2.31.0"
-tqdm = "^4.66.1"
-python-magic = "^0.4.27"
-python-magic-bin = "^0.4.14"
-shutils = "^0.1.0"
-psutil = "^5.9.8"
-numpy = "^1.26.3"
 matplotlib = "^3.8.2"
-
+numpy = "^1.26.3"
+python-magic-bin = { version = "^0.4.14", markers = "sys_platform == 'win32'" }
+python-magic = { version = "^0.4.22", markers = "sys_platform != 'win32'" }
+tqdm = "^4.66.1"
+requests = "^2.31.0"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+smtk = "smtk:main"
+# marker_single = "convert_single:main"
+# marker_chunk_convert = "chunk_convert:main"
+
+#设置poetry包管理工具的自定义pypi镜像源配置
+[[tool.poetry.source]]
+name = "tencent"
+url = "http://mirrors.cloud.tencent.com/pypi/simple"
+priority = "primary"
