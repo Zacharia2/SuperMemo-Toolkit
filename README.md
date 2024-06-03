@@ -47,7 +47,7 @@ smtk imtex "$\sum_{i=0}^\infty x_i$" ./a.png
    3. 重新启动您的终端会话并输入pipx命令验证是否运行。
 3. 下载`supermemo_toolkit-py3-none-any.whl`
 4. 执行`pipx install supermemo_toolkit-py3-none-any.whl`等待安装成功。
-5. 安装成功后，可以使用smtk验证是否安装成功。
+5. 安装成功后，可以执行`smtk`命令验证是否安装成功。
 
 注意：若出现ERROR: No matching distribution found for XXX，一般是网络问题，切换PYPI源即可，可以使用下列方式切换PYPI源。
 
