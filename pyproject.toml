@@ -45,12 +45,12 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-smtk = "smtk:main"
+smtk = "supermemo_toolkit.smtk:main"
 # marker_single = "convert_single:main"
 # marker_chunk_convert = "chunk_convert:main"
 
 #设置poetry包管理工具的自定义pypi镜像源配置
 [[tool.poetry.source]]
 name = "tencent"
-url = "http://mirrors.cloud.tencent.com/pypi/simple"
+url = "http://mirrors.aliyun.com/pypi/simple/"
 priority = "primary"
