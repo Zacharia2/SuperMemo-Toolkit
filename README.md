@@ -41,7 +41,7 @@ smtk imtex "$\sum_{i=0}^\infty x_i$" ./a.png
 安装步骤：
 
 1. 安装Python最新版，目前版本是3.12.2
-2. 通过pip（要求版本 ≥ v19.0）安装pipx：`python3 -m pip install --user pipx`
+2. 安装pipx最终独立Python应用安装管理器，通过pip（要求版本 ≥ v19.0）：`python3 -m pip install --user pipx`
    1. pipx程序所在文件夹：`<USER folder>\AppData\Roaming\Python\Python3x\Scripts`
    2. 转到上述文件夹，执行`.\pipx.exe ensurepath`，将上述路径和文件夹添加到您的搜索路径中。
    3. 重新启动您的终端会话并输入pipx命令验证是否运行。
