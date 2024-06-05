@@ -17,10 +17,10 @@ import os
 
 from docopt import docopt
 from supermemo_toolkit.utilscripts import config
-from supermemo_toolkit.epub2sm import epub2sm
-from supermemo_toolkit.pathpix import index as pathpix
+from supermemo_toolkit.epub2sm import epub_convert
+from supermemo_toolkit.pathpix import im_sort_out as pathpix
 from supermemo_toolkit.pathpix import gui
-from supermemo_toolkit.latex2img import index as latex2img
+from supermemo_toolkit.latex2img import formula_to_png as latex2img
 
 
 # pyinstaller smtk.spec
@@ -64,9 +64,9 @@ def main():
     elif args.get("e2sm"):
         # python index.py e2s a b
         if args.get("-t"):
-            epub2sm.start_with_toc(args["<epub-path>"], args["<targetfolder>"])
+            epub_convert.start_with_toc(args["<epub-path>"], args["<targetfolder>"])
         if args.get("-l"):
-            epub2sm.start_with_linear(args["<epub-path>"], args["<targetfolder>"])
+            epub_convert.start_with_linear(args["<epub-path>"], args["<targetfolder>"])
 
     elif args.get("imtex"):
         latex2img.latex2img(
