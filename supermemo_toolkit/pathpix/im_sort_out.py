@@ -9,7 +9,6 @@ import re
 import os
 import time
 import chardet
-import pypinyin
 import requests
 from PIL import Image
 from tqdm import tqdm
@@ -17,7 +16,8 @@ import magic
 from urllib.parse import unquote, urlparse
 
 sys.path.insert(0, os.path.normpath(sys.path[0] + "/../../"))
-from supermemo_toolkit.utilscripts import config  # noqa: E402
+from supermemo_toolkit.utilscripts import config
+from supermemo_toolkit.utilscripts.ulils import makeNameSafe
 
 config_dir = config.get_config_dir()
 if os.path.exists(config_dir):
@@ -56,37 +56,6 @@ report_list = list()
 def report(msg: str, *args):
     logger.warning(msg)
     report_list.append((args[0], msg))
-
-
-def makeNameSafe(name: str) -> str:
-    illegalFilenameCharacters = r"/<|>|\:|\"|\/|\\|\||\?|\*|\^|\s/g"
-    fixedTitle = re.sub(illegalFilenameCharacters, "_", name)
-    return fixedTitle
-
-
-# 全角转半角
-def full_to_half(text: str):  # 输入为一个句子
-    _text = ""
-    for char in text:
-        inside_code = ord(
-            char
-        )  # 以一个字符（长度为1的字符串）作为参数，返回对应的 ASCII 数值
-        if inside_code == 12288:  # 全角空格直接转换
-            inside_code = 32
-        elif 65281 <= inside_code <= 65374:  # 全角字符（除空格）根据关系转化
-            inside_code -= 65248
-        _text += chr(inside_code)
-    return _text
-
-
-def trans_pinyin(str: str):
-    trans_list = []
-    half_text = full_to_half(str)
-    for pinyin_name in pypinyin.pinyin(half_text, style=pypinyin.NORMAL):
-        for pinyin_name_ in pinyin_name:
-            pinyin_name__ = pinyin_name_.capitalize()
-            trans_list.append(pinyin_name__)
-    return "".join(trans_list)
 
 
 def copy_to_elements(file_path: str, target_folder: str) -> str:

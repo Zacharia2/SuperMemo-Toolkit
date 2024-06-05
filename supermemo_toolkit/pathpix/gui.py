@@ -4,9 +4,8 @@ import tkinter as tk
 from tkinter import filedialog
 
 sys.path.insert(0, os.path.normpath(sys.path[0] + "/../../"))
-
-from supermemo_toolkit.utilscripts import config  # noqa: E402
-from supermemo_toolkit.pathpix import index as pathpix  # noqa: E402
+from supermemo_toolkit.utilscripts import config
+from supermemo_toolkit.pathpix import im_sort_out as pathpix
 
 """
 author: st
