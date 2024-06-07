@@ -49,7 +49,7 @@ smtk imtex "$\sum_{i=0}^\infty x_i$" ./a.png
 4. 执行`pipx install supermemo_toolkit-py3-none-any.whl`等待安装成功。
 5. 安装成功后，可以执行`smtk`命令验证是否安装成功。
 
-注意：若出现ERROR: No matching distribution found for XXX，一般是网络问题，切换PYPI源即可，可以使用下列方式切换PYPI源。
+问题1：若出现ERROR: No matching distribution found for XXX，一般是网络问题，切换PYPI源即可，可以使用下列方式切换PYPI源。
 
 ```bash
 # 切换阿里源
@@ -57,6 +57,14 @@ pip config set global.index-url http://mirrors.aliyun.com/pypi/simple/
 pip config set install.trusted-host mirrors.aliyun.com
 # 换回默认源
 pip config unset global.index-url
+```
+
+问题2：执行`python3 -m pip`报错：No module named 'pip'，可以通过下列方式解决。
+
+```bash
+python -m ensurepip
+
+python -m pip install --upgrade pip
 ```
 
 ## LICENSE
