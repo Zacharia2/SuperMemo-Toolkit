@@ -1,10 +1,10 @@
 # encoding:utf-8
-#!/usr/bin/env python
+# !/usr/bin/env python
 """SMTK CLI Tool
 Usage:
     smtk config (set <key> <value> | list)
     smtk clist
-    smtk e2sm (-t | -l) <epub-path> <targetfolder>
+    smtk e2sm (-t | -l | -c) <epub-path> <targetfolder>
     smtk pathpix (<col_name> [--clean] | --fullpath=<htmlpath> | --gui | --least-col)
     smtk imtex <formula_text> <outpath>
     smtk placeholders
@@ -16,11 +16,12 @@ Options:
 import os
 
 from docopt import docopt
-from supermemo_toolkit.utilscripts import config
+
 from supermemo_toolkit.epub2sm import epub_convert
-from supermemo_toolkit.pathpix import im_sort_out as pathpix
-from supermemo_toolkit.pathpix import gui
 from supermemo_toolkit.latex2img import formula_to_png as latex2img
+from supermemo_toolkit.pathpix import gui
+from supermemo_toolkit.pathpix import im_sort_out as pathpix
+from supermemo_toolkit.utilscripts import config
 
 
 # pyinstaller smtk.spec
@@ -32,7 +33,7 @@ def main():
     config_dir = config.get_config_dir()
     conf_path = os.path.join(config_dir, "conf.json")
     init_conf_json = {"program": "D:\\SuperMemo"}
-
+    m_conf = dict()
     if not os.path.exists(config_dir):
         os.makedirs(config_dir)
         config.update_config(conf_path, init_conf_json)
@@ -67,6 +68,8 @@ def main():
             epub_convert.start_with_toc(args["<epub-path>"], args["<targetfolder>"])
         if args.get("-l"):
             epub_convert.start_with_linear(args["<epub-path>"], args["<targetfolder>"])
+        if args.get("-c"):
+            epub_convert.start_with_topic(args["<epub-path>"], args["<targetfolder>"])
 
     elif args.get("imtex"):
         latex2img.latex2img(
