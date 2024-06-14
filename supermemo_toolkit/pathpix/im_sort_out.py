@@ -1,21 +1,21 @@
 import hashlib
 import imghdr
 import logging
-import shutil
-import sys
-import uuid
-from bs4 import BeautifulSoup
-import re
 import os
+import re
+import shutil
 import time
-import chardet
-import requests
-from PIL import Image
-from tqdm import tqdm
-import magic
+import uuid
 from urllib.parse import unquote, urlparse
 
-sys.path.insert(0, os.path.normpath(sys.path[0] + "/../../"))
+import chardet
+import magic
+import requests
+from PIL import Image
+from bs4 import BeautifulSoup
+from tqdm import tqdm
+
+# sys.path.insert(0, os.path.normpath(sys.path[0] + "/../../"))
 from supermemo_toolkit.utilscripts import config
 from supermemo_toolkit.utilscripts.ulils import makeNameSafe
 
@@ -30,8 +30,8 @@ elif not os.path.exists(config_dir):
 def setup_logger():
     """设置日志记录器，添加文件处理器和格式化器"""
     # 创建记录器并设置等级
-    logger = logging.getLogger(__name__)
-    logger.setLevel(logging.INFO)
+    mlogger = logging.getLogger(__name__)
+    mlogger.setLevel(logging.INFO)
 
     # 创建文件处理器并设置等级
     file_handler = logging.FileHandler(LOG_FILE, mode="w")
@@ -44,16 +44,16 @@ def setup_logger():
     file_handler.setFormatter(formatter)
 
     # 添加处理器到记录器
-    logger.addHandler(file_handler)
+    mlogger.addHandler(file_handler)
 
-    return logger
+    return mlogger
 
 
 logger = setup_logger()
 report_list = list()
 
 
-def report(msg: str, *args):
+def report(msg, *args):
     logger.warning(msg)
     report_list.append((args[0], msg))
 
@@ -94,7 +94,7 @@ def is_in_elements_directory(fs_path, directory):
     """判断是否在elements文件夹内。windows路径。
 
     Args:
-        path (str): 任意文件夹路径
+        fs_path (str): 任意文件夹路径
         directory (str): SM完整的集合中的元素文件夹路径
 
     Returns:
@@ -118,7 +118,7 @@ def verify_image_url(url: str):
         # Read and update hash in chunks of 4K
         field_length = 4096
         for byte_block in [
-            content[i : i + field_length] for i in range(0, len(content), field_length)
+            content[i: i + field_length] for i in range(0, len(content), field_length)
         ]:
             sha1_hash.update(byte_block)
         file_name = f"im_{sha1_hash.hexdigest()}"
@@ -127,9 +127,9 @@ def verify_image_url(url: str):
             content_type = content_type.split(";")[0]
         filetype = imghdr.what(None, content)
         if content_type and "image" in content_type:
-            return (content_type, file_name, content)
+            return content_type, file_name, content
         elif filetype is not None:
-            return (f"image/{filetype}", file_name, content)
+            return f"image/{filetype}", file_name, content
         else:
             return None
     except requests.exceptions.ConnectionError as e:
@@ -164,16 +164,16 @@ def is_html_ext_file(file_path):
 #     return htm_path_list
 
 
-def is_http_url_scheme(str):
+def is_http_url_scheme(string):
     v = re.compile(
         "^(?!mailto:)(?:(?:http|https|ftp)://|//)(?:\\S+(?::\\S*)?@)?(?:(?:(?:[1-9]\\d?|1\\d\\d|2[01]\\d|22[0-3])(?:\\.(?:1?\\d{1,2}|2[0-4]\\d|25[0-5])){2}(?:\\.(?:[0-9]\\d?|1\\d\\d|2[0-4]\\d|25[0-4]))|(?:(?:[a-z\\u00a1-\\uffff0-9]+-?)*[a-z\\u00a1-\\uffff0-9]+)(?:\\.(?:[a-z\\u00a1-\\uffff0-9]+-?)*[a-z\\u00a1-\\uffff0-9]+)*(?:\\.(?:[a-z\\u00a1-\\uffff]{2,})))|localhost)(?::\\d{2,5})?(?:(/|\\?|#)[^\\s]*)?$",
         re.IGNORECASE,
     )
-    return bool(v.match(str))
+    return bool(v.match(string))
 
 
-def is_data_url_scheme(str):
-    parsed_url = urlparse(str)
+def is_data_url_scheme(string):
+    parsed_url = urlparse(string)
     if parsed_url.scheme == "data":
         return True
 
@@ -189,9 +189,8 @@ def relativization_path(win_path):
     """将位于sm的elements文件夹中的文件的绝对路径转换为相对路径.
 
     Args:
-        url (str): url =
+        win_path (str): url =
             "file:///z:/path/systems/collection/elements/path/to/file"
-
             "z:/path/systems/collection/elements/path/to/file"
 
     Returns:
@@ -212,9 +211,9 @@ def im_download_and_convert(url, web_pic_folder, collection_temp_folder, htm_pat
 
     Args:
         url (str): img标签中的src值
-        **kwargs : saved_path, collection_temp_path, htm_file_path
-
-        saved_path (str): 绝对路径, 保存img到指定目录
+        web_pic_folder (str): saved_path, collection_temp_path, htm_file_path
+        collection_temp_folder (str):
+        htm_path (str): 绝对路径, 保存img到指定目录
 
     Returns:
         str: 绝对路径, drive:/path/sm18/systems/col/elements/path/to/file.ext'
@@ -274,10 +273,10 @@ def im_data_url_and_convert(htm_path):
 
 
 def modify_img_src(
-    html_content,
-    elements_folder,
-    collection_temp_folder,
-    htm_path,
+        html_content,
+        elements_folder,
+        collection_temp_folder,
+        htm_path,
 ):
     # im_saved_path, elements_path, collection_temp_path, htm_file_path
     soup = BeautifulSoup(html_content, "html.parser")
@@ -288,12 +287,12 @@ def modify_img_src(
     img_tags = soup.find_all("img")
     # 过滤元素。去掉没有src属性以及属性值为空的。
     filtered_im_list = list(
-        filter(lambda im: "src" in im.attrs and im.attrs["src"] != "", img_tags)
+        filter(lambda im_node: "src" in im_node.attrs and im_node.attrs["src"] != "", img_tags)
     )
     is_modify = False
     for im in filtered_im_list:
         # 中文的字符实体会自动变成正常的中文字符。
-        # <img src="file:///C:/Users/Snowy/Desktop/sm18/&#24517;&#35835;&#65306;&#26053;&#36884;&#30340;&#24320;&#22987;.png">
+        # <img src="file:///C:/&#24517;&#35835;&#65306;&#26053;&#36884;&#30340;&#24320;&#22987;.png">
         im_src = im.attrs["src"]
         if is_http_url_scheme(im_src):
             im_web_local_path = im_download_and_convert(
@@ -355,8 +354,9 @@ def secure_file_write(modified_content, target_file, temp_folder):
     文件备份和临时文件将在函数完成后删除。
 
     Args:
+        modified_content (bytes):
         target_file (str): 目标文件
-        temp_dir (str): 临时文件夹, 存储文件备份和临时文件
+        temp_folder (str): 临时文件夹, 存储文件备份和临时文件
     """
     original_name = os.path.basename(target_file)
     backup_file = os.path.join(temp_folder, original_name + ".bak")
@@ -390,7 +390,7 @@ def collect_documents(elements_folder):
     """在遍历查找HTM文档并返回文件路径列表。
 
     Args:
-        element_path (str): elements路径
+        elements_folder (str): elements路径
 
     Returns:
         tuple: (path, mtime)
@@ -418,7 +418,7 @@ def collect_documents(elements_folder):
 
 
 def read_in_list(path_list: list) -> list:
-    start = time.time()
+    start_time = time.time()
     path_data = []
     for index, htm_path in enumerate(path_list):
         try:
@@ -426,9 +426,9 @@ def read_in_list(path_list: list) -> list:
                 raw_data = f.read()
                 file_type = magic.from_buffer(raw_data[:3072], mime=True)
                 if not (
-                    file_type == "text/html"
-                    or file_type == "text/xml"
-                    or file_type == "text/plain"
+                        file_type == "text/html"
+                        or file_type == "text/xml"
+                        or file_type == "text/plain"
                 ):
                     continue
                 result = chardet.detect(raw_data)
@@ -443,11 +443,11 @@ def read_in_list(path_list: list) -> list:
             report((htm_path, e), htm_path)
         print(
             "PathPix:: 正在读取文件数据",
-            f"[{index+1}/{len(path_list)}]",
+            f"[{index + 1}/{len(path_list)}]",
             end="\r",
         )
-    end = time.time()
-    print("\nPathPix:: Done!", f" 验证并读取数据耗时 {end - start:.2f} 秒。")
+    end_time = time.time()
+    print("\nPathPix:: Done!", f" 验证并读取数据耗时 {end_time - start_time:.2f} 秒。")
     return path_data
 
 
@@ -455,9 +455,9 @@ def relative_and_localize(wait_htm_path_list, elements_folder, collection_temp_f
     """在遍历查找到的html文挡, 一个个处理他们。
 
     Args:
-        waiting_process_htm_files (_type_): _description_
-        elements_path (_type_): _description_
-        collection_temp_path (_type_): _description_
+        wait_htm_path_list (_type_): _description_
+        elements_folder (_type_): _description_
+        collection_temp_folder (_type_): _description_
     """
     # elements_path, im_saved_path, collection_temp_path
     processed_htm_files = []
@@ -510,19 +510,19 @@ def organize_unused_im(elements_folder):
     im_list = []
     doc_im_set = set()
 
-    webpic = os.path.join(elements_folder, "web_pic")
-    localpic = os.path.join(elements_folder, "local_pic")
+    web_pic = os.path.join(elements_folder, "web_pic")
+    local_pic = os.path.join(elements_folder, "local_pic")
     temp_dir = os.path.normpath(os.path.join(elements_folder, "../", "temp"))
     unused_pic = os.path.join(temp_dir, "unused_im")
 
-    is_exists_webpic = os.path.exists(webpic)
-    is_exists_localpic = os.path.exists(localpic)
-    if is_exists_webpic or is_exists_localpic:
+    is_exists_web_pic = os.path.exists(web_pic)
+    is_exists_local_pic = os.path.exists(local_pic)
+    if is_exists_web_pic or is_exists_local_pic:
         print("PathPix::", "清理web_pic, local_pic文件夹中未被使用的图片")
         # 读取单个HTML文件中的被引用的im名字。
-        im_list = find_im(webpic) + find_im(localpic)
-        htm_path_mdate_list = collect_documents(elements_folder)
-        for htm_file_path, mtime in tqdm(htm_path_mdate_list, desc="Doc-ImGather"):
+        im_list = find_im(web_pic) + find_im(local_pic)
+        htm_path_m_date_list = collect_documents(elements_folder)
+        for htm_file_path, m_time in tqdm(htm_path_m_date_list, desc="Doc-ImGather"):
             try:
                 with open(htm_file_path, "rb") as f:
                     raw_data = f.read()
@@ -535,7 +535,7 @@ def organize_unused_im(elements_folder):
 
                 filtered_im_list = list(
                     filter(
-                        lambda im: "src" in im.attrs and im.attrs["src"] != "",
+                        lambda im_node: "src" in im_node.attrs and im_node.attrs["src"] != "",
                         img_tags,
                     )
                 )
@@ -551,8 +551,8 @@ def organize_unused_im(elements_folder):
         unused_pic_list = []
         for im in im_list:
             # 对im进行 整理 只保留文件名。
-            im_fname = os.path.basename(im)
-            if im_fname not in doc_im_set:
+            im_file_name = os.path.basename(im)
+            if im_file_name not in doc_im_set:
                 unused_pic_list.append(im)
 
         if len(unused_pic_list) > 0:
@@ -569,7 +569,7 @@ def organize_unused_im(elements_folder):
 
         # 删除空白图书图片文件夹。
         # 查找localpic下的所有空白文件夹并删除
-        for entry in os.scandir(localpic):
+        for entry in os.scandir(local_pic):
             # not os.listdir(entry.path)即为空文件夹。
             if entry.is_dir() and not os.listdir(entry.path):
                 os.rmdir(entry.path)
@@ -657,7 +657,6 @@ def start(elements_folder):
         del gen_dict_filter[key]
     # 保存生成字典
     config.update_config(conf_old_dict_filter_path, gen_dict_filter)
-
 
 # 区分文件和文件夹路径。文件就使用path，文件夹就使用folder
 

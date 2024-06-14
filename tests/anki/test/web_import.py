@@ -101,12 +101,12 @@ for link in link_list:
         content_type = response.headers.get("content-type")
         content = response.content
         doc = Document(response.content)
-        element = {
+        m_element = {
             "Title": doc.title(),
             "Type": "Topic",
             "Content": {"Question": str(doc.summary(html_partial=True))},
         }
-        rootElement.append(element)
+        rootElement.append(m_element)
         print(link)
     except requests.exceptions.ConnectionError as e:
         print("网络连接异常: ", e)
