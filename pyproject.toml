@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "supermemo-toolkit"
-version = "0.1.3"
+version = "0.1.4"
 description = "SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换导入、Latex公式转图片等。"
 license = "GPL-2.0-only"
 authors = ["mingyue <mingyue42w@outlook.com>"]
@@ -32,7 +32,7 @@ chardet = "^5.2.0"
 docopt = "^0.6.2"
 ebooklib = "^0.18"
 pillow = "^10.2.0"
-pypinyin = "^0.50.0"
+pypinyin = "^0.51.0"
 matplotlib = "^3.8.2"
 numpy = "^1.26.3"
 python-magic-bin = { version = "^0.4.14", markers = "sys_platform == 'win32'" }
