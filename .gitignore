@@ -8,3 +8,4 @@ pathpix/dist/*
 pathpix/build/*
 *.log
 .vscode/*
+/.idea
