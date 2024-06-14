@@ -16,7 +16,7 @@ from supermemo_toolkit.utilscripts.ulils import makeNameSafe, trans_pinyin
 # https://blog.csdn.net/u013778905/article/details/53177042
 # 符号库：https://www.fuhaoku.net/U+00A9
 # 写入数据结构时，必要调用的函数之一。
-def modify_img_url(doc, im_save_path):
+def modify_img_url(doc, folder_name):
     escape_sequence = {
         "EM SPACE": (chr(0x2003), "&ensp;"),
         "COPYRIGHT SIGN": (chr(0x00A9), "&copy;"),
@@ -37,7 +37,7 @@ def modify_img_url(doc, im_save_path):
     for img in imgs:
         # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
         img_name = os.path.basename(img.attrs["src"])
-        img.attrs["src"] = f"file:///[PrimaryStorage]local_pic/{im_save_path}/{img_name}"
+        img.attrs["src"] = f"file:///[PrimaryStorage]local_pic/{folder_name}/{img_name}"
     return str(soup.encode(encoding="ascii"), "utf-8")
 
 
