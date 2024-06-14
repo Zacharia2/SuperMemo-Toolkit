@@ -1,7 +1,7 @@
 import os
 
 import ebooklib
-from bs4 import BeautifulSoup, Doctype
+from bs4 import BeautifulSoup, Doctype, Tag
 from ebooklib import epub
 
 from supermemo_toolkit.epub2sm.smxml import SmXml
@@ -51,9 +51,15 @@ def split_section(html, doc_id):
     content = str(m_element)
     if m_element is not None:
         for sibling in m_element.find_next_siblings():
-            if sibling.name == tag_name:
-                break
+            # 检查sibling是否是一个Tag对象
+            if isinstance(sibling, Tag):
+                # 如果是Tag对象，检查它的name属性
+                if sibling.name == tag_name:
+                    break
+                else:
+                    content += str(sibling)
             else:
+                # 如果sibling是字符串，直接添加到content中
                 content += str(sibling)
     return content
 
