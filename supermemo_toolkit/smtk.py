@@ -7,6 +7,20 @@ from supermemo_toolkit.latex2img import formula_to_png
 from supermemo_toolkit.pathpix import im_sort_out, gui as im_sort_out_gui
 from supermemo_toolkit.utilscripts import config as smtk_config
 
+# 初始化操作
+smtk_config_dir_path = smtk_config.get_config_dir()
+smtk_config_file_path = os.path.join(smtk_config_dir_path, "conf.json")
+init_conf_dict = {"program": "D:\\SuperMemo"}
+curr_conf_dict = dict()
+if not os.path.exists(smtk_config_dir_path):
+    os.makedirs(smtk_config_dir_path)
+    smtk_config.update_config(smtk_config_file_path, init_conf_dict)
+elif os.path.exists(smtk_config_dir_path) and not os.path.exists(smtk_config_file_path):
+    smtk_config.update_config(smtk_config_file_path, init_conf_dict)
+elif os.path.exists(smtk_config_file_path):
+    curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
+sm_location: dict = curr_conf_dict["program"]
+
 
 @click.group()
 @click.version_option()
@@ -17,6 +31,10 @@ def main():
 @click.group()
 def config():
     """Configuration commands"""
+
+
+# 将config命令添加到main命令组中
+main.add_command(config)
 
 
 @config.command()
@@ -110,19 +128,4 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
 
 
 if __name__ == "__main__":
-    # 初始化操作
-    smtk_config_dir_path = smtk_config.get_config_dir()
-    smtk_config_file_path = os.path.join(smtk_config_dir_path, "conf.json")
-    init_conf_dict = {"program": "D:\\SuperMemo"}
-    curr_conf_dict = dict()
-    if not os.path.exists(smtk_config_dir_path):
-        os.makedirs(smtk_config_dir_path)
-        smtk_config.update_config(smtk_config_file_path, init_conf_dict)
-    elif os.path.exists(smtk_config_dir_path) and not os.path.exists(smtk_config_file_path):
-        smtk_config.update_config(smtk_config_file_path, init_conf_dict)
-    elif os.path.exists(smtk_config_file_path):
-        curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
-    sm_location: dict = curr_conf_dict["program"]
-    # 将config命令添加到main命令组中
-    main.add_command(config)
     main()
