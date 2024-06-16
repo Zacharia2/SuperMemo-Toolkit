@@ -507,7 +507,6 @@ def find_im(directory):
 
 
 def organize_unused_im(elements_folder):
-    im_list = []
     doc_im_set = set()
 
     web_pic = os.path.join(elements_folder, "web_pic")
