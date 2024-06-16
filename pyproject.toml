@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "supermemo-toolkit"
-version = "0.1.4"
+version = "0.1.5"
 description = "SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换导入、Latex公式转图片等。"
 license = "GPL-2.0-only"
 authors = ["mingyue <mingyue42w@outlook.com>"]
@@ -52,5 +52,5 @@ smtk = "supermemo_toolkit.smtk:main"
 #设置poetry包管理工具的自定义pypi镜像源配置
 [[tool.poetry.source]]
 name = "tencent"
-url = "http://mirrors.aliyun.com/pypi/simple/"
+url = "https://mirrors.aliyun.com/pypi/simple/"
 priority = "primary"

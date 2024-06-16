@@ -23,7 +23,7 @@ lxml = ["lxml"]
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -39,7 +39,7 @@ files = [
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -55,7 +55,7 @@ files = [
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -159,7 +159,7 @@ files = [
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -178,7 +178,7 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -194,7 +194,7 @@ files = [
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -262,7 +262,7 @@ test-no-images = ["pytest", "pytest-cov", "pytest-xdist", "wurlitzer"]
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -282,7 +282,7 @@ tests = ["pytest", "pytest-cov", "pytest-xdist"]
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -301,7 +301,7 @@ six = "*"
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -371,7 +371,7 @@ woff = ["brotli (>=1.0.1)", "brotlicffi (>=0.8.0)", "zopfli (>=0.1.4)"]
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -387,7 +387,7 @@ files = [
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -505,7 +505,7 @@ files = [
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -668,7 +668,7 @@ source = ["Cython (>=3.0.10)"]
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -725,7 +725,7 @@ dev = ["meson-python (>=0.13.1)", "numpy (>=1.25)", "pybind11 (>=2.6)", "setupto
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -775,7 +775,7 @@ files = [
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -791,7 +791,7 @@ files = [
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -882,7 +882,7 @@ xmp = ["defusedxml"]
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -901,7 +901,7 @@ diagrams = ["jinja2", "railroad-diagrams"]
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -917,7 +917,7 @@ files = [
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -936,7 +936,7 @@ six = ">=1.5"
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -952,7 +952,7 @@ files = [
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -969,7 +969,7 @@ files = [
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -995,7 +995,7 @@ use-chardet-on-py3 = ["chardet (>=3.0.2,<6)"]
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -1011,7 +1011,7 @@ files = [
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -1027,7 +1027,7 @@ files = [
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -1052,7 +1052,7 @@ telegram = ["requests"]
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [[package]]
@@ -1074,10 +1074,10 @@ zstd = ["zstandard (>=0.18.0)"]
 
 [package.source]
 type = "legacy"
-url = "http://mirrors.aliyun.com/pypi/simple"
+url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "f859f1bee75b2a274387944b267b51703a19576e0c9abcc4610929e5e283427a"
+content-hash = "76c2bec80af689ea162182cae14cd32c2ff3ec12ceea7b7ca1e26e5665b34fa5"
