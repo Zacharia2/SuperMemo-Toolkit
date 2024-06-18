@@ -25,9 +25,9 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
 无论怎样，只需要将**图片文件夹**放在你的集合文件夹下的`elements/local_pic`文件夹中。
 
 ```pwsh
-smtk e2sm -t epub_file out_folder  #（需要图书有良好的目录，没有需使用calibre生成并整理目录）
-smtk e2sm -l epub_file out_folder  #（有书即可，不按照EPUB目录文件生成，而是按照EPUB图书内文档文件的线性顺序生成，比较适合PDF版epub，效果查看文件：./docs/Snipaste_2024-03-24_09-17-23.png）
-smtk e2sm -c epub_file out_folder  #（有书即可，EPUB转换为一个SuperMemo Topic，一本书即是一篇文章，配合SuperMemo阅读点使用更佳。）
+smtk e2sm --toc epub_file out_folder  #（需要图书有良好的目录，没有需使用calibre生成并整理目录）
+smtk e2sm --linear epub_file out_folder  #（有书即可，不按照EPUB目录文件生成，而是按照EPUB图书内文档文件的线性顺序生成，比较适合PDF版epub，效果查看文件：./docs/Snipaste_2024-03-24_09-17-23.png）
+smtk e2sm --topic epub_file out_folder  #（有书即可，EPUB转换为一个SuperMemo Topic，一本书即是一篇文章，配合SuperMemo阅读点使用更佳。）
 ```
 
 ## latex2img
