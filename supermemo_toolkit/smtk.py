@@ -74,9 +74,9 @@ def clist():
 @main.command()
 @click.argument('epub_path')
 @click.argument('target_folder')
-@click.option('--toc', is_flag=True, help='根据目录结构生成')
-@click.option('--linear', is_flag=True, help='根据阅读顺序生成')
-@click.option('--topic', is_flag=True, help='转换为单个Topic')
+@click.option('--toc', is_flag=True, help='根据目录结构转换')
+@click.option('--linear', is_flag=True, help='根据线性阅读顺序转换')
+@click.option('--topic', is_flag=True, help='转换为一篇Topic文章')
 def e2sm(epub_path, target_folder, toc, linear, topic):
     """Convert ePub to SuperMemo format."""
     if toc:
