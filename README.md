@@ -18,7 +18,11 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
 
 从epub图书生成xml格式的sm-book图书。
 
-生成的书籍图片文件夹放到SM集合的`elements/local_pic`文件夹下即可。
+生成的**书籍图片文件夹**放到SM集合的`your_collection/elements/local_pic`文件夹下即可。
+
+一般情况下集合默认全路径为：`Root_SuperMemo/systems/your_collection`。
+
+无论怎样，只需要将**图片文件夹**放在你的集合文件夹下的`elements/local_pic`文件夹中。
 
 ```pwsh
 smtk e2sm -t epub_file out_folder  #（需要图书有良好的目录，没有需使用calibre生成并整理目录）
@@ -37,15 +41,16 @@ smtk imtex "$\sum_{i=0}^\infty x_i$" ./a.png
 
 ## Install
 
-pipx：python whl格式软件包安装管理器。
+pipx：python whl格式软件包安装管理器。pipx安装应用请务必联网。
 
-安装步骤：
+### 安装步骤：
 
 1. 安装Python最新版，目前版本是3.12.2
 2. 安装pipx最终独立Python应用安装管理器，通过pip（要求版本 ≥ v19.0）：`python3 -m pip install --user pipx`
-   1. pipx程序所在文件夹：`<USER folder>\AppData\Roaming\Python\Python3x\Scripts`
-   2. 转到上述文件夹，执行`.\pipx.exe ensurepath`，将上述路径和文件夹添加到您的搜索路径中。
-   3. 重新启动您的终端会话并输入pipx命令验证是否运行。
+   1. 配置pipx，执行ensurepath。
+   2. pipx程序所在文件夹：`<USER folder>\AppData\Roaming\Python\Python3x\Scripts`
+   3. 转到上述文件夹，执行`.\pipx.exe ensurepath`，将上述路径和文件夹添加到您的搜索路径中。
+   4. 重新启动您的终端会话并输入pipx命令验证是否运行。
 3. 下载`supermemo_toolkit-py3-none-any.whl`
 4. 执行`pipx install supermemo_toolkit-py3-none-any.whl`等待安装成功。
 5. 安装成功后，可以执行`smtk`命令验证是否安装成功。
@@ -67,6 +72,10 @@ python -m ensurepip
 
 python -m pip install --upgrade pip
 ```
+
+### 关于更新：
+
+同样使用pipx应用安装管理器，执行`pipx install save-path/your-app.whl --force`显示成功后即可更新成功。
 
 ## LICENSE
 

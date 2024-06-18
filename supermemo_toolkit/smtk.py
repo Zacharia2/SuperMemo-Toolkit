@@ -25,12 +25,14 @@ sm_location: dict = curr_conf_dict["program"]
 @click.group()
 @click.version_option()
 def main():
-    """SMTK CLI Tool"""
+    """SuperMemo命令行工具"""
 
 
 @click.group()
 def config():
-    """Configuration commands"""
+    """配置SMTK"""
+    with click.Context(config) as ctx:
+        click.echo(config.get_help(ctx))
 
 
 # 将config命令添加到main命令组中
@@ -57,13 +59,13 @@ def set(key: str, value: str):
 
 @config.command()
 def list():
-    """List current configuration."""
+    """列出当前所有配置"""
     click.echo(smtk_config.read_config(smtk_config_file_path))
 
 
 @main.command()
 def clist():
-    """List all collections."""
+    """列出所有集合"""
     col_list = smtk_config.get_collections_primaryStorage(sm_location)
     for col_name in col_list:
         print("集合名称：", col_name)
@@ -72,9 +74,9 @@ def clist():
 @main.command()
 @click.argument('epub_path')
 @click.argument('target_folder')
-@click.option('--toc', is_flag=True, help='Start with table of contents.')
-@click.option('--linear', is_flag=True, help='Start with linear structure.')
-@click.option('--topic', is_flag=True, help='Start with super-memo topic.')
+@click.option('--toc', is_flag=True, help='根据目录结构生成')
+@click.option('--linear', is_flag=True, help='根据阅读顺序生成')
+@click.option('--topic', is_flag=True, help='转换为单个Topic')
 def e2sm(epub_path, target_folder, toc, linear, topic):
     """Convert ePub to SuperMemo format."""
     if toc:
@@ -100,12 +102,13 @@ def imtex(formula_text, outpath):
 
 @main.command()
 @click.argument('col_name', required=False)
-@click.option('--clean', is_flag=True, help='Clean unused images.')
-@click.option('--fullpath', help='Full path to the HTML file.')
-@click.option('--least-col', is_flag=True, help='Least used collection.')
-@click.option('--gui', is_flag=True, help='Run the GUI.')
+@click.option('--clean', is_flag=True, help='清理集合中未使用图片')
+@click.option('--fullpath', type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True, path_type=str),
+              help='整理单个HTML文件（全路径，component menu(Alt+F12) >> FIle >> Copy path）')
+@click.option('--gui', is_flag=True, help='运行图形窗口')
+@click.option('--least-col', is_flag=True, help='整理最后使用的集合（最后关闭的集合）')
 def pathpix(col_name, clean, fullpath, least_col, gui):
-    """Manage collection images."""
+    """整理集合图片"""
     if least_col:
         sm_system1 = smtk_config.read_sm_system1(sm_location)
         least_used_col = smtk_config.get_collection_primaryStorage(
@@ -124,7 +127,8 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
         im_sort_out.single(fullpath)
     elif gui:
         im_sort_out_gui.run()
-    click.echo("Manage collection images.")
+    with click.Context(pathpix) as ctx:
+        click.echo(pathpix.get_help(ctx))
 
 
 if __name__ == "__main__":
