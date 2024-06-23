@@ -165,7 +165,7 @@ def start_with_toc(epub_file, folder_name):
         ]
 
         # 根据数据结构创建XML文件
-        sm_book = SmXml(book, book_f_name, folder_name)
+        sm_book = SmXml(book_f_name, folder_name, ebook=book)
         sm_book.create_xml(root_element)
     else:
         print("内容完整性: False;/n", diff_list)
@@ -186,7 +186,7 @@ def start_with_linear(epub_file, save_folder):
     ]
 
     # 根据数据结构创建XML文件
-    sm_book = SmXml(book, book_f_name, save_folder)
+    sm_book = SmXml(book_f_name, save_folder, ebook=book)
     sm_book.create_xml(root_element)
     print("转换完成，已存储至：", save_folder)
 
@@ -202,6 +202,6 @@ def start_with_topic(epub_file, save_folder):
             "Content": {"Question": merge_epub_to_topic(book, book_f_name)},
         }
     ]
-    sm_book = SmXml(book, book_f_name, save_folder)
+    sm_book = SmXml(book_f_name, save_folder, ebook=book)
     sm_book.create_xml(root_element)
     print("转换完成，已存储至：", save_folder)
