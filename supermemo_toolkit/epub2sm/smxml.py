@@ -22,8 +22,8 @@ class SmXml:
     def create_xml(self, data: list[dict[str, Any]]):
         """输入data, 创建SuperMemo-XML-Book
 
-        Args:
-            data (_type_): _description_
+        Args: data (_type_): list[sm_element_dict[attr:value]],
+        if attr == SuperMemoElement: attr = list[sm_element_dict[attr:value]]
         """
 
         root = Element("SuperMemoCollection")
