@@ -40,6 +40,9 @@ python-magic = { version = "^0.4.22", markers = "sys_platform != 'win32'" }
 tqdm = "^4.66.1"
 requests = "^2.31.0"
 
+pyquery = "^2.0.0"
+filetype = "^1.2.0"
+readmdict = "^0.1.1"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

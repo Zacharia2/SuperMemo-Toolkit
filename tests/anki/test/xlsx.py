@@ -1,7 +1,7 @@
 import pandas as pd
 from readmdict import MDX
 
-mdx = MDX("D:\\Software\\MDictPC\\doc\\Collins\cobuild2024.mdx")
+mdx = MDX("D:/Software/MDictPC/doc/ode_glance/ode_glance.mdx")
 headwords = [*mdx]  # 单词名列表
 items = [*mdx.items()]  # 释义html源码列表
 if len(headwords) == len(items):

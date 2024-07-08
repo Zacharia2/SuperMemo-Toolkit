@@ -1,15 +1,14 @@
 import base64
 import hashlib
 import json
-
 import urllib.request
-from bs4 import BeautifulSoup
 
-import requests
 import filetype
-
+import requests
+from bs4 import BeautifulSoup
 from pyquery import PyQuery
-# from readmdict import MDX
+
+from readmdict import MDX
 
 # import semantic_classification as sc
 
@@ -96,7 +95,7 @@ def download_word_sound(target_word: str, us_or_uk: int):
         content_type = response.headers.get("content-type")
         content = response.content
         # Read and update hash in chunks of 4K
-        for byte_block in [content[i : i + 4096] for i in range(0, len(content), 4096)]:
+        for byte_block in [content[i: i + 4096] for i in range(0, len(content), 4096)]:
             sha1_hash.update(byte_block)
         if b'{"code": 403}' not in content:
             # 判断文件类型生成文件名。
@@ -324,3 +323,14 @@ def cmp_field(query_, key1, key2):
         fields = noteInfo["fields"]
         if fields[key1]["value"] != fields[key2]["value"]:
             print(fields[key1]["value"], "::", fields[key2]["value"])
+
+
+def u_mdx(path:str):
+    mdx = MDX(path)
+    headwords = [*mdx]  # 单词名列表
+    items = [*mdx.items()]  # 释义html源码列表
+    if len(headwords) == len(items):
+        print(f"加载成功：共{len(headwords)}条")
+    else:
+        print(f"【ERROR】加载失败{len(headwords)}，{len(items)}")
+    return headwords,items
