@@ -2,8 +2,6 @@
 
 SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换导入、Latex公式转图片等。
 
-功能说明、下载安装使用文档：https://docs.qq.com/doc/DQnRpb0VNUEVvR3dl
-
 ## PathPix
 
 > supermemo图链整理工具。
@@ -11,6 +9,10 @@ SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换
 PathPix：任意类型的网络图片整理为受支持的五种格式的图片，并网络和本地图片收集起来转换为相对路径，存放在elements文件夹中。
 
 其中，网页内嵌图片由pathpix管理，元素注册表图片由图片注册表管理。pathpix管理的图片文件，可以导入图片注册表中。
+
+旧版Pathpix：功能说明、下载安装使用文档：https://docs.qq.com/doc/DQnRpb0VNUEVvR3dl
+
+致谢：●兰迥 ●Merlin ●水流众生 ●st ●aicling
 
 ## E2SM
 
@@ -84,3 +86,8 @@ python -m pip install --upgrade pip
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Zacharia2/SuperMemo-Toolkit&type=Date)](https://star-history.com/#Zacharia2/SuperMemo-Toolkit&Date)
+
+## 赞助
+如果你喜欢这个工具，并对我表示感谢，你可以在这里请我喝一杯奶茶！
+
+<img src="docs\donate.png" width="400">
