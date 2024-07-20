@@ -90,4 +90,4 @@ python -m pip install --upgrade pip
 ## 赞助
 如果你喜欢这个工具，并对我表示感谢，你可以在这里请我喝一杯奶茶！
 
-<img src="docs\donate.png" width="400">
+![](./docs/donate.png)
