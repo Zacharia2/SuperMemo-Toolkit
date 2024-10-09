@@ -34,7 +34,6 @@ ebooklib = "^0.18"
 pillow = "^10.2.0"
 pypinyin = "^0.51.0"
 matplotlib = "^3.8.2"
-numpy = "^1.26.3"
 python-magic-bin = { version = "^0.4.14", markers = "sys_platform == 'win32'" }
 python-magic = { version = "^0.4.22", markers = "sys_platform != 'win32'" }
 tqdm = "^4.66.1"
