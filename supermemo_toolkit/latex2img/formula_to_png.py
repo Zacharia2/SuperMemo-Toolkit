@@ -2,8 +2,7 @@
 
 import os
 from io import BytesIO
-from PIL import Image
-import numpy as np
+from PIL import Image, ImageOps
 import matplotlib.font_manager as mfm
 from matplotlib import mathtext
 
@@ -44,12 +43,20 @@ def latex2img(text, size=32, color=(0.1, 0.1, 0.1), out=None, **kwds):
     im = Image.open(bfo)  # 打开二进制的类文件对象，返回一个PIL图像对象
 
     r, g, b, a = im.split()  # 分离出RGBA四个通道
-    r, g, b = 255 - np.array(r), 255 - np.array(g), 255 - np.array(b)  # RGB通道反白
-    a = r / 3 + g / 3 + b / 3  # 生成新的alpha通道
-    r, g, b = r * color[0], g * color[1], b * color[2]  # RGB通道设置为目标颜色
+    # 反转RGB通道
+    r = ImageChops.invert(r)
+    g = ImageChops.invert(g)
+    b = ImageChops.invert(b)
+    # 生成新的alpha通道
+    a = ImageChops.add(ImageChops.add(r, g), b).convert('L')
+    a = ImageChops.scale(a, 1/3)
+    # 设置颜色
+    r = ImageChops.multiply(r, Image.new('L', (1, 1), int(color[0]*255)))
+    g = ImageChops.multiply(g, Image.new('L', (1, 1), int(color[1]*255)))
+    b = ImageChops.multiply(b, Image.new('L', (1, 1), int(color[2]*255)))
 
-    im = np.dstack((r, g, b, a)).astype(np.uint8)  # RGBA四个通道合并为三维的numpy数组
-    im = Image.fromarray(im)  # numpy数组转PIL图像对象
+    # 合并通道
+    im = Image.merge('RGBA', (r, g, b, a))
 
     if out is None:
         return im

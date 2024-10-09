@@ -20,11 +20,13 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
 
 从epub图书生成xml格式的sm-book图书。
 
-生成的**书籍图片文件夹**放到SM集合的`your_collection/elements/local_pic`文件夹下即可。
+需要生成的**书籍图片文件夹**放到SM集合的`your_collection/elements/local_pic`文件夹下，如果你不需要的图片显示的话，可以不用放。
 
 一般情况下集合默认全路径为：`Root_SuperMemo/systems/your_collection`。
 
-无论怎样，只需要将**图片文件夹**放在你的集合文件夹下的`elements/local_pic`文件夹中。
+使用方法：例如我想将“如何阅读一本书.epub”文件转换为可导入的supermemo集合文件（XML+图片附件文件夹），那么，首先推荐的安装方式是pipx，pipx可以理解为Android系统的应用程序管理器，负责安装管理apk应用。那么，pipx也是一样的道理，pipx可以安装管理whl格式的python软件包。其次，你可以下载源代码的方式，本地构建一个软件开发环境运行，蛋我不推荐这样做，这样做的任务复杂度带来的试错成本略高。使用pipx安装软件可以参考下方的 Install。
+
+当成功安装好的软件包后，就可以开始使用了，使用非常简单，对于win10及以上版本的系统，可以在桌面又单击-使用终端打开，在终端中输入`smtk e2sm --linear 如何阅读一本书.epub C:\Users\Name\Desktop`并执行此命令（这个命令的含义是使用线性相同层级topic转换图书），稍后会在桌面生成一个XML文件和对应的文件夹。文件夹需要放置到上文说的指定的位置，因为程序在处理过程会自动将绝对路径转换为固定的相对路径，这个路径在转换后的XML文件中是写好的。所以第一步是把“书籍图片文件夹”放到对应的位置，第二步是导入图书，打开supermome软件，点击菜单按钮：File - Import - XML，在打开的对话框中选择转换好的电纸书XML集合文件，点击导入。导入成功的同时就可以看到最终的效果了。
 
 ```pwsh
 smtk e2sm --toc epub_file out_folder  #（需要图书有良好的目录，没有需使用calibre生成并整理目录）
