@@ -106,40 +106,64 @@ def is_in_elements_directory(fs_path, directory):
     return directory_name.startswith(directory)
 
 
-def verify_image_url(url: str):
+def checkUrlValidity(url: str) -> bool:
+    try:
+        response = requests.get(url, stream=True, allow_redirects=True)
+        if response.status_code == 200:
+            return True
+        else:
+            return False
+    except requests.exceptions.ConnectionError as e:
+        print("网络连接异常: ", e)
+        return False
+    except requests.exceptions.Timeout as e:
+        print("连接超时: ", e)
+        return False
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP错误, 状态码: {e.response.status_code}, {e}")
+        return False
+    except requests.RequestException as e:
+        print("RequestException ", e)
+        return False
+    except ValueError as e:
+        print("响应解析异常: ", e)
+        return False
+
+
+def fetch_image(url: str):
     """
     验证图片链接，返回(图片类型, 图片名称, 图片数据) | None
     """
-    try:
-        sha1_hash = hashlib.sha1()
-        response = requests.get(url, stream=True)
-        content_type = response.headers.get("content-type")
-        content = response.content
-        # Read and update hash in chunks of 4K
-        field_length = 4096
-        for byte_block in [
-            content[i: i + field_length] for i in range(0, len(content), field_length)
-        ]:
-            sha1_hash.update(byte_block)
-        file_name = f"im_{sha1_hash.hexdigest()}"
-        if content_type:
-            # 处理可能的字符编码，如：image/jpeg; charset=utf-8
-            content_type = content_type.split(";")[0]
-        filetype = imghdr.what(None, content)
-        if content_type and "image" in content_type:
-            return content_type, file_name, content
-        elif filetype is not None:
-            return f"image/{filetype}", file_name, content
-        else:
-            return None
-    except requests.exceptions.ConnectionError as e:
-        print("网络连接异常: ", e)
-    except requests.exceptions.Timeout as e:
-        print("连接超时: ", e)
-    except requests.exceptions.HTTPError as e:
-        print(f"HTTP错误, 状态码: {e.response.status_code}, {e}")
-    except ValueError as e:
-        print("响应解析异常: ", e)
+    sha1_hash = hashlib.sha1()
+    response = requests.get(url, stream=True)
+    content_type = response.headers.get("content-type")
+    content = response.content
+
+    # 1.生成 sha1_hash 作为文件名
+    # Read and update hash in chunks of 4K
+    field_length = 4096
+    for byte_block in [
+        content[i : i + field_length] for i in range(0, len(content), field_length)
+    ]:
+        sha1_hash.update(byte_block)
+    file_name = f"im_{sha1_hash.hexdigest()}"
+
+    # 2.处理 content_type 中可能的字符编码
+    # 如：image/jpeg; charset=utf-8
+    if content_type:
+        content_type = content_type.split(";")[0]
+
+    # 3.通过文件内容判断文件图片类型，作为判断是否为图片类型的备选措施。
+    filetype = imghdr.what(None, content)
+
+    # 只有当 content_type 为 image 类型 否则或者 filetype 为 image 类型。
+    # 才返回数据，否则返回None。
+    if content_type and "image" in content_type:
+        return content_type, file_name, content
+    elif filetype is not None:
+        return f"image/{filetype}", file_name, content
+    else:
+        return None
 
 
 def is_html_ext_file(file_path):
@@ -227,45 +251,49 @@ def im_download_and_convert(url, web_pic_folder, collection_temp_folder, htm_pat
     ]
     # now = time.strftime("%Y-%m-%d-%H_%M", time.localtime(time.time()))
     # file_name = "im_" + now + "_uuid_" + str(uuid.uuid4())
-    result_is_im = verify_image_url(url)
 
-    if result_is_im:
-        (content_type, file_name, im_bytes) = result_is_im
-        if content_type not in supports_im_type:
-            extension = content_type.split("/")[1]
-            try:
-                mkdir(collection_temp_folder)
-                temp_file_path = os.path.join(
-                    collection_temp_folder, file_name + f".{extension}"
-                )
-                # 先把webp写到temp文件夹，然后再处理。
-                with open(temp_file_path, "wb") as f:
-                    f.write(im_bytes)
+    if not checkUrlValidity(url):
+        report(f"警告! File:{htm_path}, 无效资源链接 {url}")
+    fetched_image = fetch_image(url)
 
-                # 转换图片格式。
-                with Image.open(temp_file_path) as im:
-                    print(im.format, im.size, im.mode)
-                    # 这里是输出路径。
-                    mkdir(web_pic_folder)
-                    saved_path = os.path.join(web_pic_folder, file_name + ".png")
-                    im.save(saved_path, "png")
-                    return saved_path
-            except Exception as e:
-                report(
-                    f"发生一个异常: {e}! \n\tFile:{htm_path}, \n\tCannot convert {url}",
-                    htm_path,
-                )
-        else:
-            extension = content_type.split("/")[1]
-            # 如果支持的话，就直接写入的路径中即可。
-            mkdir(web_pic_folder)
-            saved_path = os.path.join(web_pic_folder, file_name + f".{extension}")
-            # 必须先创建文件夹。
-            with open(saved_path, "wb") as f:
-                f.write(im_bytes)
-            return saved_path
-    else:
+    if not fetched_image:
         report(f"警告! File:{htm_path}, 非图片资源链接 {url}")
+    (content_type, file_name, im_bytes) = fetched_image
+
+    if content_type in supports_im_type:
+        extension = content_type.split("/")[1]
+        # 如果支持的话，就直接写入的路径中即可。
+        mkdir(web_pic_folder)
+        saved_path = os.path.join(web_pic_folder, file_name + f".{extension}")
+        # 必须先创建文件夹。
+        with open(saved_path, "wb") as f:
+            f.write(im_bytes)
+        return saved_path
+
+    # 这些自然是不在受支持名单的。
+    extension = content_type.split("/")[1]
+    try:
+        mkdir(collection_temp_folder)
+        temp_file_path = os.path.join(
+            collection_temp_folder, file_name + f".{extension}"
+        )
+        # 先把webp写到temp文件夹，然后再处理。
+        with open(temp_file_path, "wb") as f:
+            f.write(im_bytes)
+
+        # 转换图片格式。
+        with Image.open(temp_file_path) as im:
+            print(im.format, im.size, im.mode)
+            # 这里是输出路径。
+            mkdir(web_pic_folder)
+            saved_path = os.path.join(web_pic_folder, file_name + ".png")
+            im.save(saved_path, "png")
+            return saved_path
+    except Exception as e:
+        report(
+            f"发生一个异常: {e}! \n\tFile:{htm_path}, \n\tCannot convert {url}",
+            htm_path,
+        )
 
 
 def im_data_url_and_convert(htm_path):
@@ -273,10 +301,10 @@ def im_data_url_and_convert(htm_path):
 
 
 def modify_img_src(
-        html_content,
-        elements_folder,
-        collection_temp_folder,
-        htm_path,
+    html_content,
+    elements_folder,
+    collection_temp_folder,
+    htm_path,
 ):
     # im_saved_path, elements_path, collection_temp_path, htm_file_path
     soup = BeautifulSoup(html_content, "html.parser")
@@ -287,7 +315,10 @@ def modify_img_src(
     img_tags = soup.find_all("img")
     # 过滤元素。去掉没有src属性以及属性值为空的。
     filtered_im_list = list(
-        filter(lambda im_node: "src" in im_node.attrs and im_node.attrs["src"] != "", img_tags)
+        filter(
+            lambda im_node: "src" in im_node.attrs and im_node.attrs["src"] != "",
+            img_tags,
+        )
     )
     is_modify = False
     for im in filtered_im_list:
@@ -426,9 +457,9 @@ def read_in_list(path_list: list) -> list:
                 raw_data = f.read()
                 file_type = magic.from_buffer(raw_data[:3072], mime=True)
                 if not (
-                        file_type == "text/html"
-                        or file_type == "text/xml"
-                        or file_type == "text/plain"
+                    file_type == "text/html"
+                    or file_type == "text/xml"
+                    or file_type == "text/plain"
                 ):
                     continue
                 result = chardet.detect(raw_data)
@@ -534,7 +565,8 @@ def organize_unused_im(elements_folder):
 
                 filtered_im_list = list(
                     filter(
-                        lambda im_node: "src" in im_node.attrs and im_node.attrs["src"] != "",
+                        lambda im_node: "src" in im_node.attrs
+                        and im_node.attrs["src"] != "",
                         img_tags,
                     )
                 )
@@ -656,6 +688,7 @@ def start(elements_folder):
         del gen_dict_filter[key]
     # 保存生成字典
     config.update_config(conf_old_dict_filter_path, gen_dict_filter)
+
 
 # 区分文件和文件夹路径。文件就使用path，文件夹就使用folder
 
