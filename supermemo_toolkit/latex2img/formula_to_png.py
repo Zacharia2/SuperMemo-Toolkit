@@ -2,7 +2,7 @@
 
 import os
 from io import BytesIO
-from PIL import Image, ImageOps
+from PIL import Image
 import matplotlib.font_manager as mfm
 from matplotlib import mathtext
 
@@ -44,17 +44,18 @@ def latex2img(text, size=32, color=(0.1, 0.1, 0.1), out=None, **kwds):
 
     r, g, b, a = im.split()  # 分离出RGBA四个通道
     # 反转RGB通道
-    r = ImageChops.invert(r)
-    g = ImageChops.invert(g)
-    b = ImageChops.invert(b)
+    r = Image.eval(r, lambda x: 255 - x)
+    g = Image.eval(g, lambda x: 255 - x)
+    b = Image.eval(b, lambda x: 255 - x)
     # 生成新的alpha通道
-    a = ImageChops.add(ImageChops.add(r, g), b).convert('L')
-    a = ImageChops.scale(a, 1/3)
+    a = Image.eval(r, lambda x: x / 3)
+    a = Image.eval(g, lambda x: x / 3, a)
+    a = Image.eval(b, lambda x: x / 3, a)
+    a = a.convert('L')
     # 设置颜色
-    r = ImageChops.multiply(r, Image.new('L', (1, 1), int(color[0]*255)))
-    g = ImageChops.multiply(g, Image.new('L', (1, 1), int(color[1]*255)))
-    b = ImageChops.multiply(b, Image.new('L', (1, 1), int(color[2]*255)))
-
+    r = Image.eval(r, lambda x: int(x * color[0]))
+    g = Image.eval(g, lambda x: int(x * color[1]))
+    b = Image.eval(b, lambda x: int(x * color[2]))
     # 合并通道
     im = Image.merge('RGBA', (r, g, b, a))
 

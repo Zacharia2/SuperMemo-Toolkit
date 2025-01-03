@@ -31,17 +31,17 @@ beautifulsoup4 = "^4.12.3"
 chardet = "^5.2.0"
 click = "^8.1.7"
 ebooklib = "^0.18"
-pillow = "^10.2.0"
-pypinyin = "^0.51.0"
+pillow = "^11.1.0"
+pypinyin = "^0.53.0"
 matplotlib = "^3.8.2"
 python-magic-bin = { version = "^0.4.14", markers = "sys_platform == 'win32'" }
 python-magic = { version = "^0.4.22", markers = "sys_platform != 'win32'" }
 tqdm = "^4.66.1"
 requests = "^2.31.0"
-
 pyquery = "^2.0.0"
 filetype = "^1.2.0"
 readmdict = "^0.1.1"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
