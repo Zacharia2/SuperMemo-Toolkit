@@ -1,5 +1,4 @@
 import hashlib
-import imghdr
 import logging
 import os
 import re
@@ -53,9 +52,11 @@ logger = setup_logger()
 report_list = list()
 
 
-def report(msg, *args):
-    logger.warning(msg)
-    report_list.append((args[0], msg))
+def report(msg: dict):
+    # def msg: dict : {msg，htm_path}
+    logger.warning(msg["msg"])
+    if msg["htm_path"]:
+        report_list.append(msg["htm_path"])
 
 
 def copy_to_elements(file_path: str, target_folder: str) -> str:
@@ -132,13 +133,13 @@ def checkUrlValidity(url: str) -> bool:
 
 def fetch_image(url: str):
     """
-    验证图片链接，返回(图片类型, 图片名称, 图片数据) | None
+    下载图像文件，返回(图片类型, 图片名称, 图片数据) | None
     """
     sha1_hash = hashlib.sha1()
     response = requests.get(url, stream=True)
     content_type = response.headers.get("content-type")
     content = response.content
-
+    content_mime = ""
     # 1.生成 sha1_hash 作为文件名
     # Read and update hash in chunks of 4K
     field_length = 4096
@@ -151,17 +152,16 @@ def fetch_image(url: str):
     # 2.处理 content_type 中可能的字符编码
     # 如：image/jpeg; charset=utf-8
     if content_type:
-        content_type = content_type.split(";")[0]
-
-    # 3.通过文件内容判断文件图片类型，作为判断是否为图片类型的备选措施。
-    filetype = imghdr.what(None, content)
+        content_mime = content_type.split(";")[0]
+    else:
+        # 3.通过文件内容判断文件图片类型，作为判断是否为图片类型的备选措施。
+        # filetype = imghdr.what(None, content)
+        content_mime = magic.from_buffer(content, True)
 
     # 只有当 content_type 为 image 类型 否则或者 filetype 为 image 类型。
     # 才返回数据，否则返回None。
-    if content_type and "image" in content_type:
-        return content_type, file_name, content
-    elif filetype is not None:
-        return f"image/{filetype}", file_name, content
+    if content_mime and "image" in content_mime:
+        return content_mime, file_name, content
     else:
         return None
 
@@ -253,11 +253,23 @@ def im_download_and_convert(url, web_pic_folder, collection_temp_folder, htm_pat
     # file_name = "im_" + now + "_uuid_" + str(uuid.uuid4())
 
     if not checkUrlValidity(url):
-        report(f"警告! File:{htm_path}, 无效资源链接 {url}")
+        report(
+            {
+                "msg": f"警告! File:{htm_path}, 无效资源链接 {url}",
+                "htm_path": htm_path,
+            }
+        )
+        return None
     fetched_image = fetch_image(url)
 
     if not fetched_image:
-        report(f"警告! File:{htm_path}, 非图片资源链接 {url}")
+        report(
+            {
+                "msg": f"警告! File:{htm_path}, 非图片资源链接 {url}",
+                "htm_path": htm_path,
+            }
+        )
+        return None
     (content_type, file_name, im_bytes) = fetched_image
 
     if content_type in supports_im_type:
@@ -291,8 +303,10 @@ def im_download_and_convert(url, web_pic_folder, collection_temp_folder, htm_pat
             return saved_path
     except Exception as e:
         report(
-            f"发生一个异常: {e}! \n\tFile:{htm_path}, \n\tCannot convert {url}",
-            htm_path,
+            {
+                "msg": f"发生一个异常: {e}! \n\tFile:{htm_path}, \n\tCannot convert {url}",
+                "htm_path": htm_path,
+            }
         )
 
 
@@ -332,9 +346,10 @@ def modify_img_src(
                 collection_temp_folder,
                 htm_path,
             )
-            standard_path = unified_path_separator(im_web_local_path)
-            im.attrs["src"] = relativization_path(standard_path)
-            is_modify = True
+            if im_web_local_path:
+                standard_path = unified_path_separator(im_web_local_path)
+                im.attrs["src"] = relativization_path(standard_path)
+                is_modify = True
         elif is_data_url_scheme(im_src):
             # 如果是 Data URI scheme
             im_data_url_and_convert(htm_path)
@@ -369,7 +384,12 @@ def modify_img_src(
                     )
                     is_modify = True
             else:
-                report(f"{htm_path}, local-img {fs_path} not exists !")
+                report(
+                    {
+                        "msg": f"{htm_path}, local-img {fs_path} not exists !",
+                        "htm_path": htm_path,
+                    }
+                )
         elif is_relative_path(im_src):
             is_modify = False
     if is_modify:
@@ -471,7 +491,12 @@ def read_in_list(path_list: list) -> list:
                 )
             )
         except Exception as e:
-            report((htm_path, e), htm_path)
+            report(
+                {
+                    "msg": f"{htm_path}, {e}",
+                    "htm_path": htm_path,
+                }
+            )
         print(
             "PathPix:: 正在读取文件数据",
             f"[{index + 1}/{len(path_list)}]",
@@ -508,7 +533,12 @@ def relative_and_localize(wait_htm_path_list, elements_folder, collection_temp_f
                 secure_file_write(modified_content, htm_path, collection_temp_folder)
                 processed_htm_files.append(htm_path)
         except Exception as e:
-            report((htm_path, e), htm_path)
+            report(
+                {
+                    "msg": f"{htm_path}, {e}",
+                    "htm_path": htm_path,
+                }
+            )
 
     if len(report_list) != 0:
         print("\033[0;31;40m", "一些文件处理失败, 请查看log文件", "\033[0m")
@@ -608,10 +638,9 @@ def organize_unused_im(elements_folder):
         print("PathPix:: 未处理过此集合, web_pic 和 local_pic 文件夹不存在。")
 
 
-def single(fullpath):
-    """
-    docstring
-    """
+def single_file(fullpath: str):
+    # fullpath (str): D:/SuperMemo/systems/ABC of SuperMemo 19/elements/26690.HTM
+
     elements_folder = os.path.normpath(
         os.path.join(fullpath.split("elements")[0], "elements")
     )
@@ -684,8 +713,8 @@ def start(elements_folder):
     else:
         print("\n\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
     # 把处理失败的文件剔除掉，下次重新试过一次。
-    for key, msg in report_list:
-        del gen_dict_filter[key]
+    for htm_path in report_list:
+        del gen_dict_filter[htm_path]
     # 保存生成字典
     config.update_config(conf_old_dict_filter_path, gen_dict_filter)
 
@@ -695,3 +724,4 @@ def start(elements_folder):
 # start("C:/Users/Snowy/Desktop/sm18/systems/all in one/elements")
 # start("D:/SuperMemo/systems/ALL IN ONE/elements")
 # organize_unused_im("D:/SuperMemo/systems/Reading-And-Review/elements")
+# single_file("E:\\新建文件夹\\elements\\26690.HTM")

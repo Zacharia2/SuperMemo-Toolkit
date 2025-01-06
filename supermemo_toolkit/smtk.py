@@ -124,7 +124,7 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
         else:
             im_sort_out.start(elements_path)
     elif fullpath:
-        im_sort_out.single(fullpath)
+        im_sort_out.single_file(fullpath)
     elif gui:
         im_sort_out_gui.run()
     with click.Context(pathpix) as ctx:
