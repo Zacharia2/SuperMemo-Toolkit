@@ -122,7 +122,7 @@ def individual_repair():
         return
 
     # 调用 pathpix.single(fullpath) 开始单个修复
-    pathpix.single(fullpath)
+    pathpix.single_file(fullpath)
     tk.messagebox.showinfo("信息", "单个修复已完成")
 
 
