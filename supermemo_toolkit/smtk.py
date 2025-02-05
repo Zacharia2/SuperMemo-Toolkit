@@ -127,8 +127,10 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
         im_sort_out.single_file(fullpath)
     elif gui:
         im_sort_out_gui.run()
-    with click.Context(pathpix) as ctx:
-        click.echo(pathpix.get_help(ctx))
+    else:
+        # 如果没有提供任何选项，打印帮助信息
+        with click.Context(pathpix) as ctx:
+            click.echo(pathpix.get_help(ctx))
 
 
 if __name__ == "__main__":
