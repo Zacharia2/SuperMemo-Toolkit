@@ -8,7 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 from pyquery import PyQuery
 
-from readmdict import MDX
+# from readmdict import MDX
 
 # import semantic_classification as sc
 
@@ -325,12 +325,12 @@ def cmp_field(query_, key1, key2):
             print(fields[key1]["value"], "::", fields[key2]["value"])
 
 
-def u_mdx(path:str):
-    mdx = MDX(path)
-    headwords = [*mdx]  # 单词名列表
-    items = [*mdx.items()]  # 释义html源码列表
-    if len(headwords) == len(items):
-        print(f"加载成功：共{len(headwords)}条")
-    else:
-        print(f"【ERROR】加载失败{len(headwords)}，{len(items)}")
-    return headwords,items
+# def u_mdx(path:str):
+#     mdx = MDX(path)
+#     headwords = [*mdx]  # 单词名列表
+#     items = [*mdx.items()]  # 释义html源码列表
+#     if len(headwords) == len(items):
+#         print(f"加载成功：共{len(headwords)}条")
+#     else:
+#         print(f"【ERROR】加载失败{len(headwords)}，{len(items)}")
+#     return headwords,items
