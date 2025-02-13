@@ -27,7 +27,7 @@ exclude = [
 
 [tool.poetry.dependencies]
 python = "^3.12"
-beautifulsoup4 = "^4.12.3"
+beautifulsoup4 = "^4.13.3"
 chardet = "^5.2.0"
 click = "^8.1.7"
 ebooklib = "^0.18"
@@ -38,9 +38,12 @@ python-magic-bin = { version = "^0.4.14", markers = "sys_platform == 'win32'" }
 python-magic = { version = "^0.4.22", markers = "sys_platform != 'win32'" }
 tqdm = "^4.66.1"
 requests = "^2.31.0"
+
+[tool.poetry.group.dev.dependencies]
 pyquery = "^2.0.0"
 filetype = "^1.2.0"
 readmdict = "^0.1.1"
+python-lzo = {path = "tests/anki/until/python_lzo-1.16-cp312-cp312-win_amd64.whl"}
 
 [build-system]
 requires = ["poetry-core"]
