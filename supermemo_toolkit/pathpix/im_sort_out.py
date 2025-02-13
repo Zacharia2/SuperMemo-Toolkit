@@ -14,7 +14,6 @@ from PIL import Image
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-# sys.path.insert(0, os.path.normpath(sys.path[0] + "/../../"))
 from supermemo_toolkit.utilscripts import config
 from supermemo_toolkit.utilscripts.ulils import makeNameSafe
 

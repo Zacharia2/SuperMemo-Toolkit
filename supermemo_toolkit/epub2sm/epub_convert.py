@@ -9,9 +9,6 @@ from supermemo_toolkit.epub2sm.toc_units import toc_check, toc_orgnize
 from supermemo_toolkit.utilscripts.ulils import makeNameSafe, trans_pinyin
 
 
-# sys.path.insert(0, os.path.normpath(sys.path[0] + "/../../"))
-
-
 # resolved：空格变问号的问题
 # https://blog.csdn.net/u013778905/article/details/53177042
 # 符号库：https://www.fuhaoku.net/U+00A9
