@@ -1,8 +1,4 @@
-import os
-import sys
-
-sys.path.insert(0, os.path.normpath(sys.path[0] + "/../"))
-from main import download_youdao_word_uk, invoke  # noqa: E402
+from main import download_youdao_word_uk, invoke
 
 
 note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
@@ -23,4 +19,4 @@ for index, noteInfo in enumerate(notesInfo):
                     "fields": {"UK": uk},
                 },
             )
-            print(word, uk, f"{index+1}/{len(notesInfo)}")
+            print(word, uk, f"{index + 1}/{len(notesInfo)}")

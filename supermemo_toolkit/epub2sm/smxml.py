@@ -8,9 +8,6 @@ from ebooklib import epub
 from supermemo_toolkit.utilscripts.ulils import mkdir
 
 
-# sys.path.insert(0, os.path.normpath(sys.path[0] + "/../../"))
-
-
 class SmXml:
     def __init__(self, book_name: str, save_folder=os.getcwd(), **kwargs):
         self.save_folder: str = save_folder

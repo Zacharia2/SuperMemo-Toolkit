@@ -1,9 +1,6 @@
-import os
-import sys
 import pandas as pd
 
-sys.path.insert(0, os.path.normpath(sys.path[0] + "/../"))
-from main import invoke  # noqa: E402
+from main import invoke
 
 # https://pypandas.cn/docs/getting_started/overview.html#%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84
 # | 维数  | 名称        | 描述                |
@@ -35,4 +32,4 @@ for index, noteInfo in enumerate(notesInfo):
                 "fields": {"重要程度": "1"},
             },
         )
-        print(word, f"{index+1}/{len(notesInfo)}")
+        print(word, f"{index + 1}/{len(notesInfo)}")

@@ -1,11 +1,8 @@
-import os
 import re
-import sys
 import pandas as pd
 
-sys.path.insert(0, os.path.normpath(sys.path[0] + "/../"))
 from until.cmp_2word import cmp_2word
-from main import invoke  # noqa: E402
+from main import invoke
 
 df = pd.read_excel("C:/Users/Snowy/Desktop/2000.xlsx", sheet_name="Sheet1")
 # word_list = df.iloc[:, 0].to_dict()
@@ -43,7 +40,7 @@ for index, noteInfo in enumerate(notesInfo):
             },
         },
     )
-    print(f"clearly:: {index+1}/{len(notesInfo)}")
+    print(f"clearly:: {index + 1}/{len(notesInfo)}")
 
 count = 0
 for index, noteInfo in enumerate(notesInfo):
@@ -76,4 +73,4 @@ for index, noteInfo in enumerate(notesInfo):
                         },
                     },
                 )
-                print(f"{count}::{word}:{cword}, {index+1}/{len(notesInfo)}")
+                print(f"{count}::{word}:{cword}, {index + 1}/{len(notesInfo)}")

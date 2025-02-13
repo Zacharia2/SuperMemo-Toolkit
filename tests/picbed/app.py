@@ -1,5 +1,4 @@
 import os
-import sys
 from flask import (
     Flask,
     request,
@@ -10,8 +9,7 @@ from flask import send_from_directory
 import random
 import time
 
-sys.path.insert(0, os.path.normpath(sys.path[0] + "/../../"))
-from supermemo_toolkit.utilscripts import config  # noqa: E402
+from supermemo_toolkit.utilscripts import config
 
 
 # 配置设置

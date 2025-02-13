@@ -1,9 +1,4 @@
-import os
-import sys
-
-sys.path.insert(0, os.path.normpath(sys.path[0] + "/../"))
-from main import download_word_sound, invoke  # noqa: E402
-
+from main import download_word_sound, invoke
 
 note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
 notesInfo = invoke("notesInfo", notes=note_id_list)

@@ -1,9 +1,5 @@
-import os
 import re
-import sys
-
-sys.path.insert(0, os.path.normpath(sys.path[0] + "/../"))
-from main import invoke  # noqa: E402
+from main import invoke
 
 note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
 notesInfo = invoke("notesInfo", notes=note_id_list)
@@ -26,7 +22,7 @@ for index, noteInfo in enumerate(notesInfo):
     else:
         curr_deck = "2024红宝书考研词汇::D - 扩展词"
     invoke("changeDeck", cards=[noteId], deck=curr_deck)
-    print(f"{curr_deck},,{Group},,{index+1}/{len(notesInfo)}")
+    print(f"{curr_deck},,{Group},,{index + 1}/{len(notesInfo)}")
 
 # for i in range(100):
 #     curr_id = f"SentID:{int(i+1):04d}"
