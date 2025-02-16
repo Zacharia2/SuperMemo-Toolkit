@@ -11,6 +11,7 @@ from supermemo_toolkit.utilscripts.ulils import (
     trans_pinyin,
     mkdir,
     get_id_func,
+    escape_sequence,
 )
 
 from yattag import Doc
@@ -20,20 +21,7 @@ get_id = get_id_func()
 id_counts = 0
 
 
-# resolved：空格变问号的问题
-# https://blog.csdn.net/u013778905/article/details/53177042
-# 符号库：https://www.fuhaoku.net/U+00A9
-# 写入数据结构时，必要调用的函数之一。
 def modify_img_url(doc, folder_name):
-    escape_sequence = {
-        "EM SPACE": (chr(0x2003), "&ensp;"),
-        "COPYRIGHT SIGN": (chr(0x00A9), "&copy;"),
-        "EM DASH": (chr(0x2014), "&#8212;"),
-        "chapterlast": (chr(0xF108), "&#10048;"),
-        "REPLACEMENT CHARACTER": (chr(0xFFFD), "&#65533;"),
-    }
-    for escape in escape_sequence.values():
-        doc = doc.replace(escape[0], escape[1])
     soup = BeautifulSoup(doc, "html.parser")
     # 删除DOCTYPE定义
     for item in soup.contents:
@@ -54,21 +42,18 @@ def split_section(html, doc_id):
     soup = BeautifulSoup(html, "html.parser")
     m_element = soup.find(id=doc_id)
     tag_name = m_element.name
-    # 获取带有id属性的元素
-    # 提取这一节内容
-    # 把它自己（分割标记）也放进去。
+    # 获取带有id属性的元素，提取这一节内容，把它自己（分割标记）也放进去。
     content = str(m_element)
     if m_element is not None:
         for sibling in m_element.find_next_siblings():
-            # 检查sibling是否是一个Tag对象
             if isinstance(sibling, Tag):
-                # 如果是Tag对象，检查它的name属性
+                # sibling是Tag对象，检查Tag对象的name属性
                 if sibling.name == tag_name:
                     break
                 else:
                     content += str(sibling)
             else:
-                # 如果sibling是字符串，直接添加到content中
+                # sibling是字符串，添加到content中
                 content += str(sibling)
     return content
 
@@ -80,12 +65,12 @@ def get_content(book: epub.EpubBook, href: str):
         doc = book.get_item_with_href(doc_href)
         # 分割文本
         section = split_section(doc.content.decode("utf-8"), doc_id) if doc else " "
-        return section
+        return escape_sequence(section)
     else:
-        # 没有锚点。说明是一个文件。
+        # 没有锚点，是一个文件。
         doc = book.get_item_with_href(href)
         content = doc.content.decode("utf-8") if doc else " "
-    return content
+    return escape_sequence(content)
 
 
 def get_docs_by_toc(book, chapters, folder_name):
@@ -110,7 +95,8 @@ def get_docs_by_toc(book, chapters, folder_name):
             id_counts += 1
             el_list.append(doc.getvalue())
         elif isinstance(chapter, tuple):
-            # 是元组的时候就说明是有子集的数据。元组的第一个是本层Element章节，第二个是Element的循环的集合，子章节
+            # 是元组的时候就说明是有子集的数据。
+            # 元组的第一个是本层Element章节，第二个是Element的循环的集合，子章节
             doc, tag, text = Doc().tagtext()
             sm_section, sm_element = chapter
             title = sm_section.title
@@ -126,7 +112,7 @@ def get_docs_by_toc(book, chapters, folder_name):
                     text(modify_img_url(get_content(book, href), folder_name))
             if len(sm_element) > 0:
                 # 当元组的第二个元素有子元素的时候。此集合名，循环的集合元素
-                # 这这里生成多个SuperMemoElement
+                # 这里生成多个SuperMemoElement
                 el_sublist = get_docs_by_toc(book, sm_element, folder_name)
                 for el in el_sublist:
                     with tag("SuperMemoElement"):
@@ -156,8 +142,8 @@ def get_docs_by_doclist(book, folder_name):
     return el_list
 
 
-# 只取body内的元素合并。忽略其他，因为sm不需要。
 def merge_epub_to_topic(book, folder_name):
+    # 只取body内的元素合并。忽略其他，因为sm不需要。
     doc_list = book.get_items_of_type(ebooklib.ITEM_DOCUMENT)
     epub_topic = ""
     for doc in doc_list:
@@ -222,6 +208,7 @@ def start_with_toc(epub_file, save_folder):
     with open(file, "w", encoding="utf-8") as f:
         f.write(doc.getvalue())
     write_img_file(book, folder)
+
     print("转换完成，已存储至：", save_folder)
 
 
@@ -251,6 +238,7 @@ def start_with_linear(epub_file, save_folder):
     with open(file, "w", encoding="utf-8") as f:
         f.write(doc.getvalue())
     write_img_file(book, folder)
+
     print("转换完成，已存储至：", save_folder)
 
 
@@ -275,4 +263,5 @@ def start_with_topic(epub_file, save_folder):
     with open(file, "w", encoding="utf-8") as f:
         f.write(doc.getvalue())
     write_img_file(book, folder)
+
     print("转换完成，已存储至：", save_folder)
