@@ -1,5 +1,5 @@
 import re
-from main import invoke
+from supermemo_toolkit.utilscripts.ankinet import invoke
 
 note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")
 notesInfo = invoke("notesInfo", notes=note_id_list)

@@ -2,7 +2,7 @@ import re
 import pandas as pd
 
 from until.cmp_2word import cmp_2word
-from main import invoke
+from supermemo_toolkit.utilscripts.ankinet import invoke
 
 df = pd.read_excel("C:/Users/Snowy/Desktop/2000.xlsx", sheet_name="Sheet1")
 # word_list = df.iloc[:, 0].to_dict()

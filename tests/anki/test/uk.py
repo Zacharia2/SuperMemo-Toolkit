@@ -1,4 +1,4 @@
-from main import download_youdao_word_uk, invoke
+from supermemo_toolkit.utilscripts.ankinet import download_youdao_word_uk, invoke
 
 
 note_id_list = invoke("findNotes", query="deck:2024红宝书考研词汇")

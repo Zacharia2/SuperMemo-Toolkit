@@ -1,4 +1,4 @@
-from tests.anki.main import invoke
+from supermemo_toolkit.utilscripts.ankinet import invoke
 import json
 
 note_id_list = invoke(

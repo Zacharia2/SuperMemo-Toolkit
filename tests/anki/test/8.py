@@ -1,7 +1,7 @@
 import json
 import os
 
-from tests.anki.main import invoke
+from supermemo_toolkit.utilscripts.ankinet import invoke
 
 # note_id_list = invoke(
 #     "findNotes", query="deck:2024红宝书考研词汇"

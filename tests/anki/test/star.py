@@ -1,6 +1,6 @@
 import pandas as pd
 
-from main import invoke
+from supermemo_toolkit.utilscripts.ankinet import invoke
 
 # https://pypandas.cn/docs/getting_started/overview.html#%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84
 # | 维数  | 名称        | 描述                |

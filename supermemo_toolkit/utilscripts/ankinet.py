@@ -10,13 +10,6 @@ from pyquery import PyQuery
 
 # from readmdict import MDX
 
-# import semantic_classification as sc
-
-# path_list = sc.iter_dir(
-#     "D:/Dropbox/00-TMP/英语词义分类数据库（大学版）（带词汇表目录）/英语词义分类数据库（大学版）"
-# )
-# mdict = sc.read_file(path_list)
-
 
 def request(action, **params):
     return {"action": action, "params": params, "version": 6}
@@ -95,14 +88,12 @@ def download_word_sound(target_word: str, us_or_uk: int):
         content_type = response.headers.get("content-type")
         content = response.content
         # Read and update hash in chunks of 4K
-        for byte_block in [content[i: i + 4096] for i in range(0, len(content), 4096)]:
+        for byte_block in [content[i : i + 4096] for i in range(0, len(content), 4096)]:
             sha1_hash.update(byte_block)
         if b'{"code": 403}' not in content:
             # 判断文件类型生成文件名。
             if content_type:
-                file_name = (
-                    f"youdao-{target_word}-{sha1_hash.hexdigest()}.{audio_mime[content_type]}"
-                )
+                file_name = f"youdao-{target_word}-{sha1_hash.hexdigest()}.{audio_mime[content_type]}"
             else:
                 try:
                     audio_kind = filetype.guess(content)
@@ -242,9 +233,6 @@ def download_youdao_word_uk(word: str):
     pass
 
 
-# download_cambridge_word_uk("unreliability")
-
-
 #  div.pos-body > div > div.sense-body.dsense_b > div > div.def-body.ddef_b > div:nth-child(-n+1)
 def download_cambridge_words_exam(words: str):
     # https://dictionary.cambridge.org/dictionary/english-chinese-simplified/review
@@ -324,6 +312,11 @@ def cmp_field(query_, key1, key2):
         if fields[key1]["value"] != fields[key2]["value"]:
             print(fields[key1]["value"], "::", fields[key2]["value"])
 
+
+# path_list = sc.iter_dir(
+#     "D:/Dropbox/00-TMP/英语词义分类数据库（大学版）（带词汇表目录）/英语词义分类数据库（大学版）"
+# )
+# mdict = sc.read_file(path_list)
 
 # def u_mdx(path:str):
 #     mdx = MDX(path)
