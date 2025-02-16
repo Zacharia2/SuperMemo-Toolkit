@@ -42,6 +42,8 @@ requests = "^2.31.0"
 yattag = "^1.16.1"
 
 [tool.poetry.group.dev.dependencies]
+premailer = "^3.10.0"
+pystache = "^0.6.7"
 pyquery = "^2.0.0"
 filetype = "^1.2.0"
 readmdict = "^0.1.1"
