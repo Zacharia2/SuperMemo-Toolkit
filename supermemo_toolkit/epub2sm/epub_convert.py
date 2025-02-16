@@ -5,7 +5,8 @@ import ebooklib
 from bs4 import BeautifulSoup, Doctype, Tag
 from ebooklib import epub
 
-from supermemo_toolkit.epub2sm.toc_units import toc_check, toc_orgnize
+from supermemo_toolkit.epub2sm import toc_check
+from supermemo_toolkit.epub2sm import toc_orgnize
 from supermemo_toolkit.utilscripts.ulils import makeNameSafe, trans_pinyin, mkdir
 
 from yattag import Doc
@@ -281,8 +282,3 @@ def start_with_topic(epub_file, save_folder):
         f.write(doc.getvalue())
     write_img_file(book, folder)
     print("转换完成，已存储至：", save_folder)
-
-
-start_with_linear(
-    "C:/Users/Snowy/Desktop/关于说话的一切.epub", "C:/Users/Snowy/Desktop"
-)
