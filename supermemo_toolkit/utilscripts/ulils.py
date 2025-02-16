@@ -1,6 +1,17 @@
+import itertools
 import os
 import re
 import pypinyin
+
+
+def get_id_func():
+    counter = itertools.count()
+    next(counter)
+
+    def p():
+        return str(next(counter))
+
+    return p
 
 
 def mkdir(path):

@@ -1,4 +1,3 @@
-import itertools
 import os
 
 import ebooklib
@@ -7,19 +6,14 @@ from ebooklib import epub
 
 from supermemo_toolkit.epub2sm import toc_check
 from supermemo_toolkit.epub2sm import toc_orgnize
-from supermemo_toolkit.utilscripts.ulils import makeNameSafe, trans_pinyin, mkdir
+from supermemo_toolkit.utilscripts.ulils import (
+    makeNameSafe,
+    trans_pinyin,
+    mkdir,
+    get_id_func,
+)
 
 from yattag import Doc
-
-
-def get_id_func():
-    counter = itertools.count()
-    next(counter)
-
-    def p():
-        return str(next(counter))
-
-    return p
 
 
 get_id = get_id_func()
