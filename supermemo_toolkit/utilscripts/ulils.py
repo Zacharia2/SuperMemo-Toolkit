@@ -4,6 +4,22 @@ import re
 import pypinyin
 
 
+# resolved：空格变问号的问题
+# https://blog.csdn.net/u013778905/article/details/53177042
+# 符号库：https://www.fuhaoku.net/U+00A9
+def escape_sequence(doc: str):
+    escape_sequence = {
+        "EM SPACE": (chr(0x2003), "&ensp;"),
+        "COPYRIGHT SIGN": (chr(0x00A9), "&copy;"),
+        "EM DASH": (chr(0x2014), "&#8212;"),
+        "chapterlast": (chr(0xF108), "&#10048;"),
+        "REPLACEMENT CHARACTER": (chr(0xFFFD), "&#65533;"),
+    }
+    for escape in escape_sequence.values():
+        doc = doc.replace(escape[0], escape[1])
+    return doc
+
+
 def get_id_func():
     counter = itertools.count()
     next(counter)
