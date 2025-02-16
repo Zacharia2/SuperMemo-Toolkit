@@ -1,12 +1,28 @@
+import itertools
 import os
 
 import ebooklib
 from bs4 import BeautifulSoup, Doctype, Tag
 from ebooklib import epub
 
-from supermemo_toolkit.epub2sm.smxml import SmXml
 from supermemo_toolkit.epub2sm.toc_units import toc_check, toc_orgnize
-from supermemo_toolkit.utilscripts.ulils import makeNameSafe, trans_pinyin
+from supermemo_toolkit.utilscripts.ulils import makeNameSafe, trans_pinyin, mkdir
+
+from yattag import Doc
+
+
+def get_id_func():
+    counter = itertools.count()
+    next(counter)
+
+    def p():
+        return str(next(counter))
+
+    return p
+
+
+get_id = get_id_func()
+id_counts = 0
 
 
 # resolved：空格变问号的问题
@@ -35,7 +51,8 @@ def modify_img_url(doc, folder_name):
         # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
         img_name = os.path.basename(img.attrs["src"])
         img.attrs["src"] = f"file:///[PrimaryStorage]local_pic/{folder_name}/{img_name}"
-    return str(soup.encode(encoding="ascii"), "utf-8")
+    doc = str(soup.encode(encoding="ascii"), "utf-8")
+    return doc.replace("\n", "").replace("\r", "")
 
 
 def split_section(html, doc_id):
@@ -61,7 +78,7 @@ def split_section(html, doc_id):
     return content
 
 
-def get_content(book, href):
+def get_content(book: epub.EpubBook, href: str):
     if href.find("#") != -1:
         doc_id = href.split("#")[-1]
         doc_href = href.split("#")[0]
@@ -76,53 +93,72 @@ def get_content(book, href):
     return content
 
 
-# {"Question": modify_img_url(section, foldername)}
-# {"Question": ""}
-def get_documents_by_toc(book, chapters, folder_name):
-    global m_element
-    m_list = []
+def get_docs_by_toc(book, chapters, folder_name):
+    global id_counts
+    el_list = []
     for chapter in chapters:
-        # 把这一层处理好，再去处理下一层。
-        # 这一层和下一层的逻辑一致。
+        # 把这一层处理好，再去处理下一层。这一层和下一层的逻辑一致。
+        # 循环chapter
         if isinstance(chapter, epub.Link):
+            doc, tag, text = Doc().tagtext()
             title = chapter.title
             href = chapter.href
-            content = {"Question": modify_img_url(get_content(book, href), folder_name)}
-            m_element = {"Title": title, "Type": "Topic", "Content": content}
-            m_list.append(m_element)
-        # 是元组的时候就说明是有子集的数据。这个元组代表当前的数据。元组的内容代表下一层数据。
-        # 在元组中，其中第一个元素是本层的数据，第二个元素是下一层的数据，也是入口。
-        # 这个的子元素的入口、以及超子集元素之间的关联位点。
-        if isinstance(chapter, tuple):
-            if isinstance(chapter[0], epub.Section):
-                title = chapter[0].title
-                href = chapter[0].href
-                content = {
-                    "Question": modify_img_url(get_content(book, href), folder_name)
-                }
-                m_element = {
-                    "Title": title,
-                    "Type": "Topic",
-                    "Content": content,
-                    # "SuperMemoElement": SuperMemoElement,
-                }
-                m_list.append(m_element)
-            # 当元组的第二个元素有子元素的时候。
-            if isinstance(chapter[1], list):
-                sub_element_list = get_documents_by_toc(book, chapter[1], folder_name)
-                m_element["SuperMemoElement"] = sub_element_list
-    return m_list
+            with tag("ID"):
+                text(get_id())
+            with tag("Type"):
+                text("Topic")
+            with tag("Title"):
+                text(title)
+            with tag("Content"):
+                with tag("Question"):
+                    text(modify_img_url(get_content(book, href), folder_name))
+            id_counts += 1
+            el_list.append(doc.getvalue())
+        elif isinstance(chapter, tuple):
+            # 是元组的时候就说明是有子集的数据。元组的第一个是本层Element章节，第二个是Element的循环的集合，子章节
+            doc, tag, text = Doc().tagtext()
+            sm_section, sm_element = chapter
+            title = sm_section.title
+            href = sm_section.href
+            with tag("ID"):
+                text(get_id())
+            with tag("Type"):
+                text("Topic")
+            with tag("Title"):
+                text(title)
+            with tag("Content"):
+                with tag("Question"):
+                    text(modify_img_url(get_content(book, href), folder_name))
+            if len(sm_element) > 0:
+                # 当元组的第二个元素有子元素的时候。此集合名，循环的集合元素
+                # 这这里生成多个SuperMemoElement
+                el_sublist = get_docs_by_toc(book, sm_element, folder_name)
+                for el in el_sublist:
+                    with tag("SuperMemoElement"):
+                        doc.asis(el)
+            id_counts += 1
+            el_list.append(doc.getvalue())
+    return el_list
 
 
-def get_documents_by_doc_list(book, folder_name):
-    m_list = []
+def get_docs_by_doclist(book, folder_name):
+    global id_counts
+    el_list = []
     doc_list = book.get_items_of_type(ebooklib.ITEM_DOCUMENT)
     for doc in doc_list:
         href = doc.file_name
-        content = {"Question": modify_img_url(get_content(book, href), folder_name)}
-        sub_element = {"Type": "Topic", "Content": content}
-        m_list.append(sub_element)
-    return m_list
+        content = modify_img_url(get_content(book, href), folder_name)
+        doc, tag, text = Doc().tagtext()
+        with tag("ID"):
+            text(get_id())
+        with tag("Type"):
+            text("Topic")
+        with tag("Content"):
+            with tag("Question"):
+                text(content)
+        id_counts += 1
+        el_list.append(doc.getvalue())
+    return el_list
 
 
 # 只取body内的元素合并。忽略其他，因为sm不需要。
@@ -130,6 +166,7 @@ def merge_epub_to_topic(book, folder_name):
     doc_list = book.get_items_of_type(ebooklib.ITEM_DOCUMENT)
     epub_topic = ""
     for doc in doc_list:
+        # 将一本书合并为一个html。
         href = doc.file_name
         doc = book.get_item_with_href(href)
         content = doc.content.decode("utf-8") if doc else ""
@@ -137,36 +174,60 @@ def merge_epub_to_topic(book, folder_name):
         html_body = soup.find("body")
         for child in html_body.children:
             epub_topic += str(child)
-    # 将一本书合并为一个html。
-    return modify_img_url(epub_topic, folder_name)
+    doc = modify_img_url(epub_topic, folder_name)
+    return doc
 
 
-def start_with_toc(epub_file, folder_name):
+def write_img_file(ebook: epub.EpubBook, book_img_folder: str) -> None:
+    """写出img文件到SuperMemo-XML-Book文件旁边的文件夹中。"""
+    for image in ebook.get_items_of_type(ebooklib.ITEM_IMAGE):
+        # 可以得到image.file_name 和 image.content二进制数据、image.media_type
+        # os.path.abspath(".")
+        if not os.path.exists(book_img_folder):
+            mkdir(book_img_folder)
+        if image.file_name.find("/") != -1:
+            filename = image.file_name.split("/")[-1]
+            file = os.path.join(book_img_folder, filename)
+        else:
+            file = os.path.join(book_img_folder, image.file_name)
+        with open(file, "wb") as f:
+            f.write(image.content)
+
+
+def start_with_toc(epub_file, save_folder):
     # UserWarning: In the future version we will turn default option ignore_ncx to True.
-    #   warnings.warn('In the future version we will turn default option ignore_ncx to True.')
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
     print("开始处理书籍：", book_f_name)
     # 创建数据结构
     toc = toc_orgnize.merge_doc(book)
     diff_list = toc_check.contrast_diff_toc(toc, book)
-    if len(diff_list) == 0:
-        print("内容完整性: True")
-        # 这个是Collection下的第一个SuperMemoElement
-        root_element = [
-            {
-                "Title": book.title,
-                "Type": "Concept",
-                "SuperMemoElement": get_documents_by_toc(book, toc, book_f_name),
-            }
-        ]
-
-        # 根据数据结构创建XML文件
-        sm_book = SmXml(book_f_name, folder_name, ebook=book)
-        sm_book.create_xml(root_element)
-    else:
+    # 验证内容完整性
+    if len(diff_list) != 0:
         print("内容完整性: False;/n", diff_list)
-    print("转换完成，已存储至：", folder_name)
+        return
+    doc, tag, text = Doc().tagtext()
+    mid = get_id()
+    el_list = get_docs_by_toc(book, toc, book_f_name)
+    with tag("SuperMemoCollection"):
+        with tag("Count"):
+            text(id_counts + 1)
+        with tag("SuperMemoElement"):
+            with tag("ID"):
+                text(mid)
+            with tag("Title"):
+                text(book.title)
+            with tag("Type"):
+                text("Concept")
+            for element in el_list:
+                with tag("SuperMemoElement"):
+                    doc.asis(element)
+    file = os.path.join(save_folder, book_f_name + ".xml")
+    folder = os.path.join(save_folder, book_f_name)
+    with open(file, "w", encoding="utf-8") as f:
+        f.write(doc.getvalue())
+    write_img_file(book, folder)
+    print("转换完成，已存储至：", save_folder)
 
 
 def start_with_linear(epub_file, save_folder):
@@ -174,17 +235,27 @@ def start_with_linear(epub_file, save_folder):
     book_f_name = makeNameSafe(trans_pinyin(book.title))
     print("开始处理书籍：", book_f_name)
 
-    root_element = [
-        {
-            "Title": book.title,
-            "Type": "Concept",
-            "SuperMemoElement": get_documents_by_doc_list(book, book_f_name),
-        }
-    ]
-
-    # 根据数据结构创建XML文件
-    sm_book = SmXml(book_f_name, save_folder, ebook=book)
-    sm_book.create_xml(root_element)
+    doc, tag, text = Doc().tagtext()
+    mid = get_id()
+    el_list = get_docs_by_doclist(book, book_f_name)
+    with tag("SuperMemoCollection"):
+        with tag("Count"):
+            text(id_counts + 1)
+        with tag("SuperMemoElement"):
+            with tag("ID"):
+                text(mid)
+            with tag("Title"):
+                text(book.title)
+            with tag("Type"):
+                text("Concept")
+            for element in el_list:
+                with tag("SuperMemoElement"):
+                    doc.asis(element)
+    file = os.path.join(save_folder, book_f_name + ".xml")
+    folder = os.path.join(save_folder, book_f_name)
+    with open(file, "w", encoding="utf-8") as f:
+        f.write(doc.getvalue())
+    write_img_file(book, folder)
     print("转换完成，已存储至：", save_folder)
 
 
@@ -192,13 +263,26 @@ def start_with_topic(epub_file, save_folder):
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
     print("开始处理书籍：", book_f_name)
-    root_element = [
-        {
-            "Title": book.title,
-            "Type": "Topic",
-            "Content": {"Question": merge_epub_to_topic(book, book_f_name)},
-        }
-    ]
-    sm_book = SmXml(book_f_name, save_folder, ebook=book)
-    sm_book.create_xml(root_element)
+
+    doc, tag, text, line = Doc().ttl()
+    topic_doc = merge_epub_to_topic(book, book_f_name)
+    with tag("SuperMemoCollection"):
+        line("Count", 1)
+        with tag("SuperMemoElement"):
+            line("ID", 1)
+            line("Title", book.title)
+            line("Type", "Topic")
+            with tag("Content"):
+                with tag("Question"):
+                    text(topic_doc)
+    file = os.path.join(save_folder, book_f_name + ".xml")
+    folder = os.path.join(save_folder, book_f_name)
+    with open(file, "w", encoding="utf-8") as f:
+        f.write(doc.getvalue())
+    write_img_file(book, folder)
     print("转换完成，已存储至：", save_folder)
+
+
+start_with_linear(
+    "C:/Users/Snowy/Desktop/关于说话的一切.epub", "C:/Users/Snowy/Desktop"
+)

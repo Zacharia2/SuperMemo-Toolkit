@@ -1,0 +1,13 @@
+- SuperMemoCollection
+  - Count
+  - SuperMemoElement
+    - ID
+    - Title
+    - Type
+    - SuperMemoElement
+      - ID
+      - Title
+      - Type
+      - SuperMemoElement
+      - SuperMemoElement
+      - SuperMemoElement
