@@ -1240,7 +1240,23 @@ type = "legacy"
 url = "https://mirrors.aliyun.com/pypi/simple"
 reference = "tencent"
 
+[[package]]
+name = "yattag"
+version = "1.16.1"
+description = "Generate HTML or XML in a pythonic way. Pure python alternative to web template engines.Can fill HTML forms with default values and error messages."
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "yattag-1.16.1.tar.gz", hash = "sha256:baa8f254e7ea5d3e0618281ad2ff5610e0e5360b3608e695c29bfb3b29d051f4"},
+]
+
+[package.source]
+type = "legacy"
+url = "https://mirrors.aliyun.com/pypi/simple"
+reference = "tencent"
+
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "bb6d6e888effd56c18084f1adb9c0233e054bd9b006999e98f73e12700761946"
+content-hash = "49637bb2fb8d6d5f28819cd4024d35f48f7f71d251c3d0346f40b3a1f19cc205"
