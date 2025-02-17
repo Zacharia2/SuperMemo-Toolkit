@@ -5,6 +5,7 @@ import click
 from supermemo_toolkit.epub2sm import epub_convert
 from supermemo_toolkit.latex2img import formula_to_png
 from supermemo_toolkit.pathpix import im_sort_out, gui as im_sort_out_gui
+from supermemo_toolkit.sa_sync.sm2anki import s2a
 from supermemo_toolkit.utilscripts import config as smtk_config
 
 # 初始化操作
@@ -40,8 +41,8 @@ main.add_command(config)
 
 
 @config.command()
-@click.argument('key')
-@click.argument('value')
+@click.argument("key")
+@click.argument("value")
 def set(key: str, value: str):
     """Set configuration key and value."""
     global curr_conf_dict
@@ -72,11 +73,11 @@ def clist():
 
 
 @main.command()
-@click.argument('epub_path')
-@click.argument('target_folder')
-@click.option('--toc', is_flag=True, help='根据目录结构转换')
-@click.option('--linear', is_flag=True, help='根据线性阅读顺序转换')
-@click.option('--topic', is_flag=True, help='转换为一篇Topic文章')
+@click.argument("epub_path")
+@click.argument("target_folder")
+@click.option("--toc", is_flag=True, help="根据目录结构转换")
+@click.option("--linear", is_flag=True, help="根据线性阅读顺序转换")
+@click.option("--topic", is_flag=True, help="转换为一篇Topic文章")
 def e2sm(epub_path, target_folder, toc, linear, topic):
     """Convert ePub to SuperMemo format."""
     if toc:
@@ -88,8 +89,8 @@ def e2sm(epub_path, target_folder, toc, linear, topic):
 
 
 @main.command()
-@click.argument('formula_text')
-@click.argument('outpath')
+@click.argument("formula_text")
+@click.argument("outpath")
 def imtex(formula_text, outpath):
     """Convert LaTeX formula to image."""
     formula_to_png.latex2img(
@@ -101,12 +102,17 @@ def imtex(formula_text, outpath):
 
 
 @main.command()
-@click.argument('col_name', required=False)
-@click.option('--clean', is_flag=True, help='清理集合中未使用图片')
-@click.option('--fullpath', type=click.Path(exists=True, file_okay=True, dir_okay=False, readable=True, path_type=str),
-              help='整理单个HTML文件（全路径，component menu(Alt+F12) >> FIle >> Copy path）')
-@click.option('--gui', is_flag=True, help='运行图形窗口')
-@click.option('--least-col', is_flag=True, help='整理最后使用的集合（最后关闭的集合）')
+@click.argument("col_name", required=False)
+@click.option("--clean", is_flag=True, help="清理集合中未使用图片")
+@click.option(
+    "--fullpath",
+    type=click.Path(
+        exists=True, file_okay=True, dir_okay=False, readable=True, path_type=str
+    ),
+    help="整理单个HTML文件（全路径，component menu(Alt+F12) >> FIle >> Copy path）",
+)
+@click.option("--gui", is_flag=True, help="运行图形窗口")
+@click.option("--least-col", is_flag=True, help="整理最后使用的集合（最后关闭的集合）")
 def pathpix(col_name, clean, fullpath, least_col, gui):
     """整理集合图片"""
     if least_col:
@@ -116,9 +122,7 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
         )
         im_sort_out.start(least_used_col)
     elif col_name:
-        elements_path = smtk_config.get_collection_primaryStorage(
-            sm_location, col_name
-        )
+        elements_path = smtk_config.get_collection_primaryStorage(sm_location, col_name)
         if clean:
             im_sort_out.organize_unused_im(elements_path)
         else:
@@ -131,6 +135,24 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
         # 如果没有提供任何选项，打印帮助信息
         with click.Context(pathpix) as ctx:
             click.echo(pathpix.get_help(ctx))
+
+
+@main.command()
+@click.argument("qafile")
+@click.option(
+    "--deckname",
+    type=str,
+    help="设置目标牌组名",
+)
+def sm2anki(qafile, deckname):
+    """同步 SuperMemo QA 到 Anki"""
+    # print(deckname)
+    if deckname:
+        ms2a = s2a(qafile)
+        ms2a.setDeckName(deckname)
+        ms2a.run()
+    else:
+        s2a(qafile).run()
 
 
 if __name__ == "__main__":
