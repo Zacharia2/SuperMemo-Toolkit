@@ -6,7 +6,7 @@ SuperMemo 增强工具（CLI 命令行）。包含图链整理、EPUB 图书转�
 
 pipx：“python 系统”下的 whl 格式软件包安装管理器。pipx 安装应用请务必联网。
 
-推荐的安装方式是 pipx，pipx 可以理解为 Android 系统的应用程序管理器，而 whl 类比为安卓的 apk 应用。pipx 就是用来安装和管理 whl 格式的 python 软件包。其次，你可以下载源代码的方式，本地构建一个软件开发环境运行，这样做的任务复杂度带来的试错成本略高，需要安装 py、poetry，然后使用poetry安装依赖，配置好后才可以开始使用。
+推荐的安装方式是 pipx，pipx 可以理解为 Android 系统的应用程序管理器，而 whl 类比为安卓的 apk 应用。pipx 就是用来安装和管理 whl 格式的 python 软件包。其次，你可以下载源代码的方式，本地构建一个软件开发环境运行，这样做的任务复杂度带来的试错成本略高，需要安装 py、poetry，然后使用 poetry 安装依赖，配置好后才可以开始使用。
 
 ### 1.1 安装步骤：
 
@@ -88,7 +88,7 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
 
 按目录生成、按顺序生成、按单个 Topic 生成。
 
-```pwsh
+```bash
 smtk e2sm --toc epub_file out_folder  #（需要图书有良好的目录，没有需使用calibre生成并整理目录）
 smtk e2sm --linear epub_file out_folder  #（有书即可，不按照EPUB目录文件生成，而是按照EPUB图书内文档文件的线性顺序生成，比较适合PDF版epub，效果查看文件：./docs/Snipaste_2024-03-24_09-17-23.png）
 smtk e2sm --topic epub_file out_folder  #（有书即可，EPUB转换为一个SuperMemo Topic，一本书即是一篇文章，配合SuperMemo阅读点使用更佳。）
@@ -98,9 +98,29 @@ smtk e2sm --topic epub_file out_folder  #（有书即可，EPUB转换为一个Su
 
 latex 公式转图片。
 
-```
+```bash
 smtk imtex <formula_text> <outpath>
 smtk imtex "$\sum_{i=0}^\infty x_i$" ./a.png
+```
+
+## 5. sm2anki
+
+打开 supermemo，选择要导出的分支::右单击::`导出（Export）`::`Q&A text file`，然后弹出一个选择对话框，默认即可，随便选择。
+
+- 第二个选项 Allow HTML 选项是导出 HTML 片段，到 ANKI 中可以有挖空的高亮效果。
+- 第二个选项不用管。用于筛选的。
+- 第三个选项是导出 Title 标题，用不着。
+- 第四个选项是包含 Element ID，这个 ID 可以使用 Ctrl + G 输入 ID 后跳转的元素。
+
+需要打开Anki，并且安装ankiconnect插件。
+
+```bash
+# 使用方式：
+smtk sm2anki <qafile>
+# 默认牌组是TEQA Cards，默认的模版是TEQA问答题，Title、Element、Question、Answer。
+smtk sm2anki "docs/TEQA.htm"
+# 自定义牌组your_deskName
+smtk sm2anki "docs/TEQA.htm" --deckname  "your_deskName"
 ```
 
 ## LICENSE
@@ -116,4 +136,3 @@ smtk imtex "$\sum_{i=0}^\infty x_i$" ./a.png
 喜欢这个工具嘛，感谢您的支持！
 
 ![](./docs/donate.png)
-
