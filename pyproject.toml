@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "supermemo-toolkit"
-version = "0.1.8"
+version = "0.1.9"
 description = "SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换导入、Latex公式转图片等。"
 license = "GPL-2.0-only"
 authors = ["mingyue <mingyue42w@outlook.com>"]
@@ -17,14 +17,7 @@ classifiers = [
 ]
 packages = [{ include = "supermemo_toolkit" }]
 include = ["docs"]
-exclude = [
-    "docs/samples",
-    "docs/epub2sm_Ideas.md",
-    "docs/indexer_idea.md",
-    "docs/json Invalid escape.md",
-    "docs/pathpix_Ideas.md",
-    "docs/SuperMemoCollection.md",
-]
+exclude = ["docs/**"]
 
 [tool.poetry.dependencies]
 python = "^3.12"
