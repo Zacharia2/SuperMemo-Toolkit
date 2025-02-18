@@ -96,7 +96,9 @@ class s2a:
         # TEQA问答题, Front,Back,ENum
         # 行是检验知的最好方式，因为知行合一
         for num, qa in enumerate(mqa_list):
-            print(f"添加卡片: ENum::{qa['E']} {num + 1}/{len(mqa_list)}", end="\r")
+            print(
+                f"添加卡片: {num + 1}/{len(mqa_list)} ENum::{qa['E']}", end="\033[K\r"
+            )
             if "Q" in qa and "A" in qa and "E" in qa:
                 self.__addNote(
                     self.deckName, {"Front": qa["Q"], "Back": qa["A"], "ENum": qa["E"]}
