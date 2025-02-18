@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "supermemo-toolkit"
-version = "0.1.9"
+version = "0.1.10"
 description = "SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换导入、Latex公式转图片等。"
 license = "GPL-2.0-only"
 authors = ["mingyue <mingyue42w@outlook.com>"]

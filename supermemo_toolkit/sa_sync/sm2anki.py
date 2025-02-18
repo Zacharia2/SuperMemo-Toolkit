@@ -13,7 +13,6 @@ class s2a:
 
     def __addNote(self, deckName: str, fields: dict):
         try:
-            print(f"添加卡片: ENum-{fields['ENum']}")
             invoke(
                 "addNote",
                 note={
@@ -32,7 +31,7 @@ class s2a:
                 },
             )
         except Exception as e:
-            print(e)
+            print(f"{e}. ENum::{fields['ENum']}")
 
     def __createModel(self):
         modelNames = invoke("modelNames")
@@ -55,14 +54,13 @@ class s2a:
             )
         print(f"复用模型: {self.modelName}")
 
-    def __creatDesk(self, deckName: str):
-        desk = set()
+    def __selectedDesk(self, deckName: str):
         deckNames: str[list] = invoke("deckNames")
-        for deckname in deckNames:
-            desk.add(deckname.split("::")[0])
-        if deckName not in desk:
+        if deckName not in deckNames:
             print(f"创建牌组: {deckName}")
             invoke("createDeck", deck=deckName)
+        else:
+            print(f"命中牌组: {deckName}")
 
     def __pre_proc(self, file: str) -> list:
         """输入TEQA文件, 输出list[qa dict]
@@ -97,7 +95,8 @@ class s2a:
     def __creat_anki_card(self, mqa_list: list):
         # TEQA问答题, Front,Back,ENum
         # 行是检验知的最好方式，因为知行合一
-        for qa in mqa_list:
+        for num, qa in enumerate(mqa_list):
+            print(f"添加卡片: ENum::{qa['E']} {num + 1}/{len(mqa_list)}", end="\r")
             if "Q" in qa and "A" in qa and "E" in qa:
                 self.__addNote(
                     self.deckName, {"Front": qa["Q"], "Back": qa["A"], "ENum": qa["E"]}
@@ -106,10 +105,13 @@ class s2a:
                 self.__addNote(self.deckName, {"Front": qa["Q"], "Back": qa["A"]})
             elif "Q" in qa:
                 self.__addNote(self.deckName, {"Front": qa["Q"]})
-        print("Done!")
+        print("\nDone!")
 
     def run(self):
-        self.__creatDesk(self.deckName)
-        self.__createModel()
-        qa_list = self.__pre_proc(self.qafile)
-        self.__creat_anki_card(qa_list)
+        try:
+            self.__createModel()
+            self.__selectedDesk(self.deckName)
+            qa_list = self.__pre_proc(self.qafile)
+            self.__creat_anki_card(qa_list)
+        except Exception as ex:
+            print(ex)
