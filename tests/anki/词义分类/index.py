@@ -60,7 +60,7 @@ def iter_dir(folder: str):
                 print(
                     "正在计算文件总数",
                     f"[{count_processed}]",
-                    end="\r",
+                    end="\033[K\r",
                 )
             if entry.is_dir() and is_start_with_num(entry.path):
                 stack.append(entry.path)
