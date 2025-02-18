@@ -181,9 +181,9 @@ def is_html_ext_file(file_path):
 #         print(
 #             "PathPix:: 正在验证HTM文件",
 #             f"[{index+1}/{len(htm_path_list)}]",
-#             end="\r",
+#             end="\033[K\r",
 #         )
-#     print("\033[K", end="\r")
+#     print("\033[K", end="\033[K\r")
 #     return htm_path_list
 
 
@@ -459,7 +459,7 @@ def collect_documents(elements_folder):
                 print(
                     "PathPix:: 正在计算HTM文件总数",
                     f"[{count_processed}]",
-                    end="\r",
+                    end="\033[K\r",
                 )
             if entry.is_dir():
                 stack.append(entry.path)
@@ -499,7 +499,7 @@ def read_in_list(path_list: list) -> list:
         print(
             "PathPix:: 正在读取文件数据",
             f"[{index + 1}/{len(path_list)}]",
-            end="\r",
+            end="\033[K\r",
         )
     end_time = time.time()
     print("\nPathPix:: Done!", f" 验证并读取数据耗时 {end_time - start_time:.2f} 秒。")
