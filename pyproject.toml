@@ -1,9 +1,9 @@
 [tool.poetry]
 name = "supermemo-toolkit"
-version = "0.1.10"
-description = "SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换导入、Latex公式转图片等。"
+version = "0.1.11"
+description = "SuperMemo 增强工具(CLI命令行)。包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki等。"
 license = "GPL-2.0-only"
-authors = ["mingyue <mingyue42w@outlook.com>"]
+authors = ["tingshu <xinglan42w@outlook.com>"]
 readme = "README.md"
 homepage = "https://github.com/Zacharia2/SuperMemo-Toolkit"
 repository = "https://github.com/Zacharia2/SuperMemo-Toolkit"
@@ -33,12 +33,13 @@ python-magic = { version = "^0.4.22", markers = "sys_platform != 'win32'" }
 tqdm = "^4.66.1"
 requests = "^2.31.0"
 yattag = "^1.16.1"
+filetype = "^1.2.0"
+pyquery = "^2.0.0"
+
 
 [tool.poetry.group.dev.dependencies]
 premailer = "^3.10.0"
 pystache = "^0.6.7"
-pyquery = "^2.0.0"
-filetype = "^1.2.0"
 readmdict = "^0.1.1"
 python-lzo = { path = "tests/anki/until/python_lzo-1.16-cp312-cp312-win_amd64.whl" }
 
