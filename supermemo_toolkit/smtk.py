@@ -33,7 +33,9 @@ def main():
 def config():
     """配置SMTK"""
     with click.Context(config) as ctx:
-        click.echo(config.get_help(ctx))
+        # 没有子命令的时候才输出帮助
+        if ctx.invoked_subcommand:
+            click.echo(config.get_help(ctx))
 
 
 # 将config命令添加到main命令组中
