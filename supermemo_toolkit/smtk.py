@@ -15,12 +15,11 @@ curr_conf_dict = dict()
 if not os.path.exists(smtk_config_dir_path):
     os.makedirs(smtk_config_dir_path)
 elif not os.path.exists(smtk_config_file_path):
-    print("smtk config program is undefined! please set!")
-    exit()
+    click.secho("Please set program location! smtk config::program is undefined!", fg="red")
 else:
     curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
     sm_location = curr_conf_dict["program"]
-    print("smtk server on: " + sm_location)
+    click.secho("smtk server on: " + sm_location, fg="green")
 
 
 @click.group()
