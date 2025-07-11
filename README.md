@@ -8,15 +8,24 @@ pipx：“python 系统”下的 whl 格式软件包安装管理器。pipx 安�
 
 推荐的安装方式是 pipx，pipx 可以理解为 Android 系统的应用程序管理器，而 whl 类比为安卓的 apk 应用。pipx 就是用来安装和管理 whl 格式的 python 软件包。其次，你可以下载源代码的方式，本地构建一个软件开发环境运行，这样做的任务复杂度带来的试错成本略高，需要安装 py、poetry，然后使用 poetry 安装依赖，配置好后才可以开始使用。
 
-### 1.1 安装步骤：
+### 1.1 安装&更新：
 
-1. 安装 Python 最新版，目前版本是 3.13.2，（python版本≥3.10）
-2. 安装 pipx 应用安装管理器：
+1. 安装 Python 最新版，目前版本是 3.13.2，（python 版本 ≥3.10）
+2. 安装 pipx 应用安装管理器（使用 pip 安装）：
    1. `python3 -m pip install --user pipx`
    2. `python3 -m pipx ensurepath`
 3. 下载`supermemo_toolkit-py3-none-any.whl`
 4. 执行`pipx install supermemo_toolkit-py3-none-any.whl`等待安装成功。
-5. 安装成功后，可以执行`smtk`命令验证是否安装成功。
+   1. 关于更新
+      1. 同样使用 pipx 应用安装管理器
+      2. 执行`pipx install --force save-path/your-app.whl`
+      3. 显示成功后即可更新成功。
+5. 安装成功后，可以执行`smtk`命令验证是否安装成功。（可能需要重启终端）
+6. 设置 smtk config。
+   1. 设置 sm 程序所在路径，软件需要查找和读取 sm 自动存储的 systems 集合
+   2. 用法：`smtk config set program 'sm.exe所在路径'`
+   3. 例子：`smtk config set program 'D:\SuperMemo'`，比如我的`sm.exe`在`D:\SuperMemo`路径下。
+7. 然后就可以正常使用了，请继续阅读下列功能使用说明。
 
 ### 1.2 遇到的问题
 
@@ -38,9 +47,7 @@ python -m ensurepip
 python -m pip install --upgrade pip
 ```
 
-### 1.3 关于更新：
-
-同样使用 pipx 应用安装管理器，执行`pipx install save-path/your-app.whl --force`显示成功后即可更新成功。
+遇到的问题 3：supermemo只支持五种图片格式："image/jpeg"、"image/jpg"、"image/png"、"image/gif"、"image/bmp"，PathPix功能只支持网络图片转换为受支持的五类图片，本地暂时不支持。E2SM功能只对书籍图片进行复制，暂时不支持图片转换为受支持的五类图片格式。
 
 ## 2. PathPix
 
@@ -77,31 +84,33 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
 
 例如我想将“如何阅读一本书.epub”文件转换为可导入的 supermemo 集合文件（XML+图片附件文件夹）
 
-1. 执行转换命令
-   - 使用比较简单，对于 win10 及以上版本的系统，可以在桌面-右单击-使用终端打开，在终端中输入`smtk e2sm --linear 如何阅读一本书.epub C:\Users\Name\Desktop`按 Enter 键执行此命令（这个命令的含义是图书按照前后顺序转换为一系列 Topic 列表），稍后会在桌面生成一个 XML 文件和对应的书籍图片文件夹。
-2. 把“书籍图片文件夹”放到对应的位置，
-   - 文件夹需要放置到上文说的指定的位置，因为程序在处理过程会自动将绝对路径转换为固定的相对路径，这个路径在转换后的 XML 文件中是写好的。
+1. 执行转换命令：按顺序生成 `smtk e2sm --linear <epub_file> <out_folder>` （这个命令的含义是图书按照前后顺序转换为一系列 Topic 列表）
+   - 使用比较简单，对于 win10 及以上版本的系统，可以在桌面-右单击-使用终端打开
+   - 在终端中输入`smtk e2sm --linear 如何阅读一本书.epub C:\Users\Name\Desktop`
+   - 按 Enter 键执行此命令，稍后会在桌面生成一个 XML 文件和对应的书籍图片文件夹。
+2. 把“书籍图片文件夹”放到对应的位置
+   - 文件夹需要放置到上文说的指定的位置
+   - 因为程序在处理过程会自动将绝对路径转换为固定的相对路径，这个路径在转换后的 XML 文件中是写好的。
 3. 导入生成的 XML 图书到 SuperMemo
-   - 打开 supermome 软件，点击菜单按钮：File - Import - XML，在打开的对话框中选择转换好的电纸书 XML 集合文件，点击导入。导入成功的同时就可以看到最终的效果了。
+   - 打开 supermome 软件，点击菜单按钮：File - Import - XML
+   - 在打开的对话框中选择转换好的电纸书 XML 集合文件，点击导入。
+   - 导入成功的同时就可以看到最终的效果了。
 
 ### 3.2 更多的转换方式
 
-按目录生成、按顺序生成、按单个 Topic 生成。
-
-```bash
-smtk e2sm --toc epub_file out_folder  #（需要图书有良好的目录，没有需使用calibre生成并整理目录）
-smtk e2sm --linear epub_file out_folder  #（有书即可，不按照EPUB目录文件生成，而是按照EPUB图书内文档文件的线性顺序生成，比较适合PDF版epub，效果查看文件：./docs/Snipaste_2024-03-24_09-17-23.png）
-smtk e2sm --topic epub_file out_folder  #（有书即可，EPUB转换为一个SuperMemo Topic，一本书即是一篇文章，配合SuperMemo阅读点使用更佳。）
-```
+- 按目录生成 `smtk e2sm --toc <epub_file> <out_folder>`
+  - 需要图书有良好的目录，若没有，需使用 calibre 生成并整理目录
+- 按顺序生成 `smtk e2sm --linear <epub_file> <out_folder>`
+  - 有书即可，不按照 EPUB 目录文件生成，而是按照 EPUB 图书内文档文件的线性顺序生成，比较适合 PDF 版 epub，效果查看文件：./docs/Snipaste_2024-03-24_09-17-23.png
+- 按单个 Topic 生成 `smtk e2sm --topic <epub_file> <out_folder>`
+  - 有书即可，EPUB 转换为一个 SuperMemo Topic，一本书即是一篇文章，配合 SuperMemo 阅读点使用更佳。
 
 ## 4. latex2img
 
-latex 公式转图片。
-
-```bash
-smtk imtex <formula_text> <outpath>
-smtk imtex "$\sum_{i=0}^\infty x_i$" ./a.png
-```
+- latex 公式转图片。
+  - 用法：`smtk imtex <formula_text> <outpath>`
+  - 例子：`smtk imtex "$\sum_{i=0}^\infty x_i$" ./a.png`
+  - 说明：将数学公式`$\sum_{i=0}^\infty x_i$`保存到`./a.png`
 
 ## 5. sm2anki
 
@@ -112,16 +121,13 @@ smtk imtex "$\sum_{i=0}^\infty x_i$" ./a.png
 - 第三个选项是导出 Title 标题，用不着。
 - 第四个选项是包含 Element ID，这个 ID 可以使用 Ctrl + G 输入 ID 后跳转的元素。
 
-需要打开Anki，并且安装ankiconnect插件。
+需要打开 Anki，并且安装 ankiconnect 插件。
 
-```bash
-# 使用方式：
-smtk sm2anki <qafile>
-# 默认牌组是TEQA Cards，默认的模版是TEQA问答题，Title、Element、Question、Answer。
-smtk sm2anki "docs/TEQA.htm"
-# 自定义牌组your_deskName
-smtk sm2anki "docs/TEQA.htm" --deckname  "your_deskName"
-```
+- 使用方式：`smtk sm2anki <qafile> [--deckname "your_deskName"]`
+  - 使用默认牌组 `smtk sm2anki "docs/TEQA.htm"`
+    - 默认牌组是 TEQA Cards，默认的模版是 TEQA 问答题，包含字段：Title、Element、Question、Answer。
+  - 使用自定义牌组 `smtk sm2anki "docs/TEQA.htm" --deckname  "your_deskName"`
+    - 自定义牌组 your_deskName
 
 ## LICENSE
 
