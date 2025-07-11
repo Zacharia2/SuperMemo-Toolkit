@@ -11,16 +11,16 @@ from supermemo_toolkit.utilscripts import config as smtk_config
 # 初始化操作
 smtk_config_dir_path = smtk_config.get_config_dir()
 smtk_config_file_path = os.path.join(smtk_config_dir_path, "conf.json")
-init_conf_dict = {"program": "D:\\SuperMemo"}
 curr_conf_dict = dict()
 if not os.path.exists(smtk_config_dir_path):
     os.makedirs(smtk_config_dir_path)
-    smtk_config.update_config(smtk_config_file_path, init_conf_dict)
-elif os.path.exists(smtk_config_dir_path) and not os.path.exists(smtk_config_file_path):
-    smtk_config.update_config(smtk_config_file_path, init_conf_dict)
-elif os.path.exists(smtk_config_file_path):
+elif not os.path.exists(smtk_config_file_path):
+    print("smtk config program is undefined! please set!")
+    exit()
+else:
     curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
-sm_location: dict = curr_conf_dict["program"]
+    sm_location = curr_conf_dict["program"]
+    print("smtk server on: " + sm_location)
 
 
 @click.group()
@@ -50,12 +50,12 @@ def set(key: str, value: str):
         curr_conf_dict[key] = value
         smtk_config.update_config(smtk_config_file_path, curr_conf_dict)
         curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
-        print(curr_conf_dict)
+        click.echo(curr_conf_dict)
     elif key == "systems":
         curr_conf_dict[key] = value
         smtk_config.update_config(smtk_config_file_path, curr_conf_dict)
         curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
-        print(curr_conf_dict)
+        click.echo(curr_conf_dict)
 
 
 @config.command()
@@ -69,7 +69,7 @@ def clist():
     """列出所有集合"""
     col_list = smtk_config.get_collections_primaryStorage(sm_location)
     for col_name in col_list:
-        print("集合名称：", col_name)
+        click.echo("集合名称：" + col_name)
 
 
 @main.command()
