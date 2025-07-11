@@ -10,7 +10,7 @@ pipx：“python 系统”下的 whl 格式软件包安装管理器。pipx 安�
 
 ### 1.1 安装&更新：
 
-1. 安装 Python 最新版，目前版本是 3.13.2，（python 版本 ≥3.10）
+1. 安装 Python，版本 ≥ 3.10 即可
 2. 安装 pipx 应用安装管理器（使用 pip 安装）：
    1. `python3 -m pip install --user pipx`
    2. `python3 -m pipx ensurepath`
