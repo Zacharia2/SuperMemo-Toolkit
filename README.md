@@ -1,4 +1,5 @@
 # supermemo-toolkit(smtk)
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Zacharia2/SuperMemo-Toolkit/total)
 
 SuperMemo 增强工具（CLI 命令行）。包含图链整理、EPUB 图书转换导入、Latex 公式转图片等。
 
