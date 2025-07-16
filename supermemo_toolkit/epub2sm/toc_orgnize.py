@@ -1,4 +1,3 @@
-import copy
 import re
 import ebooklib
 from ebooklib import epub
@@ -31,8 +30,8 @@ def get_doc_of_toc(book):
     return mList
 
 
-def isToc(book, doc):
-    # 判断doc是否在toc列表中。
+def inToc(book, doc):
+    """判断doc是否在toc列表中。"""
     doc_of_toc_list = get_doc_of_toc(book)
     if doc.file_name in doc_of_toc_list:
         return True
@@ -40,50 +39,55 @@ def isToc(book, doc):
         return False
 
 
-def organize_linear_documents(book):
+def complete_toc_with_documents(book):
+    """list[]:(toc中存在的文档, [toc中不存在的兄弟结点文档]) 取所有的文档 、toc指向的文档(toc不会指向后续文档), 将toc没有的文档补充到toc中。
+
+    Returns:
+        tuple: (Head[(exist_toc_of_doc,[sibling_doc,...])], Body[(exist_toc_of_doc,[sibling_doc,...])])
+    """
     FirstTocChecked = False
-    M_list = [[], []]  # 第一个元素的start，第二个是body
-    Head, Body = M_list
+    Head, Body = [], []
 
-    # 大前提是，docList是线性的。
-    for doc in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
+    # 现在有两个资源，一个是一列有序html文档，另一个是目录对象，目录指向部分html文档
+    # 最终任务是补全完整的目录对象。这方法是看看遗漏了哪些兄弟结点。
+    docs = book.get_items_of_type(ebooklib.ITEM_DOCUMENT)
+    for doc in docs:
         # 开头部分。没有toc引用，需要自己创建的。
-        if not isToc(book, doc) and FirstTocChecked is False:
-            Head.append([doc.file_name, []])
+        if not inToc(book, doc) and not FirstTocChecked:
+            Head.append((doc.file_name, []))
         # toc中有的。
-        elif isToc(book, doc):
+        elif inToc(book, doc):
             FirstTocChecked = True
-            Body.append([doc.file_name, []])
+            Body.append((doc.file_name, []))
         # toc中没有，但需要追加的doc。
-        elif not isToc(book, doc) and FirstTocChecked is True:
-            L_list = Body.pop()  # M取出最后一个元素给L
-            toc_doc_name, sub_doc_names = L_list
-            # [[head], [body]]
-            # [body] = ["toc_doc_name", [sub_doc_names]]: ['Text/Section0001_0012.xhtml', ['Text/Section0001_0013.xhtml']]
-            # 已解决：L_list[1]，sub_doc_names 是一个 列表。会有多个doc位于toc之后，但没有没toc引用。
-            # sub_doc_names 追加到 toc_doc_name 的子集中。
-            sub_doc_names.append(doc.file_name)
-            Body.append(L_list)  # M在加回去L
-    return M_list
+        elif not inToc(book, doc) and FirstTocChecked:
+            # 会有多个doc位于toc之后，但没有没toc引用。
+            last = Body.pop()
+            exist_toc_of_doc, sibling_doc_list = last
+            sibling_doc_list.append(doc.file_name)
+            Body.append(last)
+    return (Head, Body)
 
 
-def insert_doc(book, chapters, f_href, sub_doc_list):
+def insert_doc_in_exist_toc_of_doc(
+    book, chapters, exist_toc_of_doc_file_href, sibling_doc_list
+):
     stack = [chapters]
-    f_href = f_href.split("#")[0]
+    exist_toc_of_doc_file_href = exist_toc_of_doc_file_href.split("#")[0]
 
     while stack:
-        curr_chapters = stack.pop()
+        curr_chapters: list = stack.pop()
         for chapter in curr_chapters:
             # 转换为tuple(epub.Section，list=epub.Link)
             if isinstance(chapter, epub.Link):
                 # title = chapter.title
                 file_name = chapter.href.split("#")[0]
-                if f_href == file_name:
+                if exist_toc_of_doc_file_href == file_name:
                     # 改成元组，第一个元素存储epub.Section，第二个元素存储list ，epub.Link
-                    index_chapter = curr_chapters.index(chapter)
-                    section = epub.Section(chapter.title, chapter.href)
-                    link_list = []
-                    for item in sub_doc_list:
+                    index_chapter: int = curr_chapters.index(chapter)
+                    # 为缺失的sibling_doc创建epub.Link
+                    index = 1
+                    for item in sibling_doc_list:
                         item_content = book.get_item_with_href(item).content
                         soup = BeautifulSoup(item_content, "html.parser")
                         item_title = re.sub(
@@ -91,16 +95,26 @@ def insert_doc(book, chapters, f_href, sub_doc_list):
                             "",
                             "".join(filter(str.isalnum, soup.text)),
                         )[:50]
-                        link_list.append(epub.Link(href=item, title=item_title))
+                        curr_chapters.insert(
+                            index_chapter + index,
+                            epub.Link(href=item, title=item_title),
+                        )
+                        index += 1
+                    # 将link_list插入到前一个之后。
+                    # exist_toc_of_doc_file_href是有的，他的后面跟着缺失的html文档。
+                    # 所以插入到exist_toc_of_doc_file_href之后。也就是index_chapter+1下标处插入
+
                     # 替换为新的
-                    curr_chapters[index_chapter] = tuple((section, link_list))
+                    # section = epub.Section(chapter.title, chapter.href)
+                    # curr_chapters[index_chapter] = tuple((section, link_list))
             if isinstance(chapter, tuple):
                 if isinstance(chapter[0], epub.Section):
+                    section, links = chapter
                     # title = chapter[0].title
-                    file_name = chapter[0].href.split("#")[0]
-                    if f_href == file_name:
-                        elink = []
-                        for item in sub_doc_list:
+                    file_name = section.href.split("#")[0]
+                    if exist_toc_of_doc_file_href == file_name:
+                        index = 0
+                        for item in sibling_doc_list:
                             item_content = book.get_item_with_href(item).content
                             soup = BeautifulSoup(item_content, "html.parser")
                             item_title = re.sub(
@@ -108,11 +122,13 @@ def insert_doc(book, chapters, f_href, sub_doc_list):
                                 "",
                                 "".join(filter(str.isalnum, soup.text)),
                             )[:50]
-                            elink.append(epub.Link(href=item, title=item_title))
-                        rdata = copy.deepcopy(chapter[1])
-                        elink.extend(rdata)
-                        chapter[1].clear()
-                        chapter[1].extend(elink)
+                            links.insert(index, epub.Link(href=item, title=item_title))
+                            index += 1
+                        # TOOD 没有达到理想结果
+                        # rdata = copy.deepcopy(links)
+                        # elink.extend(rdata)
+                        # links.clear()
+                        # links.extend(elink)
                 # 当元组的第二个元素有子元素的时候。
                 if isinstance(chapter[1], list):
                     stack.append(chapter[1])
@@ -196,29 +212,31 @@ def count_anchors_in_toc(count_anchor_point, chapters):
 
 
 def merge_doc(book):
-    M_list = organize_linear_documents(book)
+    M_list = complete_toc_with_documents(book)
     Head, Body = M_list
-    # 合并没有列入toc的doc。
-    # 要加入的其实只有head和sub_doc_names不为空的元素。把他们筛选出来。
-    chapters = book.toc
+    # 合并没有列入toc的doc。要插入到book.toc中不存在的文档。其实只有head和sub_doc_names不为空的元素。
+    # 将开始的文档构建为epub.Link
     H_list = []
     if len(Head) != 0:
         for item in Head:
-            href = item[0]
-            content = book.get_item_with_href(href).content
+            content = book.get_item_with_href(item[0]).content
             soup = BeautifulSoup(content, "html.parser")
             title = re.sub(r"\\[btnfr]", "", "".join(filter(str.isalnum, soup.text)))[
                 :50
             ]
-            H_list.append(epub.Link(href=href, title=title))
-    chapters = H_list + chapters
-
-    B_list = []  # list ['Text/Section0001_0069.xhtml', ['Text/Section0001_0070.xhtml']]
+            H_list.append(epub.Link(href=item[0], title=title))
+    # chapters，用toc为基待补充完整的图书章节内容
+    # 将开始的不在toc中的doc加入到章节。
+    chapters = H_list + book.toc
+    # chapters, 查找符合的href，加入到此toc的子集中。
     if len(Body) != 0:
         for item in Body:
-            toc_doc_name, sub_doc_list = item
-            if len(sub_doc_list) != 0:
-                B_list.append(item)
+            exist_toc_of_doc, sibling_doc_list = item
+            # 将toc中不存在的doc，插入到前面的doc的后面
+            if len(sibling_doc_list) != 0:
+                insert_doc_in_exist_toc_of_doc(
+                    book, chapters, exist_toc_of_doc, sibling_doc_list
+                )
 
     # TODO: 删除重复文件，去重。
     # 查找doc文件（anchor_point href去掉锚点）所有的锚点href数量
@@ -233,17 +251,16 @@ def merge_doc(book):
     #         # 若某文件的锚点href数量 > 1，则查找删除所有锚点，只保留文档。
     #         remove_anchors_in_toc(key + "#", chapters)
 
-    # chapters, 查找符合的href，加入到此toc的子集中。
-    # 可变对象：list dict set
-    # 可变对象作为参数传入时，在函数中对其本身进行修改，
-    # 是会影响到全局中的这个变量值的，因为函数直接对该地址的值进行了修改
-    for item in B_list:
-        href, sub_doc_list = item
-        insert_doc(book, chapters, href, sub_doc_list)
-
     return chapters
 
 
-# book = epub.read_epub("C:/Users/Snowy/Desktop/心理学与生活.epub", {"ignore_ncx": True})
-# book = epub.read_epub("D:/Dropbox/00-TMP/资本论.epub", {"ignore_ncx": True})
+# 可变对象：list dict set
+# 可变对象作为参数传入时，在函数中对其本身进行修改，
+# 是会影响到全局中的这个变量值的，因为函数直接对该地址的值进行了修改
+
+# debug
+# book = epub.read_epub(
+#     "C:/Users/Snowy/Desktop/Wu Zhong Shi Jian _Zhong Jian R - Wang Xiao.epub",
+#     {"ignore_ncx": True},
+# )
 # merge_doc(book)
