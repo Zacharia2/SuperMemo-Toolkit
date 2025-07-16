@@ -1,3 +1,4 @@
+from datetime import datetime
 import hashlib
 import logging
 import os
@@ -622,6 +623,13 @@ def organize_unused_im(elements_folder):
                     mkdir(unused_pic)
                     # 将一个文件或文件夹从 src 移动到 dst 如果 dst 已存在且为文件夹，则 src 将会被移动到 dst内。
                     shutil.move(im, unused_pic)
+                    shutil.move(
+                        os.path.join(unused_pic, os.path.basename(im)),
+                        os.path.join(
+                            unused_pic,
+                            f"{os.path.basename(im)}-{str(datetime.now()).replace(r':', '-')}",
+                        ),
+                    )
                 except Exception as e:
                     print(f"移动至unused_pic时发生错误: {str(e)}")
         else:
