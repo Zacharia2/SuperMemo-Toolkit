@@ -618,16 +618,18 @@ def organize_unused_im(elements_folder):
 
         if len(unused_pic_list) > 0:
             for im in unused_pic_list:
+                im_file_name = os.path.basename(im)
+                filename, extname = os.path.splitext(im_file_name)
                 try:
-                    print("处理: ", os.path.basename(im))
+                    print("处理: ", im_file_name)
                     mkdir(unused_pic)
                     # 将一个文件或文件夹从 src 移动到 dst 如果 dst 已存在且为文件夹，则 src 将会被移动到 dst内。
                     shutil.move(im, unused_pic)
                     shutil.move(
-                        os.path.join(unused_pic, os.path.basename(im)),
+                        os.path.join(unused_pic, im_file_name),
                         os.path.join(
                             unused_pic,
-                            f"{os.path.basename(im)}-{str(datetime.now()).replace(r':', '-')}",
+                            f"{filename}-{str(datetime.now()).replace(r':', '-')}{extname}",
                         ),
                     )
                 except Exception as e:
