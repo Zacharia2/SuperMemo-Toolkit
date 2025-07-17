@@ -12,14 +12,17 @@ from supermemo_toolkit.utilscripts import config as smtk_config
 smtk_config_dir_path = smtk_config.get_config_dir()
 smtk_config_file_path = os.path.join(smtk_config_dir_path, "conf.json")
 curr_conf_dict = dict()
+init_conf_dict = {"program": "null"}
 if not os.path.exists(smtk_config_dir_path):
     os.makedirs(smtk_config_dir_path)
+    # 创建空配置文件
+    smtk_config.update_config(smtk_config_file_path, init_conf_dict)
 elif not os.path.exists(smtk_config_file_path):
-    click.secho("Please set program location! smtk config::program is undefined!", fg="red")
+    # 创建空配置文件
+    smtk_config.update_config(smtk_config_file_path, init_conf_dict)
 else:
     curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
-    sm_location = curr_conf_dict["program"]
-    click.secho("smtk server on: " + sm_location, fg="green")
+sm_location: str = curr_conf_dict.get("program")
 
 
 @click.group()
@@ -68,6 +71,12 @@ def list():
 @main.command()
 def clist():
     """列出所有集合"""
+    if sm_location == "null":
+        click.secho(
+            "Please set program location! config::program is null!", fg="red"
+        )
+        return
+    click.secho("smtk is working on: " + sm_location, fg="green")
     col_list = smtk_config.get_collections_primaryStorage(sm_location)
     for col_name in col_list:
         click.echo("集合名称：" + col_name)
@@ -116,6 +125,12 @@ def imtex(formula_text, outpath):
 @click.option("--least-col", is_flag=True, help="整理最后使用的集合（最后关闭的集合）")
 def pathpix(col_name, clean, fullpath, least_col, gui):
     """整理集合图片"""
+    if sm_location == "null":
+        click.secho(
+            "Please set program location! smtk config::program is undefined!", fg="red"
+        )
+        return
+    click.secho("smtk is working on: " + sm_location, fg="green")
     if least_col:
         sm_system1 = smtk_config.read_sm_system1(sm_location)
         least_used_col = smtk_config.get_collection_primaryStorage(
