@@ -72,9 +72,7 @@ def list():
 def clist():
     """列出所有集合"""
     if sm_location == "null":
-        click.secho(
-            "Please set program location! config::program is null!", fg="red"
-        )
+        click.secho("Please set program location! config::program is null!", fg="red")
         return
     click.secho("smtk is working on: " + sm_location, fg="green")
     col_list = smtk_config.get_collections_primaryStorage(sm_location)
@@ -126,9 +124,7 @@ def imtex(formula_text, outpath):
 def pathpix(col_name, clean, fullpath, least_col, gui):
     """整理集合图片"""
     if sm_location == "null":
-        click.secho(
-            "Please set program location! smtk config::program is undefined!", fg="red"
-        )
+        click.secho("Please set program location! config::program is null!", fg="red")
         return
     click.secho("smtk is working on: " + sm_location, fg="green")
     if least_col:
