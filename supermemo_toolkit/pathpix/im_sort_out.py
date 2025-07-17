@@ -582,6 +582,9 @@ def organize_unused_im(elements_folder):
         # 读取单个HTML文件中的被引用的im名字。
         im_list = find_im(web_pic) + find_im(local_pic)
         htm_path_m_date_list = collect_documents(elements_folder)
+        # 需要构建个map，文件名和文件内的图片的关联hash。
+        # 判断mtime时间戳过滤掉大部分，只处理被修改的。
+        # 找出哪些文件被删除了，然后删除这些文件引用的图片？万一是共同引用呢？
         for htm_file_path, m_time in tqdm(htm_path_m_date_list, desc="Doc-ImGather"):
             try:
                 with open(htm_file_path, "rb") as f:
