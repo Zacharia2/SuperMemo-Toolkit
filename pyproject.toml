@@ -41,7 +41,7 @@ pyquery = "^2.0.0"
 premailer = "^3.10.0"
 pystache = "^0.6.7"
 readmdict = "^0.1.1"
-python-lzo = { path = "tests/anki/until/python_lzo-1.16-cp312-cp312-win_amd64.whl" }
+python-lzo = { path = "docs/python_lzo_win_amd64/python_lzo-1.16-cp310-cp310-win_amd64.whl" }
 
 [build-system]
 requires = ["poetry-core"]
