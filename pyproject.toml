@@ -1,13 +1,8 @@
-[tool.poetry]
+[project]
 name = "supermemo-toolkit"
 version = "0.1.15"
 description = "SuperMemo 增强工具(CLI命令行)。包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki等。"
-license = "GPL-2.0-only"
-authors = ["tingshu <xinglan42w@outlook.com>"]
 readme = "README.md"
-homepage = "https://github.com/Zacharia2/SuperMemo-Toolkit"
-repository = "https://github.com/Zacharia2/SuperMemo-Toolkit"
-documentation = "https://docs.qq.com/doc/DQnRpb0VNUEVvR3dl"
 keywords = ["supermemo", "cli-app", "tooltik"]
 classifiers = [
     "Topic :: Utilities",
@@ -15,45 +10,51 @@ classifiers = [
     "Intended Audience :: Education",
     "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
 ]
-packages = [{ include = "supermemo_toolkit" }]
-include = ["docs"]
-exclude = ["docs/**"]
+authors = [{ name = "tingshu", email = "xinglan42w@outlook.com" }]
+license = { text = "GPL-2.0-only" }
+requires-python = "<4.0,>=3.10"
+dependencies = [
+    "beautifulsoup4<5.0.0,>=4.13.3",
+    "chardet<6.0.0,>=5.2.0",
+    "click<9.0.0,>=8.1.7",
+    "ebooklib<1.0,>=0.18",
+    "pillow<12.0.0,>=11.1.0",
+    "pypinyin<1.0.0,>=0.53.0",
+    "matplotlib<4.0.0,>=3.8.2",
+    "python-magic-bin<1.0.0,>=0.4.14; sys_platform == \"win32\"",
+    "python-magic<1.0.0,>=0.4.22; sys_platform != \"win32\"",
+    "tqdm<5.0.0,>=4.66.1",
+    "requests<3.0.0,>=2.31.0",
+    "yattag<2.0.0,>=1.16.1",
+    "filetype<2.0.0,>=1.2.0",
+    "pyquery<3.0.0,>=2.0.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-beautifulsoup4 = "^4.13.3"
-chardet = "^5.2.0"
-click = "^8.1.7"
-ebooklib = "^0.18"
-pillow = "^11.1.0"
-pypinyin = "^0.53.0"
-matplotlib = "^3.8.2"
-python-magic-bin = { version = "^0.4.14", markers = "sys_platform == 'win32'" }
-python-magic = { version = "^0.4.22", markers = "sys_platform != 'win32'" }
-tqdm = "^4.66.1"
-requests = "^2.31.0"
-yattag = "^1.16.1"
-filetype = "^1.2.0"
-pyquery = "^2.0.0"
+[dependency-groups]
+dev = [
+    "premailer<4.0.0,>=3.10.0",
+    "pystache<1.0.0,>=0.6.7",
+    "readmdict<1.0.0,>=0.1.1",
+    "python-lzo @ file:///${PROJECT_ROOT}/docs/python_lzo_win_amd64/python_lzo-1.16-cp310-cp310-win_amd64.whl",
+]
 
+[project.urls]
+homepage = "https://github.com/Zacharia2/SuperMemo-Toolkit"
+repository = "https://github.com/Zacharia2/SuperMemo-Toolkit"
+documentation = "https://docs.qq.com/doc/DQnRpb0VNUEVvR3dl"
 
-[tool.poetry.group.dev.dependencies]
-premailer = "^3.10.0"
-pystache = "^0.6.7"
-readmdict = "^0.1.1"
-python-lzo = { path = "docs/python_lzo_win_amd64/python_lzo-1.16-cp310-cp310-win_amd64.whl" }
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.scripts]
+[project.scripts]
 smtk = "supermemo_toolkit.smtk:main"
-# marker_single = "convert_single:main"
-# marker_chunk_convert = "chunk_convert:main"
 
-#设置poetry包管理工具的自定义pypi镜像源配置
-[[tool.poetry.source]]
+[tool.pdm.build]
+includes = ["supermemo_toolkit", "docs"]
+excludes = ["docs/**"]
+
+[[tool.pdm.source]]
 name = "tencent"
 url = "https://mirrors.aliyun.com/pypi/simple/"
-priority = "primary"
+verify_ssl = true
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
