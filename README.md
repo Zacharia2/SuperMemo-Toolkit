@@ -130,6 +130,10 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
   - 使用自定义牌组 `smtk sm2anki "docs/TEQA.htm" --deckname  "your_deskName"`
     - 自定义牌组 your_deskName
 
+## 关于开发
+
+依赖模块python_lzo-1.16包含C/C++模块，构建时会链接到特定版本的Python运行库，由于pypi已经许久未更新，所以通过fork后执行action构建离线包，对应版本的离线包已放置到docs\python_lzo_win_amd64，使用时请根据自己的python版本修改pyproject.toml
+
 ## LICENSE
 
 本软件遵守开源协议，协议类型为：GPLv2。
