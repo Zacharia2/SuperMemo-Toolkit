@@ -17,3 +17,13 @@ SuperMemo 导出时，可以携带 SuperMemoReference。可以利用这个对重
     </SuperMemoReference>
 </Question>
 ```
+
+
+[TODO] 用导出为文档修复，XML，NodeAsText 他们的标题乱码问题。
+
+导出为文档形式会导出一个目录，一个所有元素的列表。他们唯一共同之处就是标题一样。
+所以可以用标题作为索引构建XML文档。
+
+导出为文档，中 一个所有元素的列表包含`Topic #1,847: 学习就是调整心理模型的参数`,所以可以用来修复导出为源码的NodeAsText文档。不仅要修复自己的Title，也要修复ParentTitle。ParentTitle有Parent这个ID。
+
+导出为文档也修复，导出为XML的标题问题。因为他们都有ID。只需要找ID对应的即可。
