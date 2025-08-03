@@ -17,17 +17,3 @@ SuperMemo 导出时，可以携带 SuperMemoReference。可以利用这个对重
     </SuperMemoReference>
 </Question>
 ```
-
-有一部分拥有Title，他们是没有Content标签的Folder。
-
-输入导出的SuperMemoCollection，输出补全title的XML。
-
-
-## 解题步骤
-
-1. 读取文件
-2. 解析XML文件
-3. 查找所有的需要读取Title的元素。
-4. decode两次HTML Entry
-5. 为这些元素创建Title标签然后加到这些元素里面
-6. 序列化为字符串，保存到文件。
