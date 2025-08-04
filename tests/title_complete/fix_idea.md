@@ -18,12 +18,14 @@ SuperMemo 导出时，可以携带 SuperMemoReference。可以利用这个对重
 </Question>
 ```
 
-
-[TODO] 用导出为文档修复，XML，NodeAsText 他们的标题乱码问题。
-
 导出为文档形式会导出一个目录，一个所有元素的列表。他们唯一共同之处就是标题一样。
-所以可以用标题作为索引构建XML文档。
+所以可以用标题作为索引构建 XML 文档。
 
-导出为文档，中 一个所有元素的列表包含`Topic #1,847: 学习就是调整心理模型的参数`,所以可以用来修复导出为源码的NodeAsText文档。不仅要修复自己的Title，也要修复ParentTitle。ParentTitle有Parent这个ID。
+NodeAsText，是一个很好的转移卡片的方式，可以完整的携带所有信息包括引用，所以非常有修复价值。
+NodeAsText 包含 Reference，有 Reference 可以用 Reference 修复自己乱码的一部分。还需要别的，比如 XML 有标题的修复他。然后还需要导出为文档修复他。
 
-导出为文档也修复，导出为XML的标题问题。因为他们都有ID。只需要找ID对应的即可。
+三个乱码部分位于 1. Begin Component>HTMName、2. Begin ElementInfo>Title、3. ParentTitle
+
+HTMName可以读取HTML内容的前50字符作为名字。Title、ParentTitle可以从XML Title和导出为文档中获得，以及自己拥有的Reference获得。
+
+导出为文档也修复，导出为 XML 的标题问题。因为他们都有 ID。只需要找 ID 对应的即可。
