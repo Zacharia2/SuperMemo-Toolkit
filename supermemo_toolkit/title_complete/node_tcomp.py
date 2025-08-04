@@ -1,17 +1,25 @@
-import html
+from bs4 import BeautifulSoup
 import re
-
-
+import copy
 # ParentTitle、ElementInfo Title
 # Parent（ID）、ID
-def parseNodeAsText(text: str):
+
+
+def parseNodeAsText(file: str):
+    with open(
+        file,
+        mode="r",
+        encoding="utf-8",
+        errors="replace",
+    ) as fs:
+        nodeText = fs.read()
     state_stack = []  # Element、ElementInfo、Component、RepHist
 
     # 初始化状态
     elements = []
     element_map = {}
 
-    for line in text.splitlines():
+    for line in nodeText.splitlines():
         line = line.strip()
         # 开始行
         if line.startswith("Begin"):
@@ -92,91 +100,85 @@ def stringifyNode(elements):
     return "\n".join(result)
 
 
-def node_tcomp(needfix: str, patch: dict):
-    """根据patch修补NodeAsText
+def haved_Title(el):
+    for item in el.children:
+        if item.name == "Title":
+            return True
+    return False
 
-    Args:
-        needfix (str): filePath
-        patch (Map): id->Title
-    """
-    with open(
-        needfix,
-        mode="r",
-        encoding="utf-8",
-        errors="ignore",
-    ) as fs:
-        nodeText = fs.read()
 
-    nodes = parseNodeAsText(nodeText)
-    unfind = set()
-    for el in nodes:
-        ID = el.get("ID").strip("#").strip()
-        Parent = el.get("Parent")
-        ParentTitle = patch.get(Parent)
-        Title = patch.get(ID)
-        el["ParentTitle"] = ParentTitle or el["ParentTitle"]
-        el["ElementInfo"]["Title"] = Title or el["ElementInfo"]["Title"]
-        if not ParentTitle:
-            unfind.add(Parent)
-        if not Title:
-            unfind.add(ID)
-    print(unfind)
+def parse_toc_htm(file: str):
+    with open(file, mode="r", encoding="GB18030") as fs:
+        htm = fs.read()
+    titles = [x for x in re.split(r"<[^>]+>", htm, flags=re.DOTALL) if x != ""]
+    return titles[1:]
 
-    with open(needfix, mode="w", encoding="utf-8") as fs:
+
+def node_tcomp(nodefile: str, tocfile: str):
+    titles = parse_toc_htm(tocfile)
+    nodes = parseNodeAsText(nodefile)
+    copyNodes = copy.deepcopy(nodes)
+    # TODO nodes和titles对齐的问题。
+    c = len(titles) - len(copyNodes)
+    if c <= 3:
+        for i in range(0, c):
+            copyNodes.insert(0, {"ID": ""})
+    patch = {}
+    for i in reversed(range(len(titles))):
+        patch[copyNodes[i]["ID"].lstrip("#")] = titles[i]
+        if c != 0 and i == 1:
+            # 第一个Node的Parent值。
+            patch[copyNodes[i + 1]["Parent"]] = titles[i]
+    for node in nodes:
+        id = node.get("ID").lstrip("#").strip()
+        parent_id = node.get("Parent")
+        title = patch.get(id)
+        parent_title = patch.get(parent_id)
+        node["ParentTitle"] = parent_title or node["ParentTitle"]
+        node["ElementInfo"]["Title"] = title or node["ElementInfo"]["Title"]
+        if "Component" in node:
+            HTMFile = node["Component"]["HTMFile"]
+            with open(HTMFile, "r") as fs:
+                HTMFile = fs.read()
+            soup = BeautifulSoup(HTMFile, "html.parser")
+            name = "".join(soup.text[0:100].split("\n"))
+            node["Component"]["HTMName"] = name
+
+    with open(nodefile, mode="w", encoding="utf-8") as fs:
         fs.write(stringifyNode(nodes))
 
 
-def parse(text):
-    ref_dict = {}
-    q_text: str = html.unescape(text)
-    reference = re.search(
-        r"<FONT class=reference>(.*?)</FONT>",
-        re.split(r"<hr[\s\S]*?SuperMemo>", q_text)[-1],
-        re.DOTALL,
-    )
-    if reference:
-        ref_contents = reference.group(1).replace("\n", "").split("<br>")
-        for ref_item in ref_contents:
-            key, value = ref_item.split(":", 1)
-            key = key.strip("#").strip()
-            value = value.strip()
-            ref_dict[key] = value
-    return ref_dict
+def xml_tcomp(xmlfile: str, tocfile: str):
+    with open(xmlfile, mode="r", encoding="utf-8") as fs:
+        xml = fs.read()
+    soup = BeautifulSoup(xml, "xml")
+    ids = soup.find_all("ID")  # 前序排列的ids
+    titles = parse_toc_htm(tocfile)
+    for i, id in enumerate(ids):
+        # - SuperMemoElement
+        #   - Title
+        #   - ID
+        el = id.parent
+        if haved_Title(el):
+            continue
+        new_title = soup.new_tag("Title")
+        new_title.string = titles[i]
+        el.insert(0, new_title)
+    with open(xmlfile, mode="w", encoding="utf-8") as fs:
+        fs.write(str(soup))
 
 
-# def haved_Title(el):
-#     for item in el.children:
-#         if item.name == "Title":
-#             return True
-#     return False
-
-# def tcomp(needfix, output):
-#     with open(needfix, mode="r") as fs:
-#         xml = fs.read()
-#     soup = BeautifulSoup(xml, "xml")
-#     # - SuperMemoElement
-#     #   - Title
-#     #   - Content
-#     #     - Question
-#     questions = soup.find_all("Question")
-#     for question in questions:
-#         el = question.parent.parent
-#         if haved_Title(el):
-#             continue
-#         # 排除掉有Title的el
-#         ref_dict = parse(question.text)
-#         new_title = soup.new_tag("Title")
-#         # TODO 有两个问题，一个是元素没设置ref，但父设置了，所以用的父的ref
-#         # 另一个问题是没有ref，但我导入图书的时候设计了title但没有生成ref。
-#         # 总之title是存放在知识树中的，导出XML会没有。
-#         new_title.string = ref_dict.get("Title") or "111"
-#         el.insert(0, new_title)
-#     with open(output, mode="w", encoding="utf-8") as fs:
-#         fs.write(str(soup))
-
-
-# infile = "C:/Users/Snowy/Desktop/1.xml"
-# inhtm = "C:/Users/Snowy/Desktop/1.htm"
-# outfile = "C:/Users/Snowy/Desktop/5566.xml"
-# infile = "C:/Users/Snowy/Desktop/NodeAsText.txt"
-# node_tcomp(infile, {})
+# [Warning] 这一切的前提是 全部按照前序排列。
+infile = "C:/Users/Snowy/Desktop/NodeAsText1.txt"
+inhtm = "C:/Users/Snowy/Desktop/reading-and-review (document contents).htm"
+inxfile = "C:/Users/Snowy/Desktop/reading-and-review (阅读复习).xml"
+node_tcomp(infile, inhtm)
+# xml_tcomp(inxfile, inhtm)
+# with open(
+#     infile,
+#     mode="r",
+#     encoding="utf-8",
+#     errors="replace",
+# ) as fs:
+#     nodeText = fs.read()
+#     pass
