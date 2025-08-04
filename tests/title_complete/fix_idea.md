@@ -22,10 +22,21 @@ SuperMemo 导出时，可以携带 SuperMemoReference。可以利用这个对重
 所以可以用标题作为索引构建 XML 文档。
 
 NodeAsText，是一个很好的转移卡片的方式，可以完整的携带所有信息包括引用，所以非常有修复价值。
-NodeAsText 包含 Reference，有 Reference 可以用 Reference 修复自己乱码的一部分。还需要别的，比如 XML 有标题的修复他。然后还需要导出为文档修复他。
 
-三个乱码部分位于 1. Begin Component>HTMName、2. Begin ElementInfo>Title、3. ParentTitle
+三个乱码部分位于
 
-HTMName可以读取HTML内容的前50字符作为名字。Title、ParentTitle可以从XML Title和导出为文档中获得，以及自己拥有的Reference获得。
+1. ParentTitle
+2. Begin ElementInfo -> Title
+3. Begin Component -> HTMName
 
-导出为文档也修复，导出为 XML 的标题问题。因为他们都有 ID。只需要找 ID 对应的即可。
+Title、ParentTitle 可以从
+
+- 导出为文档中获得，（目录全，列表不全）
+- XML（Title无法从这个中补齐。）但是有树的结构可以获得ID。配合文档目录合并树试试。
+- NodeAsText，HTMName：HTML 内容的前 50 字符（一定有）
+- NodeAsText拥有的 Reference 获得。(可能没有)。不用了。
+
+文档目录构建树 合并 XML的ID树，最后 输出 ID->Title列表。
+
+有一个好消息是NodeAsText是前序排列，这样文档目录也使用前序排列，并对其NodeAsText。这样更容易。
+

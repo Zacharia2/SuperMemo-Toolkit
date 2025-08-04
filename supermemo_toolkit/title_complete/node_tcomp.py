@@ -177,7 +177,6 @@ def parse(text):
 
 # infile = "C:/Users/Snowy/Desktop/1.xml"
 # inhtm = "C:/Users/Snowy/Desktop/1.htm"
-# infile = "C:/Users/Snowy/Desktop/NodeAsText.txt"
 # outfile = "C:/Users/Snowy/Desktop/5566.xml"
-# tcomp(infile, outfile)
-# fixNodeAsText(infile, patch)
+# infile = "C:/Users/Snowy/Desktop/NodeAsText.txt"
+# node_tcomp(infile, {})
