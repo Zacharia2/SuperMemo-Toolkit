@@ -130,12 +130,22 @@ def node_tcomp(nodefile: str, tocfile: str):
             # 第一个Node的Parent值。
             patch[copyNodes[i + 1]["Parent"]] = titles[i]
     for node in nodes:
-        id = node.get("ID").lstrip("#").strip()
         parent_id = node.get("Parent")
-        title = patch.get(id)
-        parent_title = patch.get(parent_id)
-        node["ParentTitle"] = parent_title or node["ParentTitle"]
-        node["ElementInfo"]["Title"] = title or node["ElementInfo"]["Title"]
+        id = node.get("ID").lstrip("#").strip()
+
+        parent_title: str = patch.get(parent_id) or node["ParentTitle"]
+        title: str = patch.get(id) or node["ElementInfo"]["Title"]
+        
+        # 目前已知下划线可以，中文句话英文分号句号不可以
+
+        parent_title = re.sub(r"(\d+)", r"_\1_", parent_title)
+        parent_title = re.sub(r"_{2,}", "_", parent_title)
+        node["ParentTitle"] = re.sub(r"\s", "_", parent_title) + "_"
+
+        title = re.sub(r"(\d+)", r"_\1_", title)
+        title = re.sub(r"_{2,}", "_", title)
+        node["ElementInfo"]["Title"] = re.sub(r"\s", "_", title) + "_"
+
         if "Component" in node:
             HTMFile = node["Component"]["HTMFile"]
             with open(HTMFile, "r") as fs:
@@ -169,16 +179,11 @@ def xml_tcomp(xmlfile: str, tocfile: str):
 
 
 # [Warning] 这一切的前提是 全部按照前序排列。
-infile = "C:/Users/Snowy/Desktop/NodeAsText1.txt"
-inhtm = "C:/Users/Snowy/Desktop/reading-and-review (document contents).htm"
-inxfile = "C:/Users/Snowy/Desktop/reading-and-review (阅读复习).xml"
-node_tcomp(infile, inhtm)
+# infile = "C:/Users/Snowy/Desktop/NodeAsText.txt"
+# inhtm = "C:/Users/Snowy/Desktop/reading-and-review (document contents).htm"
+# inxfile = "C:/Users/Snowy/Desktop/reading-and-review (阅读复习).xml"
+# node_tcomp(infile, inhtm)
 # xml_tcomp(inxfile, inhtm)
-# with open(
-#     infile,
-#     mode="r",
-#     encoding="utf-8",
-#     errors="replace",
-# ) as fs:
+# with open(infile, mode="r", encoding="utf-8") as fs:
 #     nodeText = fs.read()
 #     pass
