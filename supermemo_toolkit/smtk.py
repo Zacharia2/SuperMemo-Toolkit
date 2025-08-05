@@ -5,7 +5,7 @@ import click
 from supermemo_toolkit.epub2sm import epub_convert
 from supermemo_toolkit.latex2img import formula_to_png
 from supermemo_toolkit.pathpix import im_sort_out, gui as im_sort_out_gui
-from supermemo_toolkit.sa_sync.sm2anki import s2a
+from supermemo_toolkit.sa_sync.sm2anki import qa_to_anki
 from supermemo_toolkit.title_complete import tcomp as title_complete
 from supermemo_toolkit.utilscripts import config as smtk_config
 
@@ -29,12 +29,12 @@ sm_location: str = curr_conf_dict.get("program")
 @click.group()
 @click.version_option()
 def main():
-    """SuperMemo 增强工具(CLI命令行)。包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki等。"""
+    """SuperMemo 增强工具(CLI命令行)。\n\n包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码等。"""
 
 
 @click.group()
 def config():
-    """配置SMTK"""
+    """配置SMTK集合(systems)路径"""
     with click.Context(config) as ctx:
         # 没有子命令的时候才输出帮助
         if ctx.invoked_subcommand:
@@ -88,7 +88,7 @@ def clist():
 @click.option("--linear", is_flag=True, help="根据线性阅读顺序转换")
 @click.option("--topic", is_flag=True, help="转换为一篇Topic文章")
 def e2sm(epub_path, target_folder, toc, linear, topic):
-    """Convert ePub to SuperMemo format."""
+    """转换 EPUB 书籍格式为 SuperMemo XML 集合格式"""
     if toc:
         epub_convert.start_with_toc(epub_path, target_folder)
     elif linear:
@@ -101,7 +101,7 @@ def e2sm(epub_path, target_folder, toc, linear, topic):
 @click.argument("formula_text")
 @click.argument("outpath")
 def imtex(formula_text, outpath):
-    """Convert LaTeX formula to image."""
+    """转换 LaTeX 公式到PNG图片."""
     formula_to_png.latex2img(
         text=formula_text,
         size=48,
@@ -123,7 +123,7 @@ def imtex(formula_text, outpath):
 @click.option("--gui", is_flag=True, help="运行图形窗口")
 @click.option("--least-col", is_flag=True, help="整理最后使用的集合（最后关闭的集合）")
 def pathpix(col_name, clean, fullpath, least_col, gui):
-    """整理集合图片"""
+    """整理集合图片, 相对路径化本地图片、本地化网络图片"""
     if sm_location == "null":
         click.secho("Please set program location! config::program is null!", fg="red")
         return
@@ -158,14 +158,15 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
     help="设置目标牌组名",
 )
 def sm2anki(qafile, deckname):
-    """同步 SuperMemo QA 到 Anki"""
+    """发送问答卡(Item)到Anki"""
     # print(deckname)
     if deckname:
-        ms2a = s2a(qafile)
+        ms2a = qa_to_anki(qafile)
         ms2a.setDeckName(deckname)
-        ms2a.run()
+        ms2a.sent_cards()
     else:
-        s2a(qafile).run()
+        ms2a = qa_to_anki(qafile)
+        ms2a.sent_cards()
 
 
 @main.command()
@@ -173,6 +174,7 @@ def sm2anki(qafile, deckname):
 @click.option("--node", type=str, help="设置NodeAsText文件路径")
 @click.option("--xml", type=str, help="设置XMl文件路径")
 def tcomp(htmtoc: str, node: str, xml: str):
+    """修补导出的NodeAsText、XMl中的标题"""
     if not node and not xml:
         print("需要输入待修复的文件路径(NodeAsText OR XMl)")
     elif node and not xml:

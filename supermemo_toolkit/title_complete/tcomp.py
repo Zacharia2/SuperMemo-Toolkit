@@ -120,9 +120,12 @@ def node_tcomp(nodefile: str, tocfile: str):
     copyNodes = copy.deepcopy(nodes)
     # TODO nodes和titles对齐的问题。
     c = len(titles) - len(copyNodes)
-    if c <= 3:
+    if c != 0 and c <= 2:
         for i in range(0, c):
             copyNodes.insert(0, {"ID": ""})
+    elif c > 2:
+        print("Id列表与标题列表, 长度无法对齐")
+        return
     patch = {}
     for i in reversed(range(len(titles))):
         patch[copyNodes[i]["ID"].lstrip("#")] = titles[i]
@@ -135,7 +138,7 @@ def node_tcomp(nodefile: str, tocfile: str):
 
         parent_title: str = patch.get(parent_id) or node["ParentTitle"]
         title: str = patch.get(id) or node["ElementInfo"]["Title"]
-        
+
         # 目前已知下划线可以，中文句号，英文null、分号、句号、空格不可以
 
         parent_title = re.sub(r"(\d+)", r"_\1_", parent_title)
@@ -156,7 +159,7 @@ def node_tcomp(nodefile: str, tocfile: str):
 
     with open(nodefile, mode="w", encoding="utf-8") as fs:
         fs.write(stringifyNode(nodes))
-    print('Node处理完成。')
+    print("Node处理完成。")
 
 
 def xml_tcomp(xmlfile: str, tocfile: str):
@@ -177,7 +180,7 @@ def xml_tcomp(xmlfile: str, tocfile: str):
         el.insert(0, new_title)
     with open(xmlfile, mode="w", encoding="utf-8") as fs:
         fs.write(str(soup))
-    print('XML处理完成。')
+    print("XML处理完成。")
 
 
 # [Warning] 这一切的前提是 全部按照前序排列。
