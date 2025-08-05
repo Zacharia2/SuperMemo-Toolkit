@@ -2,7 +2,7 @@ import html
 from supermemo_toolkit.utilscripts.ankinet import invoke
 
 
-class s2a:
+class qa_to_anki:
     def __init__(self, qafile):
         self.qafile = qafile
         self.deckName = "TEQA Cards"
@@ -109,7 +109,7 @@ class s2a:
                 self.__addNote(self.deckName, {"Front": qa["Q"]})
         print("\nDone!")
 
-    def run(self):
+    def sent_cards(self):
         try:
             self.__createModel()
             self.__selectedDesk(self.deckName)
