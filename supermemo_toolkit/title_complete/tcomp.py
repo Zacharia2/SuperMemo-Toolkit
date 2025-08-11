@@ -118,20 +118,30 @@ def node_tcomp(nodefile: str, tocfile: str):
     titles = parse_toc_htm(tocfile)
     nodes = parseNodeAsText(nodefile)
     copyNodes = copy.deepcopy(nodes)
-    # TODO nodes和titles对齐的问题。
-    c = len(titles) - len(copyNodes)
-    if c != 0 and c <= 2:
-        for i in range(0, c):
-            copyNodes.insert(0, {"ID": ""})
-    elif c > 2:
-        print("Id列表与标题列表, 长度无法对齐")
-        return
+    # 倒序对齐，不足自动填充。
+    EQUAL, NO_ROOT_PARENT_IS_ROOT, NO_ROOT_AND_PARENT = range(3)
+    diff_sum = len(titles) - len(copyNodes)
     patch = {}
-    for i in reversed(range(len(titles))):
-        patch[copyNodes[i]["ID"].lstrip("#")] = titles[i]
-        if c != 0 and i == 1:
-            # 第一个Node的Parent值。
-            patch[copyNodes[i + 1]["Parent"]] = titles[i]
+    if diff_sum == NO_ROOT_AND_PARENT:
+        # 插入ROOT和PARENT
+        copyNodes = [{"ID": ""}, {"ID": ""}] + copyNodes
+        for i in reversed(range(len(titles))):
+            patch[copyNodes[i]["ID"].lstrip("#")] = titles[i]
+            if i == 1:
+                # copyNodes[002]填充前第一个Node(ParentNode)的Parent值。
+                patch[copyNodes[i + 1]["Parent"]] = titles[i]
+    elif diff_sum == NO_ROOT_PARENT_IS_ROOT:
+        # 插入PARENT_IS_ROOT，titles有而nodes没有，仅填充nodes。
+        copyNodes.insert(0, {"ID": ""})
+        for i in reversed(range(len(titles))):
+            patch[copyNodes[i]["ID"].lstrip("#")] = titles[i]
+    elif diff_sum == EQUAL:
+        for i in reversed(range(len(titles))):
+            patch[copyNodes[i]["ID"].lstrip("#")] = titles[i]
+    else:
+        print("标题列表长度超出定义, 标题和ID列表长度无法对齐, 结束执行")
+        return
+
     for node in nodes:
         parent_id = node.get("Parent")
         id = node.get("ID").lstrip("#").strip()
