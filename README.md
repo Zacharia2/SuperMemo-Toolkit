@@ -1,4 +1,5 @@
 # supermemo-toolkit(smtk)
+
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Zacharia2/SuperMemo-Toolkit/total)
 
 SuperMemo 增强工具（CLI 命令行）。包含图链整理、EPUB 图书转换导入、Latex 公式转图片等。
@@ -48,7 +49,7 @@ python -m ensurepip
 python -m pip install --upgrade pip
 ```
 
-遇到的问题 3：supermemo只支持五种图片格式："image/jpeg"、"image/jpg"、"image/png"、"image/gif"、"image/bmp"，PathPix功能只支持网络图片转换为受支持的五类图片，本地暂时不支持。E2SM功能只对书籍图片进行复制，暂时不支持图片转换为受支持的五类图片格式。
+遇到的问题 3：supermemo 只支持五种图片格式："image/jpeg"、"image/jpg"、"image/png"、"image/gif"、"image/bmp"，PathPix 功能只支持网络图片转换为受支持的五类图片，本地暂时不支持。E2SM 功能只对书籍图片进行复制，暂时不支持图片转换为受支持的五类图片格式。
 
 ## 2. PathPix
 
@@ -130,9 +131,24 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
   - 使用自定义牌组 `smtk sm2anki "docs/TEQA.htm" --deckname  "your_deskName"`
     - 自定义牌组 your_deskName
 
+## 6. tcomp
+
+修补导出`Source code`或者`XML`文件标题乱码或缺失。
+
+1. 选定需要导出的分支
+2. 导出选定分支的知识树 HTM-TOC 文件。
+   1. 使用 `知识树右键菜单>>Export>>Document>>Document export options:Knowledge tree in a single file`
+3. 导出 Source code 或者 XML 文件。
+   1. 使用 `知识树右键菜单>>Export>>Source code`
+   2. 使用 `知识树右键菜单>>Export>>XML`
+4. 使用 HTM-TOC 修补导出的 Source code 或者 XML 文件。
+   1. `smtk tcomp htmtocfile --node nodefile`
+      1. 为避免`Source code`乱码，程序采用下划线代替空格并包裹数字
+   2. `smtk tcomp htmtocfile --xml xmlfile`
+
 ## 关于开发
 
-依赖模块python_lzo-1.16包含C/C++模块，构建时会链接到特定版本的Python运行库，由于pypi已经许久未更新，所以通过fork后执行action构建离线包，对应版本的离线包已放置到docs\python_lzo_win_amd64，使用时请根据自己的python版本修改pyproject.toml
+依赖模块 python_lzo-1.16 包含 C/C++模块，构建时会链接到特定版本的 Python 运行库，由于 pypi 已经许久未更新，所以通过 fork 后执行 action 构建离线包，对应版本的离线包已放置到 docs\python_lzo_win_amd64，使用时请根据自己的 python 版本修改 pyproject.toml
 
 ## LICENSE
 
