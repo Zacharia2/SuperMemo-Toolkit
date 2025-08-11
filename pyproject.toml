@@ -1,7 +1,7 @@
 [project]
 name = "supermemo-toolkit"
-version = "0.1.15"
-description = "SuperMemo 增强工具(CLI命令行)。包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki等。"
+version = "0.1.16"
+description = "SuperMemo 增强工具(CLI命令行)。包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码等。"
 readme = "README.md"
 keywords = ["supermemo", "cli-app", "tooltik"]
 classifiers = [
