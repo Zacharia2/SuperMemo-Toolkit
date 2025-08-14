@@ -1,4 +1,4 @@
-from bs4 import BeautifulSoup, NavigableString
+from bs4 import BeautifulSoup, NavigableString, Tag
 import ebooklib
 from ebooklib import epub
 
@@ -31,7 +31,7 @@ def split_html_with_lenght(limit_num):
     ).replace("/n", "")
     soup = BeautifulSoup(html, "html.parser")
 
-    def recursion(node, words: int):
+    def recursion(node, words=0):
         if isinstance(node, NavigableString):
             # 说明是叶子
             # 叶子就开始计数，当达到数量后，找到父节点然后再父节点下一个位置插入
@@ -41,16 +41,16 @@ def split_html_with_lenght(limit_num):
                 node_index = node.parent.index(node)
                 node.parent.insert(node_index + 1, soup.new_tag("hr"))
                 words = 0
-            return words
 
-        # 说明是分支
-        # 如果是分支就要找到他的子元素数量，如果子元素是NavigableString则计数
-        # 如果子元素是Tag则进入。
-        for child in [x for x in node.contents if x != "\n"]:
-            words = recursion(child, words)
+        elif isinstance(node, Tag):
+            # 说明是分支
+            # 如果是分支就要找到他的子元素数量，如果子元素是NavigableString则计数
+            # 如果子元素是Tag则进入。
+            for child in [x for x in node.contents if x != "\n"]:
+                words = recursion(child, words)
         return words
 
-    recursion(soup, 0)
+    recursion(soup)
     with open("C:/Users/Snowy/Desktop/1.htm", "w", encoding="utf-8") as fs:
         fs.write(soup.prettify())
 
