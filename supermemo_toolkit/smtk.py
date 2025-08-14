@@ -87,14 +87,18 @@ def clist():
 @click.option("--toc", is_flag=True, help="根据目录结构转换")
 @click.option("--linear", is_flag=True, help="根据线性阅读顺序转换")
 @click.option("--topic", is_flag=True, help="转换为一篇Topic文章")
-def e2sm(epub_path, target_folder, toc, linear, topic):
+@click.option("--limit", type=int, help="topic分片长度")
+def e2sm(epub_path, target_folder, toc, linear, topic, limit):
     """转换 EPUB 书籍格式为 SuperMemo XML 集合格式"""
     if toc:
         epub_convert.start_with_toc(epub_path, target_folder)
     elif linear:
         epub_convert.start_with_linear(epub_path, target_folder)
     elif topic:
-        epub_convert.start_with_topic(epub_path, target_folder)
+        if not limit:
+            epub_convert.start_with_topic(epub_path, target_folder)
+        else:
+            epub_convert.start_with_topic(epub_path, target_folder, limit)
 
 
 @main.command()

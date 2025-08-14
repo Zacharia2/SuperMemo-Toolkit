@@ -1,7 +1,7 @@
 import os
 
 import ebooklib
-from bs4 import BeautifulSoup, Doctype, Tag
+from bs4 import BeautifulSoup, Doctype, Tag, NavigableString
 from ebooklib import epub
 
 from supermemo_toolkit.epub2sm import toc_check
@@ -175,6 +175,35 @@ def write_img_file(ebook: epub.EpubBook, book_img_folder: str) -> None:
             f.write(image.content)
 
 
+def split_html_with_lenght(book, book_f_name, limit_num):
+    html = merge_epub_to_topic(book, book_f_name).replace("\n", "")
+    soup = BeautifulSoup(html, "html.parser")
+
+    def recursion(node, words=0):
+        if isinstance(node, NavigableString):
+            # 说明是叶子
+            # 叶子就开始计数，当达到数量后，找到父节点然后再父节点下一个位置插入hr水平标签。
+            words += len(str(node))
+            if words > limit_num and node.parent:
+                node_index = node.parent.index(node)
+                node.parent.insert(node_index + 1, soup.new_tag("hr"))
+                words = 0
+
+        elif isinstance(node, Tag):
+            # 说明是分支
+            # 如果是分支就要找到他的子元素数量，如果子元素是NavigableString则计数
+            # 如果子元素是Tag则进入。
+            for child in node.contents:
+                # 设置当前层字数
+                words = recursion(child, words)
+        # 返回子层字数
+        return words
+
+    recursion(soup)
+    doc = str(soup.encode(encoding="ascii"), "utf-8")
+    return doc.replace("\n", "").replace("\r", "")
+
+
 def start_with_toc(epub_file, save_folder):
     # UserWarning: In the future version we will turn default option ignore_ncx to True.
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
@@ -242,13 +271,16 @@ def start_with_linear(epub_file, save_folder):
     print("转换完成，已存储至：", save_folder)
 
 
-def start_with_topic(epub_file, save_folder):
+def start_with_topic(epub_file, save_folder, limit_num):
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
     print("开始处理书籍：", book_f_name)
 
     doc, tag, text, line = Doc().ttl()
-    topic_doc = merge_epub_to_topic(book, book_f_name)
+    if limit_num:
+        topic_doc = split_html_with_lenght(book, book_f_name, limit_num)
+    else:
+        topic_doc = merge_epub_to_topic(book, book_f_name)
     with tag("SuperMemoCollection"):
         line("Count", 1)
         with tag("SuperMemoElement"):
