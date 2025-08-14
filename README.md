@@ -106,6 +106,9 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
   - 有书即可，不按照 EPUB 目录文件生成，而是按照 EPUB 图书内文档文件的线性顺序生成，比较适合 PDF 版 epub，效果查看文件：./docs/Snipaste_2024-03-24_09-17-23.png
 - 按单个 Topic 生成 `smtk e2sm --topic <epub_file> <out_folder>`
   - 有书即可，EPUB 转换为一个 SuperMemo Topic，一本书即是一篇文章，配合 SuperMemo 阅读点使用更佳。
+- 按单个 Topic 生成，按长度分片并插入HR标签 `smtk e2sm --topic --limit 1500 <epub_file> <out_folder>`
+  - 在单个TopicEpub中按照限制字数（例如1500字）在段后插入hr标签
+  - 使用SuperMemo的split article进行分割得到图书分片。
 
 ## 4. latex2img
 
