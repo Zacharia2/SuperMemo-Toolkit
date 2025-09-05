@@ -1,5 +1,8 @@
 from pywinauto.application import Application
 
+# 方案一、使用pywinauto自动监听复制到剪贴板
+# 方案二、自己右键 手动复制到剪贴板
+
 app = Application(backend="win32").connect(class_name="TElWind")
 app.top_window().set_focus()
 # 模拟 Ctrl+C 复制内容，内容为Source code。
