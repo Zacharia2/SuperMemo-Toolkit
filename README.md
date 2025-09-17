@@ -2,7 +2,7 @@
 
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Zacharia2/SuperMemo-Toolkit/total)
 
-SuperMemo 增强工具（CLI 命令行）。包含图链整理、EPUB 图书转换导入、Latex 公式转图片等。
+SuperMemo 增强工具(CLI命令行)。包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码等。
 
 ## 1. Install
 
@@ -163,6 +163,6 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
 
 ## 赞助
 
-喜欢这个工具嘛，感谢您的支持！
+当您见证自己用SuperMemo坚持两年后阅读量飙升的喜悦，请记得这份坚持背后有smtk在默默护航——它不仅是市面上唯一能修复标题乱码、集合图片整理修复、无缝导入EPUB图书的工具箱，更是您学习路上最懂你的战友。您的赞助，将点亮更多孤独求索者的学习之路，让每一份坚持都收获更温暖的回报。
 
 ![](./docs/donate.png)
