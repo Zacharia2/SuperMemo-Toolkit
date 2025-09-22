@@ -301,10 +301,3 @@ def start_with_topic(epub_file, save_folder, limit_num):
     write_img_file(book, folder)
 
     print("转换完成，已存储至：", save_folder)
-
-
-start_with_topic(
-    "C:/Users/Snowy/Desktop/Harry_Potter_and_the_Sorcerer_39_s_Stone_Harry_Potter_1.epub",
-    "C:/Users/Snowy/Desktop",
-    1500,
-)
