@@ -12,6 +12,9 @@ se.type_keys("^c")
 # app.top_window().type_keys("^c")
 # 然后监听剪贴板，把需要的内容查找出来，然后读取后，在调用tts就可以阅读了。
 
+# 在sm窗口下，然后要监听鼠标左键，然后看看标题或者内容是否改变，然后再决定是否播放内容。
+# 交互逻辑是点击下一个自动播放。或者自己复制自动播放。
+
 text = """
 Begin Element #1168
 Source=d:\supermemo\systems\reading-and-review
