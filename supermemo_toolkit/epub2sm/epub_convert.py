@@ -152,6 +152,10 @@ def merge_epub_to_topic(book, folder_name):
         doc = book.get_item_with_href(href)
         content = doc.content.decode("utf-8") if doc else ""
         soup = BeautifulSoup(content, "html.parser")
+        p_list = soup.find_all("p")
+        for p in p_list:
+            if "\n" in p.text:
+                p.string = str(p.text).replace("\n", " ")
         html_body = soup.find("body")
         for child in html_body.children:
             epub_topic += str(child)
@@ -297,3 +301,10 @@ def start_with_topic(epub_file, save_folder, limit_num):
     write_img_file(book, folder)
 
     print("转换完成，已存储至：", save_folder)
+
+
+start_with_topic(
+    "C:/Users/Snowy/Desktop/Harry_Potter_and_the_Sorcerer_39_s_Stone_Harry_Potter_1.epub",
+    "C:/Users/Snowy/Desktop",
+    1500,
+)
