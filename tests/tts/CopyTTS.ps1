@@ -15,7 +15,7 @@ $form.Location = New-Object System.Drawing.Point(0, $height);
 
 $button = New-Object System.Windows.Forms.Button
 $button.Text = 'Play'
-$button.Size = New-Object System.Drawing.Size(50, 50)
+$button.Size = New-Object System.Drawing.Size(75, 50)
 $buttonX = ($form.ClientSize.Width - $button.Width) / 2
 $buttonY = ($form.ClientSize.Height - $button.Height) / 2
 $button.Location = New-Object System.Drawing.Point($buttonX, $buttonY)
