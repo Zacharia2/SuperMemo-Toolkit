@@ -1,0 +1,220 @@
+.card {
+  background-color: #fff;
+}
+
+.card.nightMode {
+  background-color: #1c1b1f;
+}
+
+/* 卡片正面样式 */
+
+.front_word_dc {
+  padding: 1.8rem 0 0rem 0;
+  position: relative;
+  margin-top: 1rem;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--word);
+  color: transparent;
+  text-align: center;
+  background-clip: text;
+  -webkit-background-clip: text;
+  background-image: linear-gradient(45deg, #3120ea, #45f6d6);
+  background-size: 100% 100%;
+  background-position: 100% 100%;
+  opacity: 0.4;
+}
+
+.front_word_dc b {
+  display: inline-block;
+  margin: 0.4rem 0;
+  width: 0;
+  transition: all 0.4s ease;
+}
+
+.front_word_dc.active b {
+  background-color: #424deb79;
+  height: 3px;
+  width: 10px;
+  margin: 0.4rem 5px;
+  transition: all 0.4s ease;
+}
+
+.wordx {
+  user-select: none;
+  color: var(--word);
+  text-align: center;
+}
+
+.front_phonetic .uk,
+.front_phonetic .us {
+  cursor: pointer;
+}
+
+.front_phonetic .uk:hover,
+.front_phonetic .us:hover {
+  color: #1b9eeb;
+}
+
+.front_phonetic {
+  margin: auto;
+  width: fit-content;
+  color: #b7b7b7;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  font-size: 0.9rem;
+  -webkit-width: fit-content;
+}
+
+.yinbiao_Only {
+  display: flex;
+  align-items: center;
+}
+
+.yinbiao_Only img {
+  padding-right: 5px;
+  width: 18px;
+}
+
+.locat {
+  font-size: 0.5rem;
+  text-align: right;
+  margin: 0.6rem 0;
+  color: #f61358;
+}
+
+.cp ul {
+  margin: 0 auto 5px;
+  height: 10px;
+  width: 320px;
+  list-style: none;
+  padding: 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.cp a {
+  display: none;
+}
+
+.cp li {
+  display: block;
+  float: left;
+  width: 65px;
+  height: 2px;
+  margin-right: 5px;
+  margin-left: 5px;
+  background: #a6ccf780;
+  border-radius: 5px;
+}
+
+.cp_active {
+  animation: pulse 1.5s alternate infinite;
+}
+
+/* 音频播放按钮 */
+
+.replay-button svg {
+  width: 25px;
+  height: 25px;
+}
+
+.replay-button svg circle {
+  display: none;
+  fill: #fff;
+}
+
+.replay-button svg path {
+  stroke: #56fcfc;
+  fill: #56fcfc;
+}
+
+/* 词义分割 */
+div span b::after {
+  content: ";";
+}
+
+/* 背面样式 */
+.glowing-border {
+  border: 1px solid #00ff00;
+  box-shadow: 0 0 10px #00ff00, /* 发光效果 */ 0 0 20px #00ff00,
+    0 0 30px #00ff00, 0 0 40px #00ff00;
+  z-index: -1;
+}
+
+.decorated_word {
+  color: red;
+  font-weight: bold;
+}
+
+.center-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 50vh;
+  flex-direction: column;
+  /* 子元素垂直排列 */
+  font-size: 24px;
+}
+
+.arow {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-left: 0px;
+  margin-top: 5px;
+  margin-bottom: 5px;
+  /* 调整单词、发音和音频之间的间距 */
+}
+
+.arow div {
+  font-size: 20px;
+}
+
+#back_synonym_card {
+  font-family: "Arial";
+  font-size: 14px;
+  color: #faad14;
+  text-align: left;
+  opacity: 0.85;
+}
+
+.back_word_div {
+  text-align: left;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+#back_word_dc {
+  display: inline-block;
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: red;
+  border: 2px solid rgba(255, 0, 0, 0.6);
+  border-radius: 8px;
+  box-sizing: border-box;
+  padding: 0 5px;
+  margin-top: 0;
+  margin-bottom: 0;
+  opacity: 0.4;
+}
+.back_word_phonetic {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#paraphrase {
+  opacity: 0.25;
+  font-size: 0.8rem;
+  text-align: left;
+  color: #007bff;
+}
+
+#paraphrase b {
+  font-weight: normal !important;
+}
+
+#dictTJF {
+  font-size: 14px;
+  color: #28a745;
+}

@@ -1,0 +1,71 @@
+<audio id="audio_c"></audio>
+<div class="arow" style="opacity: 0.4">
+  <div style="font-size: 0.6rem">{{US}}</div>
+  <div style="font-size: 0.6rem">{{UK}}</div>
+</div>
+<div class="back_word_div">
+  <div id="back_word_dc">
+    <div id="back_syllable">{{语音音节}}</div>
+    <div id="back_word">{{单词}}</div>
+  </div>
+  <div class="back_word_phonetic">{{单词音频}}</div>
+</div>
+<div id="paraphrase">
+  {{释义}}
+  <div id="dictTJF"></div>
+</div>
+
+<hr />
+<div class="locat" style="opacity: 0.4">
+  重要性：{{重要程度}}. {{所在组}} - {{序号}}
+</div>
+
+<div class="center-screen">
+  <div id="back_synonym_card">
+    <span id="synonym_phrases">{{同义短句}}</span>
+    <span id="synonym_trans">{{同义释义}}</span>
+  </div>
+  <div id="q_sentence">{{q_sentence}}</div>
+  <div style="opacity: 0.3">{{a_sentence}}</div>
+</div>
+
+<script>
+  var strTJF = `{{SA}}`;
+  var tjfs_div = document.getElementById("dictTJF");
+  var dictTJF = JSON.parse(strTJF.replace(/'/g, '"'));
+  // 使用map和join方法创建链接字符串
+  tjfs_div.innerHTML = `<span class="antonyms">${dictTJF["synonyms"].join(
+    ", "
+  )}</span><br>`;
+</script>
+<script>
+  var back_synonym_card = document.getElementById("back_synonym_card");
+  var synonym_trans = document.getElementById("synonym_trans");
+  var is_show_trans = false;
+  synonym_trans.style.display = "none";
+  back_synonym_card.addEventListener("click", function () {
+    if (is_show_trans) {
+      synonym_trans.style.display = "none";
+    } else {
+      synonym_trans.style.display = "inline-block";
+    }
+    is_show_trans = !is_show_trans;
+  });
+</script>
+<script>
+  var back_word_dc = document.getElementById("back_word_dc");
+  var back_word = document.getElementById("back_word");
+  var back_syllable = document.getElementById("back_syllable");
+  back_syllable.style.display = "none";
+  var is_show_syllable = false;
+  back_word_dc.addEventListener("click", function () {
+    if (is_show_syllable) {
+      back_word.style.display = "inline-block";
+      back_syllable.style.display = "none";
+    } else {
+      back_word.style.display = "none";
+      back_syllable.style.display = "inline-block";
+    }
+    is_show_syllable = !is_show_syllable;
+  });
+</script>

@@ -1,0 +1,92 @@
+<audio id="audio_c"></audio>
+<div class="word_c">{{单词}}</div>
+<div class="phonetic" style="opacity: 0.4">
+  <div class="yinbiao_Only">
+    <img alt="S" class="yinbiao_img" src="_us4.png" />
+    <div class="us">{{US}}</div>
+  </div>
+  <div class="yinbiao_Only">
+    <img alt="K" class="yinbiao_img" src="_uk4.png" />
+    <div class="uk">{{UK}}</div>
+  </div>
+  <div class="phonetic">{{单词音频}}</div>
+</div>
+<div class="locat" style="opacity: 0.4">
+  重要性：{{重要程度}}， {{所在组}} - {{序号}}
+</div>
+<tts service="android" voice="en_US">
+  <div class="center-screen">
+    <div id="q_sentence">{{q_sentence}}</div>
+  </div>
+</tts>
+<script>
+  function setupPronunciationButtons(type, selector, targetSelector) {
+    document.querySelectorAll(selector).forEach((button) => {
+      button.addEventListener("click", () => {
+        const target = document.querySelector(targetSelector).textContent;
+        if (type === "us") {
+          playAudio({
+            target: target,
+            language: "English (United States)",
+            voice: "en-US-AvaMultilingualNeural",
+          });
+        } else if (type === "uk") {
+          playAudio({
+            target: target,
+            language: "English (United Kingdom)",
+            voice: "en-GB-SoniaNeural",
+          });
+        }
+      });
+    });
+  }
+
+  function playAudio({ target, language, voice }) {
+    const audio = document.querySelector("#audio_c");
+    let request_params = "";
+    const params = {
+      language: language,
+      voice: voice,
+      text: encodeURIComponent(target),
+      role: 0,
+      style: 0,
+      styledegree: 1,
+      volume: 75,
+      predict: 0,
+      rate: 0,
+      pitch: 0,
+      kbitrate: "audio-16khz-32kbitrate-mono-mp3",
+      yzm: 202410170001,
+    };
+    for (const [name, value] of Object.entries(params)) {
+      request_params = request_params + `${name}=${value}&`;
+    }
+    request_params = request_params.slice(0, request_params.length - 1);
+
+    fetch(
+      "https://proxy.cors.sh/" + "https://www.text-to-speech.cn/getSpeek.php",
+      {
+        method: "POST", // 指定请求方法
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        },
+        body: request_params,
+      }
+    )
+      .then((response) => response.json())
+      .then((data) => {
+        console.log(data);
+        audio.src = data.download;
+        audio.play();
+        audio.addEventListener("ended", function () {
+          audio.src = "";
+          console.log("音频播放完毕");
+        });
+      })
+      .catch((error) => console.error("Error:", error));
+  }
+
+  setupPronunciationButtons("us", ".yinbiao_Only .us", ".word_c");
+  setupPronunciationButtons("uk", ".yinbiao_Only .uk", ".word_c");
+  setupPronunciationButtons("us", "#q_sentence", "#q_sentence");
+</script>
