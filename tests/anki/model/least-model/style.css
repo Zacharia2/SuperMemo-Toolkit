@@ -109,7 +109,7 @@
 
 /* 词义分割 */
 div span b::after {
-  content: ";";
+  content: "；";
 }
 
 /* 背面样式 */
@@ -157,6 +157,10 @@ div span b::after {
   color: #faad14;
   text-align: left;
   opacity: 0.85;
+  text-align: center;
+  word-wrap: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
 }
 
 .back_word_div {
@@ -196,7 +200,14 @@ div span b::after {
   font-weight: normal !important;
 }
 
-#dictTJF {
+#SA {
+  /* tjf(SA)同近反 */
   font-size: 14px;
   color: #28a745;
+  opacity: 0.25;
+}
+
+.blurry_text {
+  filter: blur(5px);
+  user-select: none;
 }

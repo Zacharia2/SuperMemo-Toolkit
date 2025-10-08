@@ -1,4 +1,3 @@
-<audio id="audio_c"></audio>
 <div class="front_word_dc">{{单词}}</div>
 <div class="front_phonetic" style="opacity: 0.4">
   <div class="front_yinbiao">
@@ -9,8 +8,16 @@
     <img alt="K" class="yinbiao_img" src="_uk4.png" />
     <div class="uk">{{UK}}</div>
   </div>
-  <div class="front_phonetic">{{单词音频}}</div>
 </div>
-<div class="center-screen">
-  <div id="q_sentence" style="height: 30vh">{{q_sentence}}</div>
+<div
+  class="center-screen"
+  style="
+    text-align: center;
+    word-wrap: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    height: 40vh;
+  "
+>
+  <div id="q_sentence">{{q_sentence}}</div>
 </div>

@@ -1,4 +1,3 @@
-<audio id="audio_c"></audio>
 <div class="a_line">
   <div class="back_yinbiao">
     <img alt="S" class="yinbiao_img" src="_us4.png" />
@@ -16,10 +15,9 @@
   </div>
   <div class="back_word_phonetic">{{单词音频}}</div>
 </div>
-<div id="paraphrase">
-  {{释义}}
-  <div id="dictTJF"></div>
-</div>
+<div id="SA"></div>
+<div id="paraphrase" class="blurry_text">{{释义}}</div>
+<!-- 添加释义模糊，背面不显示中文。 -->
 
 <hr />
 
@@ -46,11 +44,11 @@
 </div>
 
 <script>
-  var strTJF = `{{SA}}`;
-  var tjfs_div = document.getElementById("dictTJF");
-  var dictTJF = JSON.parse(strTJF.replace(/'/g, '"'));
+  var strSA = `{{SA}}`;
+  var sa_div = document.getElementById("SA");
+  var SA = JSON.parse(strSA.replace(/'/g, '"'));
   // 使用map和join方法创建链接字符串
-  tjfs_div.innerHTML = `<span class="antonyms">${dictTJF["synonyms"].join(
+  sa_div.innerHTML = `<span class="antonyms">${SA["synonyms"].join(
     ", "
   )}</span><br>`;
 </script>
@@ -81,6 +79,18 @@
     } else {
       back_word.style.display = "none";
       back_syllable.style.display = "inline-block";
+    }
+    is_show_syllable = !is_show_syllable;
+  });
+</script>
+<script>
+  var paraphrase = document.getElementById("paraphrase");
+  var is_show_paraphrase = false;
+  paraphrase.addEventListener("click", function () {
+    if (is_show_syllable) {
+      paraphrase.classList.remove("blurry_text");
+    } else {
+      paraphrase.classList.add("blurry_text");
     }
     is_show_syllable = !is_show_syllable;
   });
