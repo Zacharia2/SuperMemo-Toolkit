@@ -15,9 +15,8 @@
   </div>
   <div class="back_word_phonetic">{{单词音频}}</div>
 </div>
+<div id="paraphrase">{{释义}}</div>
 <div id="SA"></div>
-<div id="paraphrase" class="blurry_text">{{释义}}</div>
-<!-- 添加释义模糊，背面不显示中文。 -->
 
 <hr />
 
@@ -38,7 +37,10 @@
   >
     {{q_sentence}}
   </div>
-  <div style="opacity: 0.3; text-align: center; font-size: 1rem">
+  <div
+    id="a_sentence"
+    style="opacity: 0.3; text-align: center; font-size: 1rem"
+  >
     {{a_sentence}}
   </div>
 </div>
@@ -55,15 +57,15 @@
 <script>
   var back_synonym_card = document.getElementById("back_synonym_card");
   var synonym_trans = document.getElementById("synonym_trans");
-  var is_show_trans = false;
+  var show_trans = false;
   synonym_trans.style.display = "none";
   back_synonym_card.addEventListener("click", function () {
-    if (is_show_trans) {
+    if (show_trans) {
       synonym_trans.style.display = "none";
     } else {
       synonym_trans.style.display = "inline-block";
     }
-    is_show_trans = !is_show_trans;
+    show_trans = !show_trans;
   });
 </script>
 <script>
@@ -71,27 +73,47 @@
   var back_word = document.getElementById("back_word");
   var back_syllable = document.getElementById("back_syllable");
   back_syllable.style.display = "none";
-  var is_show_syllable = false;
+  var show_syllable = false;
   back_word_dc.addEventListener("click", function () {
-    if (is_show_syllable) {
+    if (show_syllable) {
       back_word.style.display = "inline-block";
       back_syllable.style.display = "none";
     } else {
       back_word.style.display = "none";
       back_syllable.style.display = "inline-block";
     }
-    is_show_syllable = !is_show_syllable;
+    show_syllable = !show_syllable;
   });
 </script>
 <script>
   var paraphrase = document.getElementById("paraphrase");
-  var is_show_paraphrase = false;
+  var a_sentence = document.getElementById("a_sentence");
+  paraphrase.classList.add("blurry_text");
+  a_sentence.classList.add("blurry_text");
+
+  var show_paraphrase = false;
+  if (paraphrase.classList.contains("blurry_text")) {
+    show_paraphrase = true;
+  }
+
   paraphrase.addEventListener("click", function () {
-    if (is_show_syllable) {
+    if (show_paraphrase) {
       paraphrase.classList.remove("blurry_text");
+      a_sentence.classList.remove("blurry_text");
     } else {
       paraphrase.classList.add("blurry_text");
+      a_sentence.classList.add("blurry_text");
     }
-    is_show_syllable = !is_show_syllable;
+    show_paraphrase = !show_paraphrase;
+  });
+  a_sentence.addEventListener("click", function () {
+    if (show_paraphrase) {
+      paraphrase.classList.remove("blurry_text");
+      a_sentence.classList.remove("blurry_text");
+    } else {
+      paraphrase.classList.add("blurry_text");
+      a_sentence.classList.add("blurry_text");
+    }
+    show_paraphrase = !show_paraphrase;
   });
 </script>
