@@ -1,3 +1,4 @@
+<audio id="audio_c"></audio>
 <div class="front_word_dc">{{单词}}</div>
 <div class="front_phonetic" style="opacity: 0.4">
   <div class="front_yinbiao">
@@ -21,3 +22,30 @@
 >
   <div id="q_sentence">{{q_sentence}}</div>
 </div>
+
+<script>
+  const $audio = $("#audio_c");
+  const $frontWord = $(".front_word_dc");
+  function playAudio(mode) {
+    const text = encodeURIComponent($frontWord.text());
+    $audio
+      .prop(
+        "src",
+        `https://dict.youdao.com/dictvoice?audio=${text}&type=${mode}`
+      )[0]
+      .play();
+  }
+  $(".front_yinbiao .us").on("click", () => playAudio(1));
+  $(".front_yinbiao .uk").on("click", () => playAudio(2));
+</script>
+<script>
+  $("#q_sentence").on("click", () => {
+    const text = encodeURIComponent($("#q_sentence").text());
+    $("#audio_c")
+      .prop(
+        "src",
+        `https://t.leftsite.cn/tts?t=${text}&v=zh-CN-XiaochenMultilingualNeural&s=general`
+      )[0]
+      .play();
+  });
+</script>

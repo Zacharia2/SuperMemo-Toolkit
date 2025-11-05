@@ -1,3 +1,4 @@
+<audio id="audio_c"></audio>
 <div class="a_line">
   <div class="back_yinbiao">
     <img alt="S" class="yinbiao_img" src="_us4.png" />
@@ -46,13 +47,21 @@
 </div>
 
 <script>
+  $("#q_sentence").on("click", () => {
+    const text = encodeURIComponent($("#q_sentence").text());
+    $("#audio_c")
+      .prop(
+        "src",
+        `https://t.leftsite.cn/tts?t=${text}&v=zh-CN-XiaochenMultilingualNeural&s=general`
+      )[0]
+      .play();
+  });
+</script>
+<script>
   var strSA = `{{SA}}`;
   var sa_div = document.getElementById("SA");
   var SA = JSON.parse(strSA.replace(/'/g, '"'));
-  // 使用map和join方法创建链接字符串
-  sa_div.innerHTML = `<span class="antonyms">${SA["synonyms"].join(
-    ", "
-  )}</span><br>`;
+  sa_div.innerHTML = `<span class="synonyms">${SA["synonyms"].join(", ")}</span><br>`;
 </script>
 <script>
   var back_synonym_card = document.getElementById("back_synonym_card");
@@ -83,37 +92,5 @@
       back_syllable.style.display = "inline-block";
     }
     show_syllable = !show_syllable;
-  });
-</script>
-<script>
-  var paraphrase = document.getElementById("paraphrase");
-  var a_sentence = document.getElementById("a_sentence");
-  paraphrase.classList.add("blurry_text");
-  a_sentence.classList.add("blurry_text");
-
-  var show_paraphrase = false;
-  if (paraphrase.classList.contains("blurry_text")) {
-    show_paraphrase = true;
-  }
-
-  paraphrase.addEventListener("click", function () {
-    if (show_paraphrase) {
-      paraphrase.classList.remove("blurry_text");
-      a_sentence.classList.remove("blurry_text");
-    } else {
-      paraphrase.classList.add("blurry_text");
-      a_sentence.classList.add("blurry_text");
-    }
-    show_paraphrase = !show_paraphrase;
-  });
-  a_sentence.addEventListener("click", function () {
-    if (show_paraphrase) {
-      paraphrase.classList.remove("blurry_text");
-      a_sentence.classList.remove("blurry_text");
-    } else {
-      paraphrase.classList.add("blurry_text");
-      a_sentence.classList.add("blurry_text");
-    }
-    show_paraphrase = !show_paraphrase;
   });
 </script>
