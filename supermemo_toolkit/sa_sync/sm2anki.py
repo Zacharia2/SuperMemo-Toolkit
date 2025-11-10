@@ -5,8 +5,8 @@ from supermemo_toolkit.utilscripts.ankinet import invoke
 class qa_to_anki:
     def __init__(self, qafile):
         self.qafile = qafile
-        self.deckName = "TEQA Cards"
-        self.modelName = "TEQA问答题"
+        self.deckName = "SM19 Cards"
+        self.modelName = "SM19问答题"
 
     def setDeckName(self, deckName):
         self.deckName = deckName
@@ -40,15 +40,19 @@ class qa_to_anki:
             invoke(
                 "createModel",
                 modelName=self.modelName,
-                inOrderFields=["Front", "Back", "ENum"],
-                css=".card {\n font-family: arial;\n font-size: 20px;\n text-align: center;\n color: black;\n background-color: white;\n}\n"
-                + ".cloze {\n color: rgb(255, 0, 0);\n background-color: rgb(255, 255, 0);\n}",
+                inOrderFields=[
+                    "Question",
+                    "Answer",
+                    "ENum",
+                    "Title",
+                ],
+                css=".card {\n font-family: arial;\n font-size: 20px;\n text-align: center;\n color: black;\n background-color: white;\n}\n.cloze {\n color: rgb(255, 0, 0);\n background-color: rgb(255, 255, 0);\n}",
                 isCloze=False,
                 cardTemplates=[
                     {
                         "Name": "卡片1",
-                        "Front": "{{Front}}",
-                        "Back": '{{FrontSide}}<div id="back"><hr id="answer" /><span id="content">{{Back}}</span></div><script>$("#content").text() === "" ? $("#back").hide() : null;</script>',
+                        "Front": "{{Question}}",
+                        "Back": '{{FrontSide}}<div id="back"><hr id="answer" /><span id="content">{{Answer}}</span></div><script>$("#content").text() === "" ? $("#back").hide() : null;</script>',
                     }
                 ],
             )
@@ -93,20 +97,16 @@ class qa_to_anki:
         return mqa_list
 
     def __creat_anki_card(self, mqa_list: list):
-        # TEQA问答题, Front,Back,ENum
+        # TEQA: Title, ENum, Question, Answer
         # 行是检验知的最好方式，因为知行合一
         for num, qa in enumerate(mqa_list):
-            print(
-                f"添加卡片: {num + 1}/{len(mqa_list)} ENum::{qa['E']}", end="\033[K\r"
-            )
+            print(f"添加卡片: {num + 1}/{len(mqa_list)} ENum::{qa['E']}", end="\033[K\r")
             if "Q" in qa and "A" in qa and "E" in qa:
-                self.__addNote(
-                    self.deckName, {"Front": qa["Q"], "Back": qa["A"], "ENum": qa["E"]}
-                )
+                self.__addNote(self.deckName,{"Question": qa["Q"], "Answer": qa["A"], "ENum": qa["E"]})
             elif "Q" in qa and "A" in qa:
-                self.__addNote(self.deckName, {"Front": qa["Q"], "Back": qa["A"]})
+                self.__addNote(self.deckName, {"Question": qa["Q"], "Answer": qa["A"]})
             elif "Q" in qa:
-                self.__addNote(self.deckName, {"Front": qa["Q"]})
+                self.__addNote(self.deckName, {"Question": qa["Q"]})
         print("\nDone!")
 
     def sent_cards(self):
