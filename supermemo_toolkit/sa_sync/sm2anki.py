@@ -48,7 +48,7 @@ class qa_to_anki:
                     {
                         "Name": "卡片1",
                         "Front": "{{Front}}",
-                        "Back": "{{FrontSide}}\n\n<hr id=answer>\n\n{{Back}}",
+                        "Back": '{{FrontSide}}<div id="back"><hr id="answer" /><span id="content">{{Back}}</span></div><script>if ($("#content").text() === null || $("#content").text() === "") {$("#back").hide();}</script>',
                     }
                 ],
             )
