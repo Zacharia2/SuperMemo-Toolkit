@@ -40,12 +40,7 @@ class qa_to_anki:
             invoke(
                 "createModel",
                 modelName=self.modelName,
-                inOrderFields=[
-                    "Question",
-                    "Answer",
-                    "ENum",
-                    "Title",
-                ],
+                inOrderFields=["Question", "Answer", "ENum"],
                 css=".card {\n font-family: arial;\n font-size: 20px;\n text-align: center;\n color: black;\n background-color: white;\n}\n.cloze {\n color: rgb(255, 0, 0);\n background-color: rgb(255, 255, 0);\n}",
                 isCloze=False,
                 cardTemplates=[
@@ -100,9 +95,14 @@ class qa_to_anki:
         # TEQA: Title, ENum, Question, Answer
         # 行是检验知的最好方式，因为知行合一
         for num, qa in enumerate(mqa_list):
-            print(f"添加卡片: {num + 1}/{len(mqa_list)} ENum::{qa['E']}", end="\033[K\r")
+            print(
+                f"添加卡片: {num + 1}/{len(mqa_list)} ENum::{qa['E']}", end="\033[K\r"
+            )
             if "Q" in qa and "A" in qa and "E" in qa:
-                self.__addNote(self.deckName,{"Question": qa["Q"], "Answer": qa["A"], "ENum": qa["E"]})
+                self.__addNote(
+                    self.deckName,
+                    {"Question": qa["Q"], "Answer": qa["A"], "ENum": qa["E"]},
+                )
             elif "Q" in qa and "A" in qa:
                 self.__addNote(self.deckName, {"Question": qa["Q"], "Answer": qa["A"]})
             elif "Q" in qa:
