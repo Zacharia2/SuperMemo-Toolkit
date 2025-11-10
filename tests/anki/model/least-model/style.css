@@ -23,16 +23,6 @@
   opacity: 0.4;
 }
 
-.front_phonetic .uk,
-.front_phonetic .us {
-  cursor: pointer;
-}
-
-.front_phonetic .uk:hover,
-.front_phonetic .us:hover {
-  color: #1b9eeb;
-}
-
 .front_phonetic {
   margin: auto;
   width: fit-content;
@@ -210,4 +200,21 @@ div span b::after {
 .blurry_text {
   filter: blur(5px);
   user-select: none;
+}
+
+#back_syllable b::after {
+  content: "|";
+  color: red;
+}
+
+#q_sentence {
+  cursor: pointer;
+  text-align: center;
+  word-wrap: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+#q_sentence:hover {
+  color: #1b9eeb;
 }
