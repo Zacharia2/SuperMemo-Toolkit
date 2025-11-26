@@ -149,6 +149,10 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
       1. 为避免`Source code`乱码，程序采用下划线代替空格并包裹数字
    2. `smtk tcomp htmtocfile --xml xmlfile`
 
+## 7. autoTTS
+
+切换卡片自动朗读。
+
 ## 关于开发
 
 依赖模块 python_lzo-1.16 包含 C/C++模块，构建时会链接到特定版本的 Python 运行库，由于 pypi 已经许久未更新，所以通过 fork 后执行 action 构建离线包，对应版本的离线包已放置到 docs\python_lzo_win_amd64，使用时请根据自己的 python 版本修改 pyproject.toml
