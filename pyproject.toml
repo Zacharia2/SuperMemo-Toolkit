@@ -32,6 +32,7 @@ dependencies = [
     "edge-tts>=7.2.3",
     "pyperclip>=1.11.0",
     "html2text>=2025.4.15",
+    "playsound3>=3.3.0",
 ]
 
 # [dependency-groups]
