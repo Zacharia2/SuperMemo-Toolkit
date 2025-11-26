@@ -1,13 +1,14 @@
 from os import path
+import time
 import edge_tts
 import html2text
 import pyperclip
 import win32gui
 from pywinauto.application import Application
 from supermemo_toolkit.title_complete.tcomp import parseNodeAsText
-import time
 import logging
 from supermemo_toolkit.utilscripts.config import get_config_dir
+import playsound3
 
 logger = logging.getLogger(__name__)
 
@@ -26,76 +27,10 @@ targetClassName = [
     "Internet Explorer_Server",
     "TElWind",
     "TBitBtn",
+    "TScrollBox",
+    "TTabControl",
+    "TToolBar",
 ]
-
-
-class PlaysoundException(Exception):
-    pass
-
-
-def canonicalizePath(path):
-    """
-    Support passing in a pathlib.Path-like object by converting to str.
-    """
-    import sys
-
-    if sys.version_info[0] >= 3:
-        return str(path)
-    else:
-        # On earlier Python versions, str is a byte string, so attempting to
-        # convert a unicode string to str will fail. Leave it alone in this case.
-        return path
-
-
-def playsoundWin(sound, block=True):
-    sound = '"' + canonicalizePath(sound) + '"'
-
-    from ctypes import create_unicode_buffer, windll, wintypes
-
-    windll.winmm.mciSendStringW.argtypes = [
-        wintypes.LPCWSTR,
-        wintypes.LPWSTR,
-        wintypes.UINT,
-        wintypes.HANDLE,
-    ]
-    windll.winmm.mciGetErrorStringW.argtypes = [
-        wintypes.DWORD,
-        wintypes.LPWSTR,
-        wintypes.UINT,
-    ]
-
-    def winCommand(*command):
-        bufLen = 600
-        buf = create_unicode_buffer(bufLen)
-        command = " ".join(command)
-        errorCode = int(
-            windll.winmm.mciSendStringW(command, buf, bufLen - 1, 0)
-        )  # use widestring version of the function
-        if errorCode:
-            errorBuffer = create_unicode_buffer(bufLen)
-            windll.winmm.mciGetErrorStringW(
-                errorCode, errorBuffer, bufLen - 1
-            )  # use widestring version of the function
-            exceptionMessage = (
-                "\n    Error " + str(errorCode) + " for command:"
-                "\n        " + command + "\n    " + errorBuffer.value
-            )
-            logger.error(exceptionMessage)
-            raise PlaysoundException(exceptionMessage)
-        return buf.value
-
-    try:
-        logger.debug("Starting")
-        winCommand("open {}".format(sound))
-        winCommand("play {}{}".format(sound, " wait" if block else ""))
-        logger.debug("Returning")
-    finally:
-        try:
-            winCommand("close {}".format(sound))
-        except PlaysoundException:
-            logger.warning("Failed to close the file: {}".format(sound))
-            # If it fails, there's nothing more that can be done...
-            pass
 
 
 # 切换页面就触发播放。
@@ -111,27 +46,45 @@ def play_content():
         print(text)
         communicate = edge_tts.Communicate(text, "zh-CN-XiaoxiaoNeural")
         communicate.save_sync(audio_tts)
-        playsoundWin(audio_tts)
+        playsound3.playsound(audio_tts)
     else:
         print("未找到")
 
 
-while True:
-    time.sleep(1)
+def focusInArea() -> bool:
     focus_hwnd = win32gui.WindowFromPoint(win32gui.GetCursorPos())
     focusClassName = win32gui.GetClassName(focus_hwnd)
+    # print(focusClassName)
     if focusClassName not in targetClassName:
-        continue
+        return False
+    return True
 
+
+def foregroundInArea() -> bool:
     foreground_hwnd = win32gui.GetForegroundWindow()
     if foreground_hwnd == 0:
-        continue
+        return False
     foregroundClassName = win32gui.GetClassName(foreground_hwnd)
-    foregroundWindowText = win32gui.GetWindowText(foreground_hwnd)
+    if foregroundClassName not in targetClassName:
+        return False
+    return True
 
-    if foregroundClassName == "TElWind" and hisWindowText != foregroundWindowText:
+
+while True:
+    time.sleep(1)
+    # 1. 光标位置必须在选定区域内
+    if not focusInArea():
+        continue
+
+    # 2. 最前窗口名字必须为TElWind
+    if not foregroundInArea():
+        continue
+    # 3. 历史最求窗口名和当前最前窗口名必须不一致
+    # 当光标在选定区域并且最前窗口为选定区域，说明目标窗口聚焦
+    foregroundWindowText = win32gui.GetWindowText(win32gui.GetForegroundWindow())
+    if hisWindowText != foregroundWindowText:
         print(f"窗口标题: {foregroundWindowText}")
-        play_content()
+        # play_content()
         hisWindowText = foregroundWindowText
 
 

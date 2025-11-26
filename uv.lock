@@ -1181,6 +1181,18 @@ wheels = [
 ]
 
 [[package]]
+name = "playsound3"
+version = "3.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/95/10/77205c8e76de5889a75d35ce9b3394a3168628cb2dcb5970f7a908e7fde6/playsound3-3.3.0.tar.gz", hash = "sha256:9c9a0b14d1b46cef909ae315503592e0705d5cf9d90ba4e6ffd44b4d47c60523", size = 608289, upload-time = "2025-11-07T10:37:16.901Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6f/09/6ea98a9c7b8444b2727b5ba86f4c9266b218e7bfabe79f013a41580c20d8/playsound3-3.3.0-py3-none-any.whl", hash = "sha256:56e30ca5c482ff102436a5cd456e49c3490e57bc3e97d6c09b5d189b5146e371", size = 9647, upload-time = "2025-11-07T10:37:14.802Z" },
+]
+
+[[package]]
 name = "propcache"
 version = "0.4.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1460,6 +1472,7 @@ dependencies = [
     { name = "html2text" },
     { name = "matplotlib" },
     { name = "pillow" },
+    { name = "playsound3" },
     { name = "pyperclip" },
     { name = "pypinyin" },
     { name = "pyquery" },
@@ -1482,6 +1495,7 @@ requires-dist = [
     { name = "html2text", specifier = ">=2025.4.15" },
     { name = "matplotlib", specifier = ">=3.8.2,<4.0.0" },
     { name = "pillow", specifier = ">=11.1.0,<12.0.0" },
+    { name = "playsound3", specifier = ">=3.3.0" },
     { name = "pyperclip", specifier = ">=1.11.0" },
     { name = "pypinyin", specifier = ">=0.53.0,<1.0.0" },
     { name = "pyquery", specifier = ">=2.0.0,<3.0.0" },

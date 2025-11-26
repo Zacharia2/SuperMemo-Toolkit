@@ -1,7 +1,7 @@
 from os import path
 import edge_tts
+import playsound3
 
-from supermemo_toolkit.autotts.autotts import playsoundWin
 from supermemo_toolkit.utilscripts.config import get_config_dir
 
 TEXT = """君不见，黄河之水天上来，奔流到海不复回。
@@ -22,4 +22,4 @@ audio_tts = path.join(get_config_dir(), "audio_tts.mp3")
 
 communicate = edge_tts.Communicate(TEXT, "zh-CN-XiaoxiaoNeural")
 communicate.save_sync(audio_tts)
-playsoundWin(audio_tts)
+playsound3.playsound(audio_tts)
