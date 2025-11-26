@@ -29,7 +29,7 @@ sm_location: str = curr_conf_dict.get("program")
 @click.group()
 @click.version_option()
 def main():
-    """SuperMemo 增强工具(CLI命令行)。\n\n包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码等。"""
+    """SuperMemo 增强工具(CLI命令行)。\n\n包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、卡片朗读等。"""
 
 
 @click.group()
