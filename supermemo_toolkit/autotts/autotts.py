@@ -70,22 +70,25 @@ def foregroundInArea() -> bool:
     return True
 
 
-while True:
-    time.sleep(1)
-    # 1. 光标位置必须在选定区域内
-    if not focusInArea():
-        continue
+def run():
+    global hisWindowText
 
-    # 2. 最前窗口名字必须为TElWind
-    if not foregroundInArea():
-        continue
-    # 3. 历史最求窗口名和当前最前窗口名必须不一致
-    # 当光标在选定区域并且最前窗口为选定区域，说明目标窗口聚焦
-    foregroundWindowText = win32gui.GetWindowText(win32gui.GetForegroundWindow())
-    if hisWindowText != foregroundWindowText:
-        print(f"窗口标题: {foregroundWindowText}")
-        # play_content()
-        hisWindowText = foregroundWindowText
+    while True:
+        time.sleep(1)
+        # 1. 光标位置必须在选定区域内
+        if not focusInArea():
+            continue
+
+        # 2. 最前窗口名字必须为TElWind
+        if not foregroundInArea():
+            continue
+        # 3. 历史最求窗口名和当前最前窗口名必须不一致
+        # 当光标在选定区域并且最前窗口为选定区域，说明目标窗口聚焦
+        foregroundWindowText = win32gui.GetWindowText(win32gui.GetForegroundWindow())
+        if hisWindowText != foregroundWindowText:
+            print(f"窗口标题: {foregroundWindowText}")
+            # play_content()
+            hisWindowText = foregroundWindowText
 
 
 # 在sm窗口下，然后要监听鼠标左键，然后看看标题或者内容是否改变，然后再决定是否播放内容。
