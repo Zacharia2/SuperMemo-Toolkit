@@ -5,14 +5,7 @@ import copy
 # Parent（ID）、ID
 
 
-def parseNodeAsText(file: str):
-    with open(
-        file,
-        mode="r",
-        encoding="utf-8",
-        errors="replace",
-    ) as fs:
-        nodeText = fs.read()
+def parseNodeAsText(nodeText: str):
     state_stack = []  # Element、ElementInfo、Component、RepHist
 
     # 初始化状态
@@ -116,7 +109,14 @@ def parse_toc_htm(file: str):
 
 def node_tcomp(nodefile: str, tocfile: str):
     titles = parse_toc_htm(tocfile)
-    nodes = parseNodeAsText(nodefile)
+    with open(
+        nodefile,
+        mode="r",
+        encoding="utf-8",
+        errors="replace",
+    ) as fs:
+        nodeText = fs.read()
+    nodes = parseNodeAsText(nodeText)
     copyNodes = copy.deepcopy(nodes)
     # 倒序对齐，不足自动填充。
     EQUAL, NO_ROOT_PARENT_IS_ROOT, NO_ROOT_AND_PARENT = range(3)
