@@ -1,19 +1,21 @@
-from os import path
 import time
 import edge_tts
 import html2text
 import pyperclip
 import win32gui
-from pywinauto.application import Application
-from supermemo_toolkit.title_complete.tcomp import parseNodeAsText
 import logging
+from os import path
+from pywinauto.application import Application
+from supermemo_toolkit.autotts.switcher import AudioSwitcher
+from supermemo_toolkit.title_complete.tcomp import parseNodeAsText
 from supermemo_toolkit.utilscripts.config import get_config_dir
-import playsound3
+
 
 logger = logging.getLogger(__name__)
 
 
 app = Application(backend="win32").connect(class_name="TElWind")
+switcher = AudioSwitcher()
 text_maker = html2text.HTML2Text()
 text_maker.ignore_links = True
 text_maker.bypass_tables = False
@@ -33,8 +35,8 @@ targetClassName = [
 ]
 
 
-# 切换页面就触发播放。
-def play_content():
+# 切换页面就触发获取文本。
+def get_content():
     app.top_window().type_keys("^c")
     text = pyperclip.paste()
     node = parseNodeAsText(text)
@@ -43,18 +45,12 @@ def play_content():
         with open(htmFile, mode="r", encoding="utf-8") as f:
             htm = f.read()
         text = text_maker.handle(htm).translate(str.maketrans("#*-", "   "))
-        print(text)
-        communicate = edge_tts.Communicate(text, "zh-CN-XiaoxiaoNeural")
-        communicate.save_sync(audio_tts)
-        playsound3.playsound(audio_tts)
-    else:
-        print("未找到")
+        return text
 
 
 def focusInArea() -> bool:
     focus_hwnd = win32gui.WindowFromPoint(win32gui.GetCursorPos())
     focusClassName = win32gui.GetClassName(focus_hwnd)
-    # print(focusClassName)
     if focusClassName not in targetClassName:
         return False
     return True
@@ -87,9 +83,17 @@ def run():
         foregroundWindowText = win32gui.GetWindowText(win32gui.GetForegroundWindow())
         if hisWindowText != foregroundWindowText:
             print(f"窗口标题: {foregroundWindowText}")
-            # play_content()
+            text = get_content()
+            if text:
+                print("未找到")
+            print(text)
+            switcher.stop()
+            communicate = edge_tts.Communicate(text, "zh-CN-XiaoxiaoNeural")
+            communicate.save_sync(audio_tts)
+            switcher.play(audio_tts)
             hisWindowText = foregroundWindowText
 
 
+run()
 # 在sm窗口下，然后要监听鼠标左键，然后看看标题或者内容是否改变，然后再决定是否播放内容。
 # 交互逻辑是点击下一个自动播放。或者自己复制自动播放。
