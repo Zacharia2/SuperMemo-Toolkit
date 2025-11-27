@@ -1,30 +1,8 @@
-from os import path
+import threading
 import time
-import audioread
-import edge_tts
-from supermemo_toolkit.utilscripts.config import get_config_dir
 import sounddevice as sd
 import numpy as np
-import threading
-
-TEXT = """君不见，黄河之水天上来，奔流到海不复回。
-君不见，高堂明镜悲白发，朝如青丝暮成雪。
-人生得意须尽欢，莫使金樽空对月。
-天生我材必有用，千金散尽还复来。
-烹羊宰牛且为乐，会须一饮三百杯。
-岑夫子，丹丘生，将进酒，杯莫停。
-与君歌一曲，请君为我倾耳听。
-钟鼓馔玉不足贵，但愿长醉不复醒。
-古来圣贤皆寂寞，惟有饮者留其名。
-陈王昔时宴平乐，斗酒十千恣欢谑。
-主人何为言少钱，径须沽取对君酌。
-五花马，千金裘，呼儿将出换美酒，与尔同销万古愁。"""
-
-
-audio_tts = path.join(get_config_dir(), "audio_tts.mp3")
-
-communicate = edge_tts.Communicate(TEXT, "zh-CN-XiaoxiaoNeural")
-communicate.save_sync(audio_tts)
+import audioread
 
 
 class AudioSwitcher:
@@ -113,15 +91,3 @@ class AudioSwitcher:
                 self.__stop_flag = True
                 time.sleep(0.1)
                 self.__current_stream = None
-
-
-# Example usage:
-# 需要主线程保持活动状态。
-switcher = AudioSwitcher()
-# switcher.play(audio_tts)
-# switcher.play("C:/Users/Snowy/Downloads/sample-6s.wav")
-# time.sleep(switcher.time_left)
-# switcher.play("C:/Users/Snowy/Downloads/WAV 音频示例文件.wav")
-# time.sleep(switcher.time_left)
-# switcher.stop()
-
