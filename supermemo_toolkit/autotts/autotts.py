@@ -37,7 +37,7 @@ targetClassName = [
 
 # 切换页面就触发获取文本。
 def get_content():
-    app.top_window().type_keys("^c")
+    app.window(class_name="TElWind").type_keys("^c")
     text = pyperclip.paste()
     node = parseNodeAsText(text)
     if len(node) > 0 and "Component" in node[0] and "HTMFile" in node[0]["Component"]:
@@ -84,13 +84,12 @@ def run():
         if hisWindowText != foregroundWindowText:
             print(f"窗口标题: {foregroundWindowText}")
             text = get_content()
-            if text:
-                print("未找到")
-            print(text)
-            switcher.stop()
-            communicate = edge_tts.Communicate(text, "zh-CN-XiaoxiaoNeural")
-            communicate.save_sync(audio_tts)
-            switcher.play(audio_tts)
+            if text is not None:
+                print(text)
+                switcher.stop()
+                communicate = edge_tts.Communicate(text, "zh-CN-XiaoxiaoNeural")
+                communicate.save_sync(audio_tts)
+                switcher.play(audio_tts)
             hisWindowText = foregroundWindowText
 
 
