@@ -14,7 +14,7 @@ class WinGUI(Tk):
         self.title("AutoTTS")
         # 设置窗口大小、居中
         width = 100
-        height = 105
+        height = 95
         # screenwidth = self.winfo_screenwidth()
         screenheight = self.winfo_screenheight()
         geometry = "%dx%d+%d+%d" % (width, height, 0, (screenheight - (height + 100)))
@@ -79,7 +79,7 @@ class WinGUI(Tk):
             text="标签",
             anchor="center",
         )
-        label.place(relx=0.0000, rely=0.0000, relwidth=1.0000, relheight=0.2857)
+        label.place(relx=0.0000, rely=0.0000, relwidth=1.0000, relheight=0.3158)
         return label
 
     def __tk_button_miik3xn9(self, parent):
@@ -88,7 +88,7 @@ class WinGUI(Tk):
             text="启动/暂停",
             takefocus=False,
         )
-        btn.place(relx=0.0000, rely=0.3524, relwidth=1.0000, relheight=0.2381)
+        btn.place(relx=0.0000, rely=0.3684, relwidth=1.0000, relheight=0.2632)
         return btn
 
     def __tk_button_miileno7(self, parent):
@@ -97,7 +97,7 @@ class WinGUI(Tk):
             text="再来一遍",
             takefocus=False,
         )
-        btn.place(relx=0.0000, rely=0.6667, relwidth=0.9800, relheight=0.2857)
+        btn.place(relx=0.0000, rely=0.6842, relwidth=1.0000, relheight=0.2632)
         return btn
 
 
