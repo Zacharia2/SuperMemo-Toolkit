@@ -1,4 +1,4 @@
-from tkinter.tix import Tk
+from tkinter import Tk
 from tkinter.ttk import Button, Label, Scrollbar
 
 
@@ -8,19 +8,23 @@ class WinGUI(Tk):
         self.__win()
         self.tk_label_miik3tat = self.__tk_label_miik3tat(self)
         self.tk_button_miik3xn9 = self.__tk_button_miik3xn9(self)
+        self.tk_button_miileno7 = self.__tk_button_miileno7(self)
 
     def __win(self):
         self.title("AutoTTS")
         # 设置窗口大小、居中
         width = 100
-        height = 75
+        height = 105
         # screenwidth = self.winfo_screenwidth()
         screenheight = self.winfo_screenheight()
         geometry = "%dx%d+%d+%d" % (width, height, 0, (screenheight - (height + 100)))
+
         self.geometry(geometry)
 
         self.minsize(width=width, height=height)
         self.attributes("-toolwindow", True)
+        self.attributes("-topmost", True)
+        self.resizable(False, False)
 
     def scrollbar_autohide(self, vbar, hbar, widget):
         """自动隐藏滚动条"""
@@ -75,16 +79,25 @@ class WinGUI(Tk):
             text="标签",
             anchor="center",
         )
-        label.place(relx=0.0000, rely=0.0000, relwidth=1.0000, relheight=0.4400)
+        label.place(relx=0.0000, rely=0.0000, relwidth=1.0000, relheight=0.2857)
         return label
 
     def __tk_button_miik3xn9(self, parent):
         btn = Button(
             parent,
-            text="按钮",
+            text="启动/暂停",
             takefocus=False,
         )
-        btn.place(relx=0.0000, rely=0.5333, relwidth=1.0000, relheight=0.4000)
+        btn.place(relx=0.0000, rely=0.3524, relwidth=1.0000, relheight=0.2381)
+        return btn
+
+    def __tk_button_miileno7(self, parent):
+        btn = Button(
+            parent,
+            text="再来一遍",
+            takefocus=False,
+        )
+        btn.place(relx=0.0000, rely=0.6667, relwidth=0.9800, relheight=0.2857)
         return btn
 
 
@@ -98,7 +111,7 @@ class Win(WinGUI):
 
     def __event_bind(self):
         # TODO))
-        # self.tk_button_miik3xn9.bind('<Button-1>',self.ctl.onButtonClick)
+        # self.tk_button_miik3xn9.bind("<Button-1>", self.ctl.onButtonClick)
         pass
 
     def __style_config(self):
