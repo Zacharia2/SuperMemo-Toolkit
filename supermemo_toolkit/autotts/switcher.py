@@ -1,10 +1,9 @@
 import threading
 import time
+import queue
 import edge_tts
 import sounddevice as sd
 import numpy as np
-from typing import Generator
-from edge_tts.typing import TTSChunk
 import miniaudio
 
 
@@ -12,116 +11,243 @@ class AudioSwitcher:
     def __init__(self):
         self.__current_stream = None
         self.__lock = threading.Lock()
-        self.__stop_flag = False
+        self.__stop_flag = threading.Event()
         self.__player_thread = None
 
-    def __play(self, stream_tts: Generator[TTSChunk, None, None]):
-        frame_iterator = iter(stream_tts)
-        while True:
-            chunk = next(frame_iterator)
-            if chunk["type"] != "audio":
-                continue
-            audio = miniaudio.decode(chunk["data"])
-            break
+        # 缓冲配置
+        self.__block_size = 1024
+        self.__buffer_seconds = 2
+        self.__prebuffer_seconds = 0.5
 
-        audio_channels = audio.nchannels
-        buffer = np.array([], dtype="int16")
-        file_finished = False
+        # 音频参数（延迟初始化）
+        self.__audio_params_set = threading.Event()
+        self.__audio_sample_rate = None
+        self.__audio_channels = None
+        self.__audio_queue = None
 
-        def callback(outdata: np.ndarray, frames: int, time_info, status):
-            nonlocal buffer, file_finished
+    def _stream_decoded_sentences_with_rate(self, text, voice):
+        communicate = edge_tts.Communicate(text, voice)
+        sentence_buffer = bytearray()
 
-            if self.__stop_flag:
-                outdata.fill(0)
-                raise sd.CallbackStop
-
-            # 计算需要的样本总数（帧数 × 声道数）
-            samples_needed = frames * audio_channels
-
-            # 适配frames 1136 init16，buf 4069 bytes 2048 int16
-            while len(buffer) < samples_needed and not file_finished:
-                try:
-                    chunk = next(frame_iterator)
-                    if chunk["type"] != "audio":
-                        continue
-                    audio = miniaudio.decode(chunk["data"])
-                    buffer = np.append(
-                        buffer, np.frombuffer(audio.samples, dtype="int16")
+        for chunk in communicate.stream_sync():
+            chunk_type = chunk["type"]
+            if chunk_type == "audio":
+                sentence_buffer.extend(chunk["data"])
+            elif chunk_type == "SentenceBoundary":
+                if len(sentence_buffer) > 0:
+                    audio = miniaudio.decode(
+                        bytes(sentence_buffer),
+                        output_format=miniaudio.SampleFormat.SIGNED16,
                     )
-                except StopIteration:
-                    file_finished = True
-            # End of data
-            if len(buffer) == 0:
+                    samples = np.frombuffer(audio.samples, dtype=np.int16)
+                    yield (samples, audio.sample_rate, audio.nchannels)
+                    sentence_buffer.clear()
+
+        if len(sentence_buffer) > 0:
+            audio = miniaudio.decode(
+                bytes(sentence_buffer), output_format=miniaudio.SampleFormat.SIGNED16
+            )
+            samples = np.frombuffer(audio.samples, dtype=np.int16)
+            yield (samples, audio.sample_rate, audio.nchannels)
+
+    def __producer(self, text):
+        """生产者线程：解码TTS流并分块"""
+        try:
+            voice = "zh-CN-XiaoxiaoNeural"
+            for sentence in self._stream_decoded_sentences_with_rate(text, voice):
+                if self.__stop_flag.is_set():
+                    break
+                samples, sample_rate, nchannels = sentence
+                # 首次获取参数
+                if not self.__audio_params_set.is_set():
+                    self.__audio_sample_rate = sample_rate
+                    self.__audio_channels = nchannels
+                    # 根据真实采样率计算队列大小
+                    max_blocks = int(
+                        self.__audio_sample_rate
+                        * self.__buffer_seconds
+                        / self.__block_size
+                    )
+                    self.__audio_queue = queue.Queue(maxsize=max_blocks)
+                    self.__audio_params_set.set()
+                    print(
+                        f"[Producer] Audio: {self.__audio_sample_rate}Hz, {self.__audio_channels}ch, Queue: {max_blocks} blocks"
+                    )
+
+                # 分块入队
+                target_length = self.__block_size * self.__audio_channels
+                while len(samples) >= target_length:
+                    block = samples[:target_length]
+                    samples = samples[target_length:]
+                    # 阻塞式放入，确保不丢数据
+                    while not self.__stop_flag.is_set():
+                        try:
+                            self.__audio_queue.put(block, timeout=0.1)
+                            break
+                        except queue.Full:
+                            time.sleep(0.05)  # 队列满时短暂让步
+
+                # 处理剩余数据（最后一块）
+                if (
+                    len(samples) > 0
+                    and len(samples) < target_length
+                    and not self.__stop_flag.is_set()
+                ):
+                    # 补齐到完整块
+                    padding = target_length - len(samples)
+                    samples = np.pad(samples, (0, padding), mode="constant")
+                    self.__audio_queue.put(samples)
+
+        except Exception as e:
+            print(f"[Producer] Error: {e}")
+        finally:
+            print("[Producer] Finished")
+
+    def __play(self, text):
+        """播放线程"""
+        self.__stop_flag.clear()
+        self.__audio_params_set.clear()
+
+        # 启动生产者（唯一的数据消费点）
+        producer_thread = threading.Thread(
+            target=self.__producer, args=(text,), daemon=True
+        )
+        producer_thread.start()
+
+        # 等待参数就绪和缓冲创建
+        if not self.__audio_params_set.wait(timeout=5.0):
+            print("[Player] Timeout")
+            self.__stop_flag.set()
+            return
+
+        while self.__audio_queue is None:
+            time.sleep(0.01)
+
+        # 预缓冲：确保有足够数据再播放（关键！）
+        pre_blocks = int(
+            self.__prebuffer_seconds * self.__audio_sample_rate / self.__block_size
+        )
+        while self.__audio_queue.qsize() < pre_blocks and producer_thread.is_alive():
+            time.sleep(0.02)  # 稍微长一点的等待
+
+        print(
+            f"[Player] Buffered {pre_blocks}/{self.__audio_queue.qsize()} blocks, starting playback"
+        )
+
+        # 回调函数：禁止任何阻塞操作！
+        def callback(outdata: np.ndarray, frames: int, time_info, status):
+            if status:
+                print(f"[Callback] Status: {status}")
+
+            if self.__stop_flag.is_set():
                 outdata.fill(0)
                 raise sd.CallbackStop
 
-            # Normal playback
-            if len(buffer) >= samples_needed:
-                outdata[:] = buffer[:samples_needed].reshape(frames, audio_channels)
-                buffer = buffer[samples_needed:]
-            else:  # 0 < remaining < samples_needed
-                remaining = len(buffer)
-                # 全部放进去就完事。
-                outdata[:remaining] = buffer.reshape(remaining, 1)
-                outdata[remaining:] = 0
-                buffer = np.array([], dtype="int16")
-                raise sd.CallbackStop
+            samples_needed = frames * self.__audio_channels
 
+            try:
+                block = self.__audio_queue.get_nowait()
+                # 严格检查长度
+                if len(block) == samples_needed:
+                    outdata[:] = block.reshape(frames, self.__audio_channels)
+                else:
+                    outdata.fill(0)
+                    # 数据长度异常，打印调试信息
+                    print(
+                        f"[Callback] Block size mismatch: {len(block)} != {samples_needed}"
+                    )
+
+            except queue.Empty:
+                # 欠载：填充静音（比停止播放更平滑）
+                outdata.fill(0)
+
+        # 创建输出流
         stream = sd.OutputStream(
-            samplerate=audio.sample_rate,
-            channels=audio.nchannels,
+            samplerate=self.__audio_sample_rate,
+            channels=self.__audio_channels,
             dtype="int16",
             callback=callback,
+            blocksize=self.__block_size,
+            latency="high",  # 高延迟模式更稳定
         )
 
         with self.__lock:
             self.__current_stream = stream
-            self.__stop_flag = False
 
-        stream.start()
-        while stream.active and not self.__stop_flag:
-            time.sleep(0.05)
+        # 播放
+        with stream:
+            producer_thread.join()  # 等待生产完毕
+            # 继续播放直到缓冲区清空
+            while not self.__stop_flag.is_set() and not self.__audio_queue.empty():
+                time.sleep(0.05)
 
-        stream.close()
+        self.__stop_flag.set()
+        print("[Player] Finished")
 
-    def play(self, filename):
-        # Stop previous audio
-        with self.__lock:
-            if self.__current_stream:
-                self.__stop_flag = True
-                time.sleep(0.1)
+    def play(self, tts_stream):
+        """停止旧播放并开始新播放"""
+        self.stop()
 
-        # Start new audio
+        # 重置状态
+        self.__audio_queue = None
+        self.__stop_flag.clear()
+
+        # 启动新线程
         self.__player_thread = threading.Thread(
-            target=self.__play, args=(filename,), daemon=True
+            target=self.__play, args=(tts_stream,), daemon=True
         )
         self.__player_thread.start()
 
     def stop(self):
+        """停止播放"""
         with self.__lock:
             if self.__current_stream:
-                self.__stop_flag = True
-                time.sleep(0.1)
+                self.__stop_flag.set()  # 正确调用 .set()
+                time.sleep(0.2)  # 给回调足够的时间退出
                 self.__current_stream = None
 
 
-TEST_MP3_FILE = "D:/SuperMemo/AdvEng/AdvEng 2018/elements/1/16/7/11/416219.mp3"  # <--- !! 请修改为你的 MP3 文件路径 !!
+# ------------------ 测试代码 ------------------
+if __name__ == "__main__":
+    text = """君不见，黄河之水天上来，奔流到海不复回。
+            君不见，高堂明镜悲白发，朝如青丝暮成雪。
+            人生得意须尽欢，莫使金樽空对月。
+            天生我材必有用，千金散尽还复来。
+            烹羊宰牛且为乐，会须一饮三百杯。
+            岑夫子，丹丘生，将进酒，杯莫停。
+            与君歌一曲，请君为我倾耳听。
+            钟鼓馔玉不足贵，但愿长醉不复醒。
+            古来圣贤皆寂寞，惟有饮者留其名。
+            陈王昔时宴平乐，斗酒十千恣欢谑。
+            主人何为言少钱，径须沽取对君酌。
+            五花马，千金裘，呼儿将出换美酒，与尔同销万古愁。"""
+    # text = "床前明月光，疑是地上霜。举头望明月，低头思故乡。"
 
-# 1. 准备文本和语音
-text = "床前明月光，疑是地上霜。举头望明月，低头思故乡。"
-voice = "zh-CN-XiaoxiaoNeural"
-communicate = edge_tts.Communicate(text, voice)
+    # 方式一测试
+    # print(f"Text: {text}")
+    # print("Starting TTS stream...")
+    # switcher = AudioSwitcher()
+    # switcher.play(text)
+    # try:
+    #     while switcher._AudioSwitcher__player_thread.is_alive():
+    #         time.sleep(0.5)
+    # except KeyboardInterrupt:
+    #     print("\nStopping...")
+    #     switcher.stop()
+    # print("Done!")
 
-# 2. 同步获取所有音频数据块
-switcher = AudioSwitcher()
-switcher.play(communicate.stream_sync())
-# frame_iterator = iter(communicate.stream_sync())
-# while True:
-#     chunk = next(frame_iterator)
-#     if chunk["type"] == "audio":
-#         audio = miniaudio.decode(chunk["data"])
-#     else:
-#         continue
-
-# pass
-time.sleep(10)
+    # 方式二测试
+    # switcher = AudioSwitcher()
+    # sentence_samples = np.array([], dtype=np.int16)
+    # sample_rate = 0
+    # for (
+    #     samples,
+    #     sample_rate,
+    #     nchannels,
+    # ) in switcher._stream_decoded_sentences_with_rate(text, "zh-CN-XiaoxiaoNeural"):
+    #     sample_rate = sample_rate
+    #     sentence_samples = np.concatenate((sentence_samples, samples), axis=0)
+    # if nchannels == 2:
+    #     sentence_samples = sentence_samples.reshape(-1, 2)
+    # sd.play(sentence_samples, samplerate=sample_rate)
+    # sd.wait()  # 等待当前句子播放完毕，再处理下一个
