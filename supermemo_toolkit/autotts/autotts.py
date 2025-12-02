@@ -1,5 +1,4 @@
 import time
-import edge_tts
 import html2text
 import pyperclip
 import win32gui
@@ -39,6 +38,7 @@ targetClassName = [
 def get_content():
     app.window(class_name="TElWind").type_keys("^c")
     text = pyperclip.paste()
+    pyperclip.copy("")
     node = parseNodeAsText(text)
     if len(node) > 0 and "Component" in node[0] and "HTMFile" in node[0]["Component"]:
         htmFile = node[0]["Component"]["HTMFile"]
@@ -87,9 +87,7 @@ def run():
             if text is not None:
                 print(text)
                 switcher.stop()
-                communicate = edge_tts.Communicate(text, "zh-CN-XiaoxiaoNeural")
-                communicate.save_sync(audio_tts)
-                switcher.play(audio_tts)
+                switcher.play(text)
             hisWindowText = foregroundWindowText
 
 
