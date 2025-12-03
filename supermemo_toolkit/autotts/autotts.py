@@ -40,38 +40,42 @@ targetClassName = [
 def get_content():
     # 不能是编辑状态下 alt+10,o,e
     TElWind = app.window(class_name="TElWind")
-    TElWind.type_keys("%{F12}co")  # alt+f12, c, o
-    time.sleep(0.5)
+
+    # =========
+    TElWind.type_keys("%{F12}mp^c")  # alt+f12, m, p, ctrl+c
+    time.sleep(0.3)
     text = pyperclip.paste()
-    time.sleep(0.5)
-    pyperclip.copy("")
-    if "-" * 15 in text:
-        lines_text = []
-        for index, line in enumerate(text.splitlines()):
-            if line.startswith("-" * 15):
-                lines_text = text.splitlines()[:index]
-                break
-        text = "\n".join(lines_text)
-    if text == "" or len(text) < 5:
-        TElWind.type_keys("%{F12}mp^c")  # alt+f12, m, p, ctrl+c
-        time.sleep(0.5)
+    if len(text) < 5:
+        TElWind.type_keys("%{F12}b^c")  # alt+f12, b, ctrl+c
+        time.sleep(0.3)
         text = pyperclip.paste()
-        time.sleep(0.5)
-        pyperclip.copy("")
-        # 解析nodeText，并设置空值守卫
-        node = parseNodeAsText(text)
-        if (
-            len(node) == 0
-            or "Component" not in node[0]
-            or "HTMFile" not in node[0]["Component"]
-        ):
-            return ""
+    time.sleep(0.3)
+    pyperclip.copy("")
+    # 解析nodeText
+    node = parseNodeAsText(text)
+    if len(node) != 0 and "Component" in node[0] and "HTMFile" in node[0]["Component"]:
         # 解析html并转换为plainText。
         htmFile = node[0]["Component"]["HTMFile"]
         with open(htmFile, mode="r", encoding="utf-8") as f:
             htm = f.read()
         text = text_maker.handle(htm).translate(str.maketrans("#*-", "   "))
-        return text
+
+    # =========
+    else:
+        TElWind.type_keys("%{F12}co")  # alt+f12, c, o
+        time.sleep(0.3)
+        text = pyperclip.paste()
+        time.sleep(0.3)
+        pyperclip.copy("")
+        if "-" * 15 in text:
+            lines_text = []
+            for index, line in enumerate(text.splitlines()):
+                if line.startswith("-" * 15):
+                    lines_text = text.splitlines()[:index]
+                    break
+            text = "\n".join(lines_text)
+        if len(text) < 5:
+            text = ""
     return text
 
 
@@ -97,7 +101,7 @@ def run():
     global hisWindowText
 
     while True:
-        time.sleep(1)
+        time.sleep(0.5)
         # 1. 光标位置必须在选定区域内
         if not focusInArea():
             continue
@@ -111,7 +115,7 @@ def run():
         if hisWindowText != foregroundWindowText:
             print(f"[Main] 窗口标题: {foregroundWindowText}")
             text = get_content()
-            print(f"[Main] len={len(text)}, {text[:10]}")
+            print(f"[Main] len={len(text)}, {text[:10].strip()}")
             if text is not None and text != "":
                 switcher.stop()
                 switcher.play(text)
