@@ -2,9 +2,10 @@ import os
 
 import click
 
+from supermemo_toolkit.autotts.autotts import run_auto_tts
 from supermemo_toolkit.epub2sm import epub_convert
 from supermemo_toolkit.latex2img import formula_to_png
-from supermemo_toolkit.pathpix import im_sort_out, gui as im_sort_out_gui
+from supermemo_toolkit.pathpix import im_sort_out
 from supermemo_toolkit.sa_sync.sm2anki import qa_to_anki
 from supermemo_toolkit.title_complete import tcomp as title_complete
 from supermemo_toolkit.utilscripts import config as smtk_config
@@ -147,6 +148,8 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
     elif fullpath:
         im_sort_out.single_file(fullpath)
     elif gui:
+        from supermemo_toolkit.pathpix import gui as im_sort_out_gui
+
         im_sort_out_gui.run()
     else:
         # 如果没有提供任何选项，打印帮助信息
@@ -185,6 +188,12 @@ def tcomp(htmtoc: str, node: str, xml: str):
         title_complete.node_tcomp(nodefile=node, tocfile=htmtoc)
     elif xml and not node:
         title_complete.xml_tcomp(xmlfile=xml, tocfile=htmtoc)
+
+
+@main.command()
+def autotts():
+    """运行 AutoTTS 文本转语音"""
+    run_auto_tts()
 
 
 if __name__ == "__main__":
