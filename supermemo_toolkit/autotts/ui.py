@@ -1,4 +1,4 @@
-from tkinter import Tk
+from tkinter import Menu, Tk
 from tkinter.ttk import Button, Label, Scrollbar
 
 
@@ -10,7 +10,6 @@ class WinGUI(Tk):
         self.tk_button_miik3xn9 = self.__tk_button_miik3xn9(self)
         self.tk_button_miileno7 = self.__tk_button_miileno7(self)
         self.tk_button_mipjikfh = self.__tk_button_mipjikfh(self)
-        self.tk_button_mipjkbla = self.__tk_button_mipjkbla(self)
 
     def __win(self):
         self.title("AutoTTS")
@@ -29,6 +28,37 @@ class WinGUI(Tk):
         self.attributes("-topmost", True)
         self.attributes("-alpha", 0.6)
         self.resizable(False, False)
+
+        def on_drag_start(event):
+            self.x_start = event.x_root
+            self.y_start = event.y_root
+
+        def on_drag_motion(event):
+            delta_x = event.x_root - self.x_start
+            delta_y = event.y_root - self.y_start
+            x_new = self.winfo_x() + delta_x
+            y_new = self.winfo_y() + delta_y
+            self.geometry(f"+{x_new}+{y_new}")
+
+            self.x_start = event.x_root
+            self.y_start = event.y_root
+
+        self.bind("<Button-1>", on_drag_start)
+        self.bind("<B1-Motion>", on_drag_motion)
+        # 右键菜单
+        self.menu = Menu(self, tearoff=0, bg="white", fg="black")
+        self.menu.add_command(label="退出程序", command=self.quit)
+        self.bind("<Button-3>", self.show_menu)
+
+    def show_menu(self, event):
+        """显示右键菜单"""
+        if event.widget is not self.tk_button_miik3xn9:
+            self.menu.post(event.x_root, event.y_root)
+
+    def quit(self):
+        """退出程序"""
+        print("[Replay] 正在退出程序...")
+        exit()
 
     def scrollbar_autohide(self, vbar, hbar, widget):
         """自动隐藏滚动条"""
@@ -83,13 +113,13 @@ class WinGUI(Tk):
             text="状态",
             anchor="center",
         )
-        label.place(relx=0.2667, rely=0.0000, relwidth=0.7333, relheight=1.0345)
+        label.place(relx=0.2000, rely=0.0000, relwidth=0.7956, relheight=1.0000)
         return label
 
     def __tk_button_miik3xn9(self, parent):
         btn = Button(
             parent,
-            text="S/E",
+            text="E",
             takefocus=False,
         )
         btn.place(relx=0.0000, rely=0.0000, relwidth=0.0667, relheight=1.0345)
@@ -113,14 +143,8 @@ class WinGUI(Tk):
         btn.place(relx=0.1333, rely=0.0000, relwidth=0.0667, relheight=1.0345)
         return btn
 
-    def __tk_button_mipjkbla(self, parent):
-        btn = Button(
-            parent,
-            text="X",
-            takefocus=False,
-        )
-        btn.place(relx=0.2000, rely=0.0000, relwidth=0.0667, relheight=1.0345)
-        return btn
+    def update_lable_text(self, mtext):
+        self.tk_label_miik3tat.config(text=mtext)
 
 
 class Win(WinGUI):
@@ -130,45 +154,22 @@ class Win(WinGUI):
         self.__event_bind()
         self.__style_config()
         self.ctl.init(self)
+        self.last_text = ""
 
     def __event_bind(self):
-        self.tk_button_miik3xn9.bind("<Button-1>", self.ctl.onSEClick)
+        self.tk_button_miik3xn9.bind("<Button-1>", self.ctl.onEClick)
+        self.tk_button_miik3xn9.bind("<Button-3>", self.ctl.onERightClick)
         self.tk_button_miileno7.bind("<Button-1>", self.ctl.onAClick)
         self.tk_button_mipjikfh.bind("<Button-1>", self.ctl.onTClick)
-        self.tk_button_mipjkbla.bind("<Button-1>", self.ctl.onXClick)
         pass
 
     def __style_config(self):
         pass
 
+    def update_text(self, text):
+        """更新要重播的文本内容"""
+        self.last_text = text
 
-class Controller:
-    # 导入UI类后，替换以下的 object 类型，将获得 IDE 属性提示功能
-    ui: WinGUI
-
-    def __init__(self):
-        pass
-
-    def init(self, ui):
-        """
-        得到UI实例，对组件进行初始化配置
-        """
-        self.ui = ui
-        # TODO 组件初始化 赋值操作
-
-    def onSEClick(self, evt):
-        print("<Button-1>事件未处理:", evt)
-
-    def onAClick(self, evt):
-        print("<Button-1>事件未处理:", evt)
-
-    def onTClick(self, evt):
-        print("<Button-1>事件未处理:", evt)
-
-    def onXClick(self, evt):
-        print("<Button-1>事件未处理:", evt)
-
-
-if __name__ == "__main__":
-    app = Win(Controller())
-    app.mainloop()
+    def update_lable_text(self, mtext):
+        """更新要重播的文本内容"""
+        super().update_lable_text(mtext)

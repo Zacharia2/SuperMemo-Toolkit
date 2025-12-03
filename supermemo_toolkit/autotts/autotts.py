@@ -6,6 +6,7 @@ import logging
 from os import path
 from pywinauto.application import Application
 from supermemo_toolkit.autotts.switcher import AudioSwitcher
+from supermemo_toolkit.autotts.ui import Win
 from supermemo_toolkit.title_complete.tcomp import parseNodeAsText
 from supermemo_toolkit.utilscripts.config import get_config_dir
 import warnings
@@ -13,7 +14,6 @@ import warnings
 
 logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore", message=".*32-bit application should be automated.*")
-
 
 app = Application(backend="win32").connect(class_name="TElWind")
 switcher = AudioSwitcher()
@@ -34,9 +34,12 @@ targetClassName = [
     "TTabControl",
     "TToolBar",
 ]
+main_window = None
+stop_run_main_loop = False
 
 
 # 切换页面就触发获取文本。
+# 让pywinauto自己获取焦点是不可用的。
 def get_content():
     # 不能是编辑状态下 alt+10,o,e
     TElWind = app.window(class_name="TElWind")
@@ -97,31 +100,97 @@ def foregroundInArea() -> bool:
     return True
 
 
-def run():
+def run_main_loop():
     global hisWindowText
+    global stop_run_main_loop
+    if stop_run_main_loop:
+        main_window.after(500, run_main_loop)
+        return
+    # 1. 光标位置必须在选定区域内
+    if not focusInArea():
+        main_window.after(500, run_main_loop)
+        return
 
-    while True:
-        time.sleep(0.5)
-        # 1. 光标位置必须在选定区域内
-        if not focusInArea():
-            continue
+    # 2. 最前窗口名字必须为TElWind
+    if not foregroundInArea():
+        main_window.after(500, run_main_loop)
+        return
+    # 3. 历史最求窗口名和当前最前窗口名必须不一致
+    # 当光标在选定区域并且最前窗口为选定区域，说明目标窗口聚焦
+    foregroundWindowText = win32gui.GetWindowText(win32gui.GetForegroundWindow())
+    if hisWindowText != foregroundWindowText:
+        print(f"[Main] 窗口标题: {foregroundWindowText}")
+        text = get_content()
+        print(f"[Main] len={len(text)}, {text[:10].strip()}")
+        main_window.update_lable_text(f"[Main] len={len(text)}, {text[:10].strip()}")
+        if text is not None and text != "":
+            switcher.stop()
+            switcher.play(text)
+            # 保存到重播按钮
+            main_window.update_text(text)
+        hisWindowText = foregroundWindowText
 
-        # 2. 最前窗口名字必须为TElWind
-        if not foregroundInArea():
-            continue
-        # 3. 历史最求窗口名和当前最前窗口名必须不一致
-        # 当光标在选定区域并且最前窗口为选定区域，说明目标窗口聚焦
-        foregroundWindowText = win32gui.GetWindowText(win32gui.GetForegroundWindow())
-        if hisWindowText != foregroundWindowText:
-            print(f"[Main] 窗口标题: {foregroundWindowText}")
-            text = get_content()
-            print(f"[Main] len={len(text)}, {text[:10].strip()}")
-            if text is not None and text != "":
-                switcher.stop()
-                switcher.play(text)
-            hisWindowText = foregroundWindowText
+    main_window.after(500, run_main_loop)
 
 
-run()
+class Controller:
+    # 导入UI类后，替换以下的 object 类型，将获得 IDE 属性提示功能
+    ui: Win
+
+    def init(self, ui):
+        """
+        得到UI实例，对组件进行初始化配置
+        """
+        self.ui = ui
+
+    def onEClick(self, evt):
+        global stop_run_main_loop
+        stop_run_main_loop = not stop_run_main_loop
+        if stop_run_main_loop:
+            main_window.update_lable_text("AutoTTS 停止")
+        else:
+            main_window.update_lable_text("AutoTTS 恢复")
+
+    def onERightClick(self, evt):
+        switcher.stop()
+        main_window.update_lable_text("[Main] stop play")
+
+    def onAClick(self, evt):
+        # 目前为止所有获取内容都不是主动获得焦点的，而是被动获取
+        text = self.ui.last_text
+        print(f"[Main] len={len(text)}, {text[:10].strip()}")
+        main_window.update_lable_text(f"[Main] len={len(text)}, {text[:10].strip()}")
+        if text is not None and text != "":
+            switcher.stop()
+            switcher.play(text)
+
+    def onTClick(self, evt):
+        text = pyperclip.paste()
+        time.sleep(0.3)
+        pyperclip.copy("")
+        if "-" * 15 in text:
+            lines_text = []
+            for index, line in enumerate(text.splitlines()):
+                if line.startswith("-" * 15):
+                    lines_text = text.splitlines()[:index]
+                    break
+            text = "\n".join(lines_text)
+        if len(text) < 5:
+            text = ""
+        print(f"[Main]T len={len(text)}, {text[:10].strip()}")
+        main_window.update_lable_text(f"[Main]T len={len(text)}, {text[:10].strip()}")
+        if text is not None and text != "":
+            switcher.stop()
+            switcher.play(text)
+
+
+if __name__ == "__main__":
+    main_window = Win(Controller())
+    main_window.after(500, run_main_loop)
+    main_window.mainloop()
+
+# if __name__ == "__main__":
+#     while True:
+#         run_main_loop()
 # 在sm窗口下，然后要监听鼠标左键，然后看看标题或者内容是否改变，然后再决定是否播放内容。
 # 交互逻辑是点击下一个自动播放。或者自己复制自动播放。
