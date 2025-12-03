@@ -107,7 +107,7 @@ class AudioSwitcher:
             # 如果按下停止按钮就应该停止。
             print("[Producer] Finished")
 
-    def __play(self, text):
+    def __play(self):
         """播放线程"""
         # 等待参数就绪和缓冲创建
         # self.__audio_params设置后意味着__audio_queue已经准备好了。
@@ -201,9 +201,7 @@ class AudioSwitcher:
         self.__producer_thread.start()
 
         # 启动消费者线程
-        self.__player_thread = threading.Thread(
-            target=self.__play, args=(text,), daemon=True
-        )
+        self.__player_thread = threading.Thread(target=self.__play, daemon=True)
         self.__player_thread.start()
 
     def stop(self):
