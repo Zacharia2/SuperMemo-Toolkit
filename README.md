@@ -2,7 +2,7 @@
 
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Zacharia2/SuperMemo-Toolkit/total)
 
-SuperMemo 增强工具(CLI命令行)。包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码等。
+SuperMemo 增强工具(CLI 命令行)。包含图链整理、EPUB 图书转换导入、Latex 公式转图片、sm2anki、修补导出标题乱码、AutoTTS卡片朗读等。
 
 ## 1. Install
 
@@ -106,9 +106,9 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
   - 有书即可，不按照 EPUB 目录文件生成，而是按照 EPUB 图书内文档文件的线性顺序生成，比较适合 PDF 版 epub，效果查看文件：./docs/Snipaste_2024-03-24_09-17-23.png
 - 按单个 Topic 生成 `smtk e2sm --topic <epub_file> <out_folder>`
   - 有书即可，EPUB 转换为一个 SuperMemo Topic，一本书即是一篇文章，配合 SuperMemo 阅读点使用更佳。
-- 按单个 Topic 生成，按长度分片并插入HR标签 `smtk e2sm --topic --limit 1500 <epub_file> <out_folder>`
-  - 在单个TopicEpub中按照限制字数（例如1500字）在段后插入hr标签
-  - 使用SuperMemo的split article进行分割得到图书分片。
+- 按单个 Topic 生成，按长度分片并插入 HR 标签 `smtk e2sm --topic --limit 1500 <epub_file> <out_folder>`
+  - 在单个 TopicEpub 中按照限制字数（例如 1500 字）在段后插入 hr 标签
+  - 使用 SuperMemo 的 split article 进行分割得到图书分片。
 
 ## 4. latex2img
 
@@ -151,7 +151,20 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
 
 ## 7. autoTTS
 
-切换卡片自动朗读。
+AutoTTS 卡片朗读 文本转语音
+
+1. 首先必须打开 supermemo 软件，否则 autotts 结束运行。
+2. 第二步使用命令行执行`smtk autotts`
+3. 启动后会在屏幕上中部分显示软件悬浮条。
+4. **左键**点击`E`按钮开始监听卡片翻页，翻页自动切换
+5. **右键**点击`E`按钮停止当前播放。
+   1. 这时候可以手动复制需要播放内容并使用`T`按钮播放
+   2. 或者使用`A`按钮再次播放一次。
+6. `E`是监听开始和结束的意思
+7. `A`是再一次的意思
+8. `T`是复制文本转语语音的意思，从最近一次剪贴板中读取文本然后播放
+9. 悬浮条可以拖动。
+10. 右键悬浮条任意位置弹出菜单，可以退出程序。
 
 ## 关于开发
 
@@ -167,7 +180,7 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
 
 ## 赞助
 
-当您见证自己用SuperMemo坚持两年后阅读量飙升的喜悦，请记得这份坚持背后有smtk在默默护航——它不仅是市面上唯一能修复标题乱码、集合图片整理修复、无缝导入EPUB图书的工具箱，更是您学习路上最懂你的战友。您的赞助，将点亮更多孤独求索者的学习之路，让每一份坚持都收获更温暖的回报。
+当您见证自己用 SuperMemo 坚持两年后阅读量飙升的喜悦，请记得这份坚持背后有 smtk 在默默护航——它不仅是市面上唯一能修复标题乱码、集合图片整理修复、无缝导入 EPUB 图书的工具箱，更是您学习路上最懂你的战友。您的赞助，将点亮更多孤独求索者的学习之路，让每一份坚持都收获更温暖的回报。
 
 ![](./docs/donate.png)
 
