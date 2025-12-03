@@ -192,7 +192,7 @@ def tcomp(htmtoc: str, node: str, xml: str):
 
 @main.command()
 def autotts():
-    """运行 AutoTTS 文本转语音"""
+    """运行 AutoTTS卡片朗读 文本转语音"""
     run_auto_tts()
 
 
