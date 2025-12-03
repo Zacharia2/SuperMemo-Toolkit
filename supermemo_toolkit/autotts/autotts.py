@@ -5,17 +5,27 @@ import win32gui
 import logging
 from os import path
 from pywinauto.application import Application
+from pywinauto.findwindows import ElementNotFoundError
 from supermemo_toolkit.autotts.switcher import AudioSwitcher
 from supermemo_toolkit.autotts.ui import Win
 from supermemo_toolkit.title_complete.tcomp import parseNodeAsText
 from supermemo_toolkit.utilscripts.config import get_config_dir
 import warnings
+from tkinter import messagebox
 
 
 logger = logging.getLogger(__name__)
 warnings.filterwarnings("ignore", message=".*32-bit application should be automated.*")
 
-app = Application(backend="win32").connect(class_name="TElWind")
+try:
+    app = Application(backend="win32").connect(class_name="TElWind")
+except Exception as e:
+    if isinstance(e, ElementNotFoundError):
+        messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
+    else:
+        messagebox.showerror("错误", e)
+    exit()
+
 switcher = AudioSwitcher()
 text_maker = html2text.HTML2Text()
 text_maker.ignore_links = True
@@ -35,7 +45,7 @@ targetClassName = [
     "TToolBar",
 ]
 main_window = None
-stop_run_main_loop = False
+stop_run_main_loop = True  # 软件启动后手动启动监听
 
 
 # 切换页面就触发获取文本。
@@ -103,6 +113,8 @@ def foregroundInArea() -> bool:
 def run_main_loop():
     global hisWindowText
     global stop_run_main_loop
+
+    # 停止监听守卫，默认停止监听
     if stop_run_main_loop:
         main_window.after(500, run_main_loop)
         return
@@ -147,13 +159,15 @@ class Controller:
         global stop_run_main_loop
         stop_run_main_loop = not stop_run_main_loop
         if stop_run_main_loop:
-            main_window.update_lable_text("AutoTTS 停止")
+            main_window.update_lable_text("AutoTTS 已停止")
         else:
-            main_window.update_lable_text("AutoTTS 恢复")
+            main_window.update_lable_text("AutoTTS 已恢复")
 
     def onERightClick(self, evt):
         switcher.stop()
-        main_window.update_lable_text("[Main] stop play")
+        main_window.update_lable_text(
+            "[Main] stop play, wait again or next or copy-tts"
+        )
 
     def onAClick(self, evt):
         # 目前为止所有获取内容都不是主动获得焦点的，而是被动获取
@@ -182,6 +196,7 @@ class Controller:
         if text is not None and text != "":
             switcher.stop()
             switcher.play(text)
+            main_window.update_text(text)
 
 
 if __name__ == "__main__":
