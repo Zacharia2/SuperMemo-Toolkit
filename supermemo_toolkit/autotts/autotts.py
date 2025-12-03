@@ -8,9 +8,11 @@ from pywinauto.application import Application
 from supermemo_toolkit.autotts.switcher import AudioSwitcher
 from supermemo_toolkit.title_complete.tcomp import parseNodeAsText
 from supermemo_toolkit.utilscripts.config import get_config_dir
+import warnings
 
 
 logger = logging.getLogger(__name__)
+warnings.filterwarnings("ignore", message=".*32-bit application should be automated.*")
 
 
 app = Application(backend="win32").connect(class_name="TElWind")
@@ -36,16 +38,41 @@ targetClassName = [
 
 # 切换页面就触发获取文本。
 def get_content():
-    app.window(class_name="TElWind").type_keys("^c")
+    # 不能是编辑状态下 alt+10,o,e
+    TElWind = app.window(class_name="TElWind")
+    TElWind.type_keys("%{F12}co")  # alt+f12, c, o
+    time.sleep(0.5)
     text = pyperclip.paste()
+    time.sleep(0.5)
     pyperclip.copy("")
-    node = parseNodeAsText(text)
-    if len(node) > 0 and "Component" in node[0] and "HTMFile" in node[0]["Component"]:
+    if "-" * 15 in text:
+        lines_text = []
+        for index, line in enumerate(text.splitlines()):
+            if line.startswith("-" * 15):
+                lines_text = text.splitlines()[:index]
+                break
+        text = "\n".join(lines_text)
+    if text == "" or len(text) < 5:
+        TElWind.type_keys("%{F12}mp^c")  # alt+f12, m, p, ctrl+c
+        time.sleep(0.5)
+        text = pyperclip.paste()
+        time.sleep(0.5)
+        pyperclip.copy("")
+        # 解析nodeText，并设置空值守卫
+        node = parseNodeAsText(text)
+        if (
+            len(node) == 0
+            or "Component" not in node[0]
+            or "HTMFile" not in node[0]["Component"]
+        ):
+            return ""
+        # 解析html并转换为plainText。
         htmFile = node[0]["Component"]["HTMFile"]
         with open(htmFile, mode="r", encoding="utf-8") as f:
             htm = f.read()
         text = text_maker.handle(htm).translate(str.maketrans("#*-", "   "))
         return text
+    return text
 
 
 def focusInArea() -> bool:
@@ -82,10 +109,10 @@ def run():
         # 当光标在选定区域并且最前窗口为选定区域，说明目标窗口聚焦
         foregroundWindowText = win32gui.GetWindowText(win32gui.GetForegroundWindow())
         if hisWindowText != foregroundWindowText:
-            print(f"窗口标题: {foregroundWindowText}")
+            print(f"[Main] 窗口标题: {foregroundWindowText}")
             text = get_content()
-            if text is not None:
-                print(text)
+            print(f"[Main] len={len(text)}, {text[:10]}")
+            if text is not None and text != "":
                 switcher.stop()
                 switcher.play(text)
             hisWindowText = foregroundWindowText
