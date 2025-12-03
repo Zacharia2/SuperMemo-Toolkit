@@ -14,140 +14,149 @@ import warnings
 from tkinter import messagebox
 
 
-logger = logging.getLogger(__name__)
-warnings.filterwarnings("ignore", message=".*32-bit application should be automated.*")
+class AutoTTS:
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        warnings.filterwarnings(
+            "ignore", message=".*32-bit application should be automated.*"
+        )
 
-try:
-    app = Application(backend="win32").connect(class_name="TElWind")
-except Exception as e:
-    if isinstance(e, ElementNotFoundError):
-        messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
-    else:
-        messagebox.showerror("错误", e)
-    exit()
+        try:
+            self.app = Application(backend="win32").connect(class_name="TElWind")
+        except Exception as e:
+            if isinstance(e, ElementNotFoundError):
+                messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
+            else:
+                messagebox.showerror("错误", e)
+            exit()
 
-switcher = AudioSwitcher()
-text_maker = html2text.HTML2Text()
-text_maker.ignore_links = True
-text_maker.bypass_tables = False
-text_maker.ignore_images = True
-text_maker.ignore_emphasis = True
-audio_tts = path.join(get_config_dir(), "audio_tts.mp3")
-hisWindowText = ""
-targetClassName = [
-    "TMsgDialog",
-    "TBitBtnTScrollBox",
-    "Internet Explorer_Server",
-    "TElWind",
-    "TBitBtn",
-    "TScrollBox",
-    "TTabControl",
-    "TToolBar",
-]
-main_window = None
-stop_run_main_loop = True  # 软件启动后手动启动监听
+        self.switcher = AudioSwitcher()
+        self.text_maker = html2text.HTML2Text()
+        self.text_maker.ignore_links = True
+        self.text_maker.bypass_tables = False
+        self.text_maker.ignore_images = True
+        self.text_maker.ignore_emphasis = True
+        self.audio_tts = path.join(get_config_dir(), "audio_tts.mp3")
+        self.hisWindowText = ""
+        self.targetClassName = [
+            "TMsgDialog",
+            "TBitBtnTScrollBox",
+            "Internet Explorer_Server",
+            "TElWind",
+            "TBitBtn",
+            "TScrollBox",
+            "TTabControl",
+            "TToolBar",
+        ]
+        self.window = None
+        self.stop_run_main_loop = True  # 软件启动后手动启动监听
 
+    def set_autotts_window(self, window: Win):
+        self.window = window
 
-# 切换页面就触发获取文本。
-# 让pywinauto自己获取焦点是不可用的。
-def get_content():
-    # 不能是编辑状态下 alt+10,o,e
-    TElWind = app.window(class_name="TElWind")
+    # 切换页面就触发获取文本。
+    # 让pywinauto自己获取焦点是不可用的。
+    def get_content(self):
+        # 不能是编辑状态下 alt+10,o,e
+        TElWind = self.app.window(class_name="TElWind")
 
-    # =========
-    TElWind.type_keys("%{F12}mp^c")  # alt+f12, m, p, ctrl+c
-    time.sleep(0.3)
-    text = pyperclip.paste()
-    if len(text) < 5:
-        TElWind.type_keys("%{F12}b^c")  # alt+f12, b, ctrl+c
+        # =========
+        TElWind.type_keys("%{F12}mp^c")  # alt+f12, m, p, ctrl+c
         time.sleep(0.3)
         text = pyperclip.paste()
-    time.sleep(0.3)
-    pyperclip.copy("")
-    # 解析nodeText
-    node = parseNodeAsText(text)
-    if len(node) != 0 and "Component" in node[0] and "HTMFile" in node[0]["Component"]:
-        # 解析html并转换为plainText。
-        htmFile = node[0]["Component"]["HTMFile"]
-        with open(htmFile, mode="r", encoding="utf-8") as f:
-            htm = f.read()
-        text = text_maker.handle(htm).translate(str.maketrans("#*-", "   "))
-
-    # =========
-    else:
-        TElWind.type_keys("%{F12}co")  # alt+f12, c, o
-        time.sleep(0.3)
-        text = pyperclip.paste()
+        if len(text) < 5:
+            TElWind.type_keys("%{F12}b^c")  # alt+f12, b, ctrl+c
+            time.sleep(0.3)
+            text = pyperclip.paste()
         time.sleep(0.3)
         pyperclip.copy("")
-        if "-" * 15 in text:
-            lines_text = []
-            for index, line in enumerate(text.splitlines()):
-                if line.startswith("-" * 15):
-                    lines_text = text.splitlines()[:index]
-                    break
-            text = "\n".join(lines_text)
-        if len(text) < 5:
-            text = ""
-    return text
+        # 解析nodeText
+        node = parseNodeAsText(text)
+        if (
+            len(node) != 0
+            and "Component" in node[0]
+            and "HTMFile" in node[0]["Component"]
+        ):
+            # 解析html并转换为plainText。
+            htmFile = node[0]["Component"]["HTMFile"]
+            with open(htmFile, mode="r", encoding="utf-8") as f:
+                htm = f.read()
+            text = self.text_maker.handle(htm).translate(str.maketrans("#*-", "   "))
 
+        # =========
+        else:
+            TElWind.type_keys("%{F12}co")  # alt+f12, c, o
+            time.sleep(0.3)
+            text = pyperclip.paste()
+            time.sleep(0.3)
+            pyperclip.copy("")
+            if "-" * 15 in text:
+                lines_text = []
+                for index, line in enumerate(text.splitlines()):
+                    if line.startswith("-" * 15):
+                        lines_text = text.splitlines()[:index]
+                        break
+                text = "\n".join(lines_text)
+            if len(text) < 5:
+                text = ""
+        return text
 
-def focusInArea() -> bool:
-    focus_hwnd = win32gui.WindowFromPoint(win32gui.GetCursorPos())
-    focusClassName = win32gui.GetClassName(focus_hwnd)
-    if focusClassName not in targetClassName:
-        return False
-    return True
+    def focusInArea(self) -> bool:
+        focus_hwnd = win32gui.WindowFromPoint(win32gui.GetCursorPos())
+        focusClassName = win32gui.GetClassName(focus_hwnd)
+        if focusClassName not in self.targetClassName:
+            return False
+        return True
 
+    def foregroundInArea(self) -> bool:
+        foreground_hwnd = win32gui.GetForegroundWindow()
+        if foreground_hwnd == 0:
+            return False
+        foregroundClassName = win32gui.GetClassName(foreground_hwnd)
+        if foregroundClassName not in self.targetClassName:
+            return False
+        return True
 
-def foregroundInArea() -> bool:
-    foreground_hwnd = win32gui.GetForegroundWindow()
-    if foreground_hwnd == 0:
-        return False
-    foregroundClassName = win32gui.GetClassName(foreground_hwnd)
-    if foregroundClassName not in targetClassName:
-        return False
-    return True
+    def run_main_loop(self):
+        # 停止监听守卫，默认停止监听
+        if self.stop_run_main_loop:
+            self.window.after(500, self.run_main_loop)
+            return
+        # 1. 光标位置必须在选定区域内
+        if not self.focusInArea():
+            self.window.after(500, self.run_main_loop)
+            return
 
+        # 2. 最前窗口名字必须为TElWind
+        if not self.foregroundInArea():
+            self.window.after(500, self.run_main_loop)
+            return
+        # 3. 历史最求窗口名和当前最前窗口名必须不一致
+        # 当光标在选定区域并且最前窗口为选定区域，说明目标窗口聚焦
+        foregroundWindowText = win32gui.GetWindowText(win32gui.GetForegroundWindow())
+        if self.hisWindowText != foregroundWindowText:
+            print(f"[Main] 窗口标题: {foregroundWindowText}")
+            text = self.get_content()
+            print(f"[Main] len={len(text)}, {text[:10].strip()}")
+            self.window.update_lable_text(
+                f"[Main] len={len(text)}, {text[:10].strip()}"
+            )
+            if text is not None and text != "":
+                self.switcher.stop()
+                self.switcher.play(text)
+                # 保存到重播按钮
+                self.window.update_text(text)
+            self.hisWindowText = foregroundWindowText
 
-def run_main_loop():
-    global hisWindowText
-    global stop_run_main_loop
-
-    # 停止监听守卫，默认停止监听
-    if stop_run_main_loop:
-        main_window.after(500, run_main_loop)
-        return
-    # 1. 光标位置必须在选定区域内
-    if not focusInArea():
-        main_window.after(500, run_main_loop)
-        return
-
-    # 2. 最前窗口名字必须为TElWind
-    if not foregroundInArea():
-        main_window.after(500, run_main_loop)
-        return
-    # 3. 历史最求窗口名和当前最前窗口名必须不一致
-    # 当光标在选定区域并且最前窗口为选定区域，说明目标窗口聚焦
-    foregroundWindowText = win32gui.GetWindowText(win32gui.GetForegroundWindow())
-    if hisWindowText != foregroundWindowText:
-        print(f"[Main] 窗口标题: {foregroundWindowText}")
-        text = get_content()
-        print(f"[Main] len={len(text)}, {text[:10].strip()}")
-        main_window.update_lable_text(f"[Main] len={len(text)}, {text[:10].strip()}")
-        if text is not None and text != "":
-            switcher.stop()
-            switcher.play(text)
-            # 保存到重播按钮
-            main_window.update_text(text)
-        hisWindowText = foregroundWindowText
-
-    main_window.after(500, run_main_loop)
+        self.window.after(500, self.run_main_loop)
 
 
 class Controller:
     # 导入UI类后，替换以下的 object 类型，将获得 IDE 属性提示功能
     ui: Win
+
+    def __init__(self):
+        self.auto_tts: AutoTTS = None
 
     def init(self, ui):
         """
@@ -156,16 +165,15 @@ class Controller:
         self.ui = ui
 
     def onEClick(self, evt):
-        global stop_run_main_loop
-        stop_run_main_loop = not stop_run_main_loop
-        if stop_run_main_loop:
-            main_window.update_lable_text("AutoTTS 已停止")
+        self.auto_tts.stop_run_main_loop = not self.auto_tts.stop_run_main_loop
+        if self.auto_tts.stop_run_main_loop:
+            self.auto_tts.window.update_lable_text("AutoTTS 已停止")
         else:
-            main_window.update_lable_text("AutoTTS 已恢复")
+            self.auto_tts.window.update_lable_text("AutoTTS 已恢复")
 
     def onERightClick(self, evt):
-        switcher.stop()
-        main_window.update_lable_text(
+        self.auto_tts.switcher.stop()
+        self.auto_tts.window.update_lable_text(
             "[Main] stop play, wait again or next or copy-tts"
         )
 
@@ -173,10 +181,12 @@ class Controller:
         # 目前为止所有获取内容都不是主动获得焦点的，而是被动获取
         text = self.ui.last_text
         print(f"[Main] len={len(text)}, {text[:10].strip()}")
-        main_window.update_lable_text(f"[Main] len={len(text)}, {text[:10].strip()}")
+        self.auto_tts.window.update_lable_text(
+            f"[Main] len={len(text)}, {text[:10].strip()}"
+        )
         if text is not None and text != "":
-            switcher.stop()
-            switcher.play(text)
+            self.auto_tts.switcher.stop()
+            self.auto_tts.switcher.play(text)
 
     def onTClick(self, evt):
         text = pyperclip.paste()
@@ -192,17 +202,33 @@ class Controller:
         if len(text) < 5:
             text = ""
         print(f"[Main]T len={len(text)}, {text[:10].strip()}")
-        main_window.update_lable_text(f"[Main]T len={len(text)}, {text[:10].strip()}")
+        self.auto_tts.window.update_lable_text(
+            f"[Main]T len={len(text)}, {text[:10].strip()}"
+        )
         if text is not None and text != "":
-            switcher.stop()
-            switcher.play(text)
-            main_window.update_text(text)
+            self.auto_tts.switcher.stop()
+            self.auto_tts.switcher.play(text)
+            self.auto_tts.window.update_text(text)
+
+    def run_auto_tts_loop(self):
+        self.auto_tts.run_main_loop()
+
+    def set_autotts(self, autotts: AutoTTS):
+        self.auto_tts = autotts
+
+
+def run_auto_tts():
+    controller = Controller()
+    autotts_window = Win(controller)
+    autotts = AutoTTS()
+    autotts.set_autotts_window(autotts_window)
+    controller.set_autotts(autotts)
+    autotts_window.after(500, controller.run_auto_tts_loop())
+    autotts_window.mainloop()
 
 
 if __name__ == "__main__":
-    main_window = Win(Controller())
-    main_window.after(500, run_main_loop)
-    main_window.mainloop()
+    run_auto_tts()
 
 # if __name__ == "__main__":
 #     while True:
