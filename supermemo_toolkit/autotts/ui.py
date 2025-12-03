@@ -9,21 +9,25 @@ class WinGUI(Tk):
         self.tk_label_miik3tat = self.__tk_label_miik3tat(self)
         self.tk_button_miik3xn9 = self.__tk_button_miik3xn9(self)
         self.tk_button_miileno7 = self.__tk_button_miileno7(self)
+        self.tk_button_mipjikfh = self.__tk_button_mipjikfh(self)
+        self.tk_button_mipjkbla = self.__tk_button_mipjkbla(self)
 
     def __win(self):
         self.title("AutoTTS")
         # 设置窗口大小、居中
-        width = 100
-        height = 95
-        # screenwidth = self.winfo_screenwidth()
-        screenheight = self.winfo_screenheight()
-        geometry = "%dx%d+%d+%d" % (width, height, 0, (screenheight - (height + 100)))
+        width = 450
+        height = 30
+        screenwidth = self.winfo_screenwidth()
+        # screenheight = self.winfo_screenheight()
+        geometry = "%dx%d+%d+%d" % (width, height, (screenwidth - width) / 2, 5)
 
         self.geometry(geometry)
 
         self.minsize(width=width, height=height)
-        self.attributes("-toolwindow", True)
+        self.overrideredirect(True)
+        # self.attributes("-toolwindow", True)
         self.attributes("-topmost", True)
+        self.attributes("-alpha", 0.6)
         self.resizable(False, False)
 
     def scrollbar_autohide(self, vbar, hbar, widget):
@@ -76,28 +80,46 @@ class WinGUI(Tk):
     def __tk_label_miik3tat(self, parent):
         label = Label(
             parent,
-            text="标签",
+            text="状态",
             anchor="center",
         )
-        label.place(relx=0.0000, rely=0.0000, relwidth=1.0000, relheight=0.3158)
+        label.place(relx=0.2667, rely=0.0000, relwidth=0.7333, relheight=1.0345)
         return label
 
     def __tk_button_miik3xn9(self, parent):
         btn = Button(
             parent,
-            text="启动/暂停",
+            text="S/E",
             takefocus=False,
         )
-        btn.place(relx=0.0000, rely=0.3684, relwidth=1.0000, relheight=0.2632)
+        btn.place(relx=0.0000, rely=0.0000, relwidth=0.0667, relheight=1.0345)
         return btn
 
     def __tk_button_miileno7(self, parent):
         btn = Button(
             parent,
-            text="再来一遍",
+            text="A",
             takefocus=False,
         )
-        btn.place(relx=0.0000, rely=0.6842, relwidth=1.0000, relheight=0.2632)
+        btn.place(relx=0.0667, rely=0.0000, relwidth=0.0667, relheight=1.0345)
+        return btn
+
+    def __tk_button_mipjikfh(self, parent):
+        btn = Button(
+            parent,
+            text="T",
+            takefocus=False,
+        )
+        btn.place(relx=0.1333, rely=0.0000, relwidth=0.0667, relheight=1.0345)
+        return btn
+
+    def __tk_button_mipjkbla(self, parent):
+        btn = Button(
+            parent,
+            text="X",
+            takefocus=False,
+        )
+        btn.place(relx=0.2000, rely=0.0000, relwidth=0.0667, relheight=1.0345)
         return btn
 
 
@@ -110,14 +132,43 @@ class Win(WinGUI):
         self.ctl.init(self)
 
     def __event_bind(self):
-        # TODO))
-        # self.tk_button_miik3xn9.bind("<Button-1>", self.ctl.onButtonClick)
+        self.tk_button_miik3xn9.bind("<Button-1>", self.ctl.onSEClick)
+        self.tk_button_miileno7.bind("<Button-1>", self.ctl.onAClick)
+        self.tk_button_mipjikfh.bind("<Button-1>", self.ctl.onTClick)
+        self.tk_button_mipjkbla.bind("<Button-1>", self.ctl.onXClick)
         pass
 
     def __style_config(self):
         pass
 
 
+class Controller:
+    # 导入UI类后，替换以下的 object 类型，将获得 IDE 属性提示功能
+    ui: WinGUI
+
+    def __init__(self):
+        pass
+
+    def init(self, ui):
+        """
+        得到UI实例，对组件进行初始化配置
+        """
+        self.ui = ui
+        # TODO 组件初始化 赋值操作
+
+    def onSEClick(self, evt):
+        print("<Button-1>事件未处理:", evt)
+
+    def onAClick(self, evt):
+        print("<Button-1>事件未处理:", evt)
+
+    def onTClick(self, evt):
+        print("<Button-1>事件未处理:", evt)
+
+    def onXClick(self, evt):
+        print("<Button-1>事件未处理:", evt)
+
+
 if __name__ == "__main__":
-    win = WinGUI()
-    win.mainloop()
+    app = Win(Controller())
+    app.mainloop()
