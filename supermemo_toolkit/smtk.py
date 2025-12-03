@@ -6,6 +6,7 @@ from supermemo_toolkit.autotts.autotts import run_auto_tts
 from supermemo_toolkit.epub2sm import epub_convert
 from supermemo_toolkit.latex2img import formula_to_png
 from supermemo_toolkit.pathpix import im_sort_out
+from supermemo_toolkit.pathpix.gui import run_pathpix_ui
 from supermemo_toolkit.sa_sync.sm2anki import qa_to_anki
 from supermemo_toolkit.title_complete import tcomp as title_complete
 from supermemo_toolkit.utilscripts import config as smtk_config
@@ -58,6 +59,11 @@ def set(key: str, value: str):
         curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
         click.echo(curr_conf_dict)
     elif key == "systems":
+        curr_conf_dict[key] = value
+        smtk_config.update_config(smtk_config_file_path, curr_conf_dict)
+        curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
+        click.echo(curr_conf_dict)
+    elif key == "single":
         curr_conf_dict[key] = value
         smtk_config.update_config(smtk_config_file_path, curr_conf_dict)
         curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
@@ -148,9 +154,7 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
     elif fullpath:
         im_sort_out.single_file(fullpath)
     elif gui:
-        from supermemo_toolkit.pathpix import gui as im_sort_out_gui
-
-        im_sort_out_gui.run()
+        run_pathpix_ui()
     else:
         # 如果没有提供任何选项，打印帮助信息
         with click.Context(pathpix) as ctx:
