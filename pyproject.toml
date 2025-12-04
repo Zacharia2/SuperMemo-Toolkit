@@ -31,7 +31,6 @@ dependencies = [
     "pywinauto>=0.6.9",
     "edge-tts>=7.2.3",
     "pyperclip>=1.11.0",
-    "html2text>=2025.4.15",
     "sounddevice>=0.5.3",
     "miniaudio>=1.61",
     "numpy>=2.2.6",

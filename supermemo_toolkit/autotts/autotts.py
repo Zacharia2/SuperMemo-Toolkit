@@ -1,5 +1,5 @@
 import time
-import html2text
+from bs4 import BeautifulSoup
 import pyperclip
 import win32gui
 import logging
@@ -30,11 +30,6 @@ class AutoTTS:
             exit()
 
         self.switcher = AudioSwitcher()
-        self.text_maker = html2text.HTML2Text()
-        self.text_maker.ignore_links = True
-        self.text_maker.bypass_tables = False
-        self.text_maker.ignore_images = True
-        self.text_maker.ignore_emphasis = True
         self.hisWindowText = ""
         self.targetClassName = [
             "TMsgDialog",
@@ -83,9 +78,8 @@ class AutoTTS:
             htmFile = nodeListOfOne[0]["Component#1"]["HTMFile"]
             with open(htmFile, mode="r", encoding="utf-8") as f:
                 htm = f.read()
-            parsedText = self.text_maker.handle(htm).translate(
-                str.maketrans("#*-", "   ")
-            )
+            soup = BeautifulSoup(htm, "html.parser")
+            parsedText = soup.body.get_text(separator="\n", strip=True)
             return (parsedText, True)
         else:
             return ("", False)
