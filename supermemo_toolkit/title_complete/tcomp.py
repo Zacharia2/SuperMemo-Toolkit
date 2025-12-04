@@ -24,21 +24,23 @@ def parseNodeAsText(nodeText: str):
             elif Tag == "ElementInfo":
                 element_map[Tag] = {}
             elif Tag == "Component":
-                element_map[Tag] = {}
-                element_map[Tag]["ID"] = Id
+                element_map[Tag + Id] = {}
+                element_map[Tag + Id]["ID"] = Id
             elif Tag == "RepHist":
                 element_map[Tag] = []
         # 结束行
+        # 构建层级结构
         elif line.startswith("End"):
             Sign, Tag, Id = (x.strip() for x in line.split(" "))
             stackTag = state_stack.pop()
             if stackTag == "BeginElement":
+                # 将最终结果放到列表中
                 elements.append(element_map[Tag])
                 element_map = {}
             elif stackTag == "BeginElementInfo":
                 element_map["Element"]["ElementInfo"] = element_map[Tag]
             elif stackTag == "BeginComponent":
-                element_map["Element"]["Component"] = element_map[Tag]
+                element_map["Element"]["Component" + Id] = element_map[Tag + Id]
             elif stackTag == "BeginRepHist":
                 element_map["Element"]["RepHist"] = element_map[Tag]
         # 属性行
@@ -55,7 +57,7 @@ def parseNodeAsText(nodeText: str):
                 element_map["ElementInfo"][key] = value
             elif state_stack[-1] == "BeginComponent":
                 key, value = line.strip().split("=", 1)
-                element_map["Component"][key] = value
+                element_map["Component" + Id][key] = value
             elif state_stack[-1] == "BeginRepHist":
                 element_map["RepHist"].append(line.strip())
     return elements
@@ -69,14 +71,14 @@ def stringifyNode(elements):
 
         for key, value in element.items():
             if isinstance(value, dict):
-                if key == "Component":
+                if key == "Component" + value.get("ID"):
                     result.append(f"  Begin {key} {value.get('ID')}")
                 else:
                     result.append(f"  Begin {key} {ID}")
                 for s_key, s_value in value.items():
                     if s_key != "ID":
                         result.append(f"    {s_key}={s_value}")
-                if key == "Component":
+                if key == "Component" + value.get("ID"):
                     result.append(f"  End {key} {value.get('ID')}")
                 else:
                     result.append(f"  End {key} {ID}")
