@@ -3,15 +3,14 @@ import html2text
 import pyperclip
 import win32gui
 import logging
-from os import path
-from pywinauto.application import Application
-from pywinauto.findwindows import ElementNotFoundError
-from supermemo_toolkit.autotts.switcher import AudioSwitcher
-from supermemo_toolkit.autotts.ui import Win
-from supermemo_toolkit.title_complete.tcomp import parseNodeAsText
-from supermemo_toolkit.utilscripts.config import get_config_dir
 import warnings
 from tkinter import messagebox
+from pywinauto.application import Application
+from pywinauto.findwindows import ElementNotFoundError
+from pywinauto.base_wrapper import ElementNotEnabled
+from supermemo_toolkit.autotts.switcher import AudioSwitcher
+from supermemo_toolkit.autotts.ui import WinGUI
+from supermemo_toolkit.title_complete.tcomp import parseNodeAsText
 
 
 class AutoTTS:
@@ -36,7 +35,6 @@ class AutoTTS:
         self.text_maker.bypass_tables = False
         self.text_maker.ignore_images = True
         self.text_maker.ignore_emphasis = True
-        self.audio_tts = path.join(get_config_dir(), "audio_tts.mp3")
         self.hisWindowText = ""
         self.targetClassName = [
             "TMsgDialog",
@@ -51,55 +49,83 @@ class AutoTTS:
         self.window = None
         self.stop_run_main_loop = True  # 软件启动后手动启动监听
 
-    def set_autotts_window(self, window: Win):
+    def set_autotts_window(self, window: WinGUI):
         self.window = window
 
-    # 切换页面就触发获取文本。
-    # 让pywinauto自己获取焦点是不可用的。
-    def get_content(self):
-        # 不能是编辑状态下 alt+10,o,e
+    def get_text_by_parseNodeText(self) -> tuple[str, bool]:
+        """方案一，解析nodeText"""
         TElWind = self.app.window(class_name="TElWind")
-
-        # =========
         TElWind.type_keys("%{F12}mp^c")  # alt+f12, m, p, ctrl+c
+        # TODO 有时mp会写到笔记里面
         time.sleep(0.3)
-        text = pyperclip.paste()
-        if len(text) < 5:
-            TElWind.type_keys("%{F12}b^c")  # alt+f12, b, ctrl+c
-            time.sleep(0.3)
-            text = pyperclip.paste()
-        time.sleep(0.3)
-        pyperclip.copy("")
-        # 解析nodeText
-        node = parseNodeAsText(text)
-        if (
-            len(node) != 0
-            and "Component" in node[0]
-            and "HTMFile" in node[0]["Component"]
-        ):
-            # 解析html并转换为plainText。
-            htmFile = node[0]["Component"]["HTMFile"]
-            with open(htmFile, mode="r", encoding="utf-8") as f:
-                htm = f.read()
-            text = self.text_maker.handle(htm).translate(str.maketrans("#*-", "   "))
-
-        # =========
-        else:
-            TElWind.type_keys("%{F12}co")  # alt+f12, c, o
-            time.sleep(0.3)
-            text = pyperclip.paste()
+        nodeText = pyperclip.paste()
+        if len(nodeText) < 5:
             time.sleep(0.3)
             pyperclip.copy("")
-            if "-" * 15 in text:
-                lines_text = []
-                for index, line in enumerate(text.splitlines()):
-                    if line.startswith("-" * 15):
-                        lines_text = text.splitlines()[:index]
-                        break
-                text = "\n".join(lines_text)
-            if len(text) < 5:
-                text = ""
+            TElWind.type_keys("%{F12}b^c")  # alt+f12, b, ctrl+c
+            time.sleep(0.3)
+            nodeText = pyperclip.paste()
+        time.sleep(0.3)
+        pyperclip.copy("")
+        return self.getParsedNodeText(nodeText)
+
+    def getParsedNodeText(self, nodeText: str):
+        """对快捷键序列ctrl+c获得的文本进行解析"""
+        # 解析nodeText
+        # Topic和Learn卡片的第一个组件#1（Q）默认不读答案
+        nodeListOfOne = parseNodeAsText(nodeText)
+        if (
+            len(nodeListOfOne) == 1
+            and "Component#1" in nodeListOfOne[0]
+            and "HTMFile" in nodeListOfOne[0]["Component#1"]
+        ):
+            # 解析html并转换为plainText。
+            htmFile = nodeListOfOne[0]["Component#1"]["HTMFile"]
+            with open(htmFile, mode="r", encoding="utf-8") as f:
+                htm = f.read()
+            parsedText = self.text_maker.handle(htm).translate(
+                str.maketrans("#*-", "   ")
+            )
+            return (parsedText, True)
+        else:
+            return ("", False)
+
+    def get_text_by_copyPlainText(self) -> str:
+        """方案二，直接取文本内容"""
+        # 此方案执行快捷键序列只会获取第一个组件的内容，对于Learn只会获取Q。
+        # 如果鼠标选中执行将复制获取焦点的组件内容
+        TElWind = self.app.window(class_name="TElWind")
+        TElWind.type_keys("%{F12}co")  # alt+f12, c, o
+        time.sleep(0.3)
+        text = pyperclip.paste()
+        time.sleep(0.3)
+        pyperclip.copy("")
+        return self.getPrasedPlainText(text)
+
+    def getPrasedPlainText(self, text: str):
+        """对快捷键序列alt+f12, c, o获得的文本进行解析"""
+        if "-" * 15 in text:
+            lines_text = []
+            for index, line in enumerate(text.splitlines()):
+                if line.startswith("-" * 15):
+                    lines_text = text.splitlines()[:index]
+                    break
+            text = "\n".join(lines_text)
+        if len(text) < 5:
+            text = ""
         return text
+
+    def get_content(self):
+        """切换页面就触发获取文本。"""
+        # 让pywinauto自己获取焦点是不可用的。
+        # 不能是编辑状态下
+        # alt+10,o,e
+        text, ok = self.get_text_by_parseNodeText()
+        if ok:
+            return text
+        else:
+            text = self.get_text_by_copyPlainText()
+            return text
 
     def focusInArea(self) -> bool:
         focus_hwnd = win32gui.WindowFromPoint(win32gui.GetCursorPos())
@@ -136,7 +162,14 @@ class AutoTTS:
         foregroundWindowText = win32gui.GetWindowText(win32gui.GetForegroundWindow())
         if self.hisWindowText != foregroundWindowText:
             print(f"[Main] 窗口标题: {foregroundWindowText}")
-            text = self.get_content()
+            try:
+                text = self.get_content()
+            except ElementNotEnabled as _:
+                print(
+                    "[ElementNotEnabled] 未获取supermemo主元素内容窗口焦点，请点击窗口后再切换元素"
+                )
+                self.window.after(500, self.run_main_loop)
+                return
             print(f"[Main] len={len(text)}, {text[:10].strip()}")
             self.window.update_lable_text(
                 f"[Main] len={len(text)}, {text[:10].strip()}"
@@ -153,7 +186,7 @@ class AutoTTS:
 
 class Controller:
     # 导入UI类后，替换以下的 object 类型，将获得 IDE 属性提示功能
-    ui: Win
+    ui: WinGUI
 
     def __init__(self):
         self.auto_tts: AutoTTS = None
@@ -192,15 +225,7 @@ class Controller:
         text = pyperclip.paste()
         time.sleep(0.3)
         pyperclip.copy("")
-        if "-" * 15 in text:
-            lines_text = []
-            for index, line in enumerate(text.splitlines()):
-                if line.startswith("-" * 15):
-                    lines_text = text.splitlines()[:index]
-                    break
-            text = "\n".join(lines_text)
-        if len(text) < 5:
-            text = ""
+        text = self.auto_tts.getPrasedPlainText(text)
         print(f"[Main]T len={len(text)}, {text[:10].strip()}")
         self.auto_tts.window.update_lable_text(
             f"[Main]T len={len(text)}, {text[:10].strip()}"
@@ -215,6 +240,79 @@ class Controller:
 
     def set_autotts(self, autotts: AutoTTS):
         self.auto_tts = autotts
+
+    def playPrasedPlainText(self):
+        text = pyperclip.paste()
+        time.sleep(0.3)
+        pyperclip.copy("")
+        text = self.auto_tts.getPrasedPlainText(text)
+        print(f"[Main]T len={len(text)}, {text[:10].strip()}")
+        self.auto_tts.window.update_lable_text(
+            f"[Main]T len={len(text)}, {text[:10].strip()}"
+        )
+        if text != "":
+            self.auto_tts.switcher.stop()
+            self.auto_tts.switcher.play(text)
+            self.auto_tts.window.update_text(text)
+
+    def playParsedNodeText(self):
+        text = pyperclip.paste()
+        time.sleep(0.3)
+        pyperclip.copy("")
+        text, ok = self.auto_tts.getParsedNodeText(text)
+        print(f"[Main]T len={len(text)}, {text[:10].strip()}")
+        self.auto_tts.window.update_lable_text(
+            f"[Main]T len={len(text)}, {text[:10].strip()}"
+        )
+        if ok:
+            self.auto_tts.switcher.stop()
+            self.auto_tts.switcher.play(text)
+            self.auto_tts.window.update_text(text)
+
+
+class Win(WinGUI):
+    ctl: Controller
+
+    def __init__(self, controller):
+        self.ctl = controller
+        super().__init__()
+        self.__event_bind()
+        self.__style_config()
+        self.ctl.init(self)
+        self.last_text = ""
+
+    def __event_bind(self):
+        self.tk_button_miik3xn9.bind("<Button-1>", self.ctl.onEClick)
+        self.tk_button_miik3xn9.bind("<Button-3>", self.ctl.onERightClick)
+        self.tk_button_miileno7.bind("<Button-1>", self.ctl.onAClick)
+        self.tk_button_mipjikfh.bind("<Button-1>", self.ctl.onTClick)
+        self.menu.add_command(
+            label="重启监听",
+            command=lambda: self.after(500, self.ctl.run_auto_tts_loop),
+        )
+        self.menu.add_command(
+            label="alt+f12+co后播放Plain", command=self.ctl.playPrasedPlainText
+        )
+        self.menu.add_command(
+            label="ctrl+c复制后播放Node", command=self.ctl.playParsedNodeText
+        )
+        self.menu.add_command(label="退出程序", command=self.quit)
+
+    def quit(self):
+        """退出程序"""
+        print("[Replay] 正在退出程序...")
+        exit()
+
+    def __style_config(self):
+        pass
+
+    def update_text(self, text):
+        """更新要重播的文本内容"""
+        self.last_text = text
+
+    def update_lable_text(self, mtext):
+        """更新要重播的文本内容"""
+        super().update_lable_text(mtext)
 
 
 def run_auto_tts():

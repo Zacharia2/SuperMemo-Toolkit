@@ -3,24 +3,50 @@ import json
 import os
 
 
+PROGRAM, SYSTEMS, SINGLE, VOICE, RATE, VOLUME = (
+    "program",
+    "systems",
+    "single",
+    "voice",
+    "rate",
+    "volume",
+)
+
+
 def get_config_dir():
     user_home_dir = os.path.expanduser("~")
     config_dir = os.path.join(user_home_dir, ".config", "supermemo_toolkit")
     return config_dir
 
 
-def read_config(conf_path):
-    """ "读取配置"""
+def get_config():
+    """返回smtk config，如果没有就创建空配置文件"""
+    curr_conf_dict = dict()
+    smtk_config_file_path = os.path.join(get_config_dir(), "conf.json")
+    init_conf_dict = {PROGRAM: "null"}
+    if not os.path.exists(get_config_dir()):
+        os.makedirs(get_config_dir())
+        # 创建空配置文件
+        dump_config(smtk_config_file_path, init_conf_dict)
+    elif not os.path.exists(smtk_config_file_path):
+        # 创建空配置文件
+        dump_config(smtk_config_file_path, init_conf_dict)
+    else:
+        curr_conf_dict = read_config(smtk_config_file_path)
+    return curr_conf_dict
+
+
+def read_config(conf_path: str) -> dict:
+    """读取全部配置返回Dict"""
     with open(conf_path) as json_file:
         config = json.load(json_file)
     return config
 
 
-def update_config(conf_path, config):
-    """ "更新配置"""
+def dump_config(conf_path: str, config: dict):
+    """更新全部配置序列化Dict"""
     with open(conf_path, "w") as json_file:
         json.dump(config, json_file, indent=4)
-    return None
 
 
 def read_sm_system1(sm_location):
@@ -81,24 +107,24 @@ def get_collections_primaryStorage_ui(sm_location):
 
 
 # 获取config.ini文件路径
-def get_path():
-    current_path = os.path.abspath(__file__)
-    return os.path.join(
-        os.path.abspath(os.path.dirname(current_path) + os.path.sep), "config.ini"
-    )
+# def get_path():
+#     current_path = os.path.abspath(__file__)
+#     return os.path.join(
+#         os.path.abspath(os.path.dirname(current_path) + os.path.sep), "config.ini"
+#     )
 
 
 # 定义读取配置文件的函数，分别读取section中的配置参数
 
 
-def get_config(config_file=get_path()):
-    parser = configparser.ConfigParser()
-    parser.read(config_file)
-    # 获取整型参数，按照key-value的形式保存
-    _conf_ints = [(key, int(value)) for key, value in parser.items("ints")]
+# def get_config(config_file=get_path()):
+#     parser = configparser.ConfigParser()
+#     parser.read(config_file)
+#     # 获取整型参数，按照key-value的形式保存
+#     _conf_ints = [(key, int(value)) for key, value in parser.items("ints")]
 
-    # 获取字符型参数，按照key-value的形式保存
-    _conf_strings = [(key, str(value)) for key, value in parser.items("strings")]
+#     # 获取字符型参数，按照key-value的形式保存
+#     _conf_strings = [(key, str(value)) for key, value in parser.items("strings")]
 
-    # 返回一个字典对象，包含读取的参数
-    return dict(_conf_ints + _conf_strings)
+#     # 返回一个字典对象，包含读取的参数
+#     return dict(_conf_ints + _conf_strings)

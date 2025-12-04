@@ -11,21 +11,9 @@ from supermemo_toolkit.sa_sync.sm2anki import qa_to_anki
 from supermemo_toolkit.title_complete import tcomp as title_complete
 from supermemo_toolkit.utilscripts import config as smtk_config
 
-# 初始化操作
-smtk_config_dir_path = smtk_config.get_config_dir()
-smtk_config_file_path = os.path.join(smtk_config_dir_path, "conf.json")
-curr_conf_dict = dict()
-init_conf_dict = {"program": "null"}
-if not os.path.exists(smtk_config_dir_path):
-    os.makedirs(smtk_config_dir_path)
-    # 创建空配置文件
-    smtk_config.update_config(smtk_config_file_path, init_conf_dict)
-elif not os.path.exists(smtk_config_file_path):
-    # 创建空配置文件
-    smtk_config.update_config(smtk_config_file_path, init_conf_dict)
-else:
-    curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
-sm_location: str = curr_conf_dict.get("program")
+
+sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM)
+smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
 
 
 @click.group()
@@ -51,29 +39,38 @@ main.add_command(config)
 @click.argument("key")
 @click.argument("value")
 def set(key: str, value: str):
-    """Set configuration key and value."""
-    global curr_conf_dict
-    if key == "program":
-        curr_conf_dict[key] = value
-        smtk_config.update_config(smtk_config_file_path, curr_conf_dict)
-        curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
-        click.echo(curr_conf_dict)
-    elif key == "systems":
-        curr_conf_dict[key] = value
-        smtk_config.update_config(smtk_config_file_path, curr_conf_dict)
-        curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
-        click.echo(curr_conf_dict)
-    elif key == "single":
-        curr_conf_dict[key] = value
-        smtk_config.update_config(smtk_config_file_path, curr_conf_dict)
-        curr_conf_dict = smtk_config.read_config(smtk_config_file_path)
-        click.echo(curr_conf_dict)
+    """设置配置文件，例如：Key Value"""
+    conf_dict = smtk_config.read_config(smtk_config_file_path)
+    conf_list = [
+        smtk_config.PROGRAM,
+        smtk_config.SYSTEMS,
+        smtk_config.SINGLE,
+        smtk_config.VOICE,
+        smtk_config.RATE,
+        smtk_config.VOLUME,
+    ]
+    for name in conf_list:
+        if key == name:
+            conf_dict[key] = value
+            smtk_config.dump_config(smtk_config_file_path, conf_dict)
+            click.echo(conf_dict)
+
+
+@config.command()
+@click.argument("key")
+def unset(key: str):
+    """取消某个配置"""
+    conf_dict = smtk_config.read_config(smtk_config_file_path)
+    del conf_dict[key]
+    smtk_config.dump_config(smtk_config_file_path, conf_dict)
 
 
 @config.command()
 def list():
     """列出当前所有配置"""
-    click.echo(smtk_config.read_config(smtk_config_file_path))
+    conf_dict = smtk_config.read_config(smtk_config_file_path)
+    for key, value in conf_dict.items():
+        click.echo(f"{key}\t:\t{value}")
 
 
 @main.command()

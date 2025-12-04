@@ -728,7 +728,7 @@ def start(elements_folder):
     for htm_path in report_list:
         del gen_dict_filter[htm_path]
     # 保存生成字典
-    config.update_config(conf_old_dict_filter_path, gen_dict_filter)
+    config.dump_config(conf_old_dict_filter_path, gen_dict_filter)
 
 
 # 区分文件和文件夹路径。文件就使用path，文件夹就使用folder
