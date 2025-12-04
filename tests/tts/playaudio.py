@@ -117,11 +117,10 @@ class AudioSwitcher:
 
 # Example usage:
 # 需要主线程保持活动状态。
-switcher = AudioSwitcher()
+# switcher = AudioSwitcher()
 # switcher.play(audio_tts)
 # switcher.play("C:/Users/Snowy/Downloads/sample-6s.wav")
 # time.sleep(switcher.time_left)
 # switcher.play("C:/Users/Snowy/Downloads/WAV 音频示例文件.wav")
 # time.sleep(switcher.time_left)
 # switcher.stop()
-

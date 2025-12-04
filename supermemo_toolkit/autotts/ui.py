@@ -47,18 +47,12 @@ class WinGUI(Tk):
         self.bind("<B1-Motion>", on_drag_motion)
         # 右键菜单
         self.menu = Menu(self, tearoff=0, bg="white", fg="black")
-        self.menu.add_command(label="退出程序", command=self.quit)
         self.bind("<Button-3>", self.show_menu)
 
     def show_menu(self, event):
         """显示右键菜单"""
         if event.widget is not self.tk_button_miik3xn9:
             self.menu.post(event.x_root, event.y_root)
-
-    def quit(self):
-        """退出程序"""
-        print("[Replay] 正在退出程序...")
-        exit()
 
     def scrollbar_autohide(self, vbar, hbar, widget):
         """自动隐藏滚动条"""
@@ -145,31 +139,3 @@ class WinGUI(Tk):
 
     def update_lable_text(self, mtext):
         self.tk_label_miik3tat.config(text=mtext)
-
-
-class Win(WinGUI):
-    def __init__(self, controller):
-        self.ctl = controller
-        super().__init__()
-        self.__event_bind()
-        self.__style_config()
-        self.ctl.init(self)
-        self.last_text = ""
-
-    def __event_bind(self):
-        self.tk_button_miik3xn9.bind("<Button-1>", self.ctl.onEClick)
-        self.tk_button_miik3xn9.bind("<Button-3>", self.ctl.onERightClick)
-        self.tk_button_miileno7.bind("<Button-1>", self.ctl.onAClick)
-        self.tk_button_mipjikfh.bind("<Button-1>", self.ctl.onTClick)
-        pass
-
-    def __style_config(self):
-        pass
-
-    def update_text(self, text):
-        """更新要重播的文本内容"""
-        self.last_text = text
-
-    def update_lable_text(self, mtext):
-        """更新要重播的文本内容"""
-        super().update_lable_text(mtext)

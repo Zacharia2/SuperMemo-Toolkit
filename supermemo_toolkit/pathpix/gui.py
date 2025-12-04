@@ -240,7 +240,7 @@ class PathPixUI(Tk):
     def save_entries_on_exit(self):
         try:
             conf_json = {"program": self.entry1.get(), "single": self.single.get()}
-            config.update_config(self.conf_path, conf_json)
+            config.dump_config(self.conf_path, conf_json)
         except Exception as e:
             print("保存时出现错误:", str(e))
             # 在这里加入一行代码，手动关闭主窗口

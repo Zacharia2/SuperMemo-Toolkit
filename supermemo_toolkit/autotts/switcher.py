@@ -6,6 +6,8 @@ import sounddevice as sd
 import numpy as np
 import miniaudio
 
+from supermemo_toolkit.utilscripts.config import RATE, VOICE, VOLUME, get_config
+
 
 class AudioSwitcher:
     def __init__(self):
@@ -14,6 +16,24 @@ class AudioSwitcher:
         self.__stop_flag = threading.Event()
         self.__player_thread = None
         self.__producer_thread = None
+
+        # 声音配置
+        # 模型名称	                    性别	风格/特点	适用场景
+        # zh-CN-YunxiNeural	            男	    自然、沉稳	有声书、男性旁白
+        # zh-CN-XiaoxiaoNeural	        女	    自然、标准	通用、日常对话
+        # zh-CN-XiaoyiNeural	        女	    温柔、亲和	智能助手、教育
+        # zh-CN-YunjianNeural	        男	    播报、解说	新闻、纪录片
+        # zh-CN-YunxiaNeural	        男	    少年、活力	青少年内容、活泼场景
+        # zh-CN-YunyangNeural	        男	    新闻播报	新闻、正式场合
+        # zh-CN-XiaoxuanNeural	        女	    成熟、稳重	成熟女性旁白、纪录片
+        # en-US-AndrewMultilingualNeural
+        # en-US-AriaMultilingualNeural
+        config_voice = get_config().get(VOICE)
+        config_rate = get_config().get(RATE)
+        config_volume = get_config().get(VOLUME)
+        self.__voice = config_voice or "zh-CN-YunxiNeural"
+        self.__rate = config_rate or "+0%"
+        self.__volume = config_volume or "+0%"
 
         # 缓冲配置
         self.__block_size = 1024
@@ -26,8 +46,10 @@ class AudioSwitcher:
         self.__audio_channels = None
         self.__audio_queue = None
 
-    def _stream_decoded_sentences_with_rate(self, text, voice):
-        communicate = edge_tts.Communicate(text, voice)
+    def _stream_decoded_sentences_with_rate(self, text):
+        communicate = edge_tts.Communicate(
+            text=text, voice=self.__voice, volume=self.__volume, rate=self.__rate
+        )
         sentence_buffer = bytearray()
 
         for chunk in communicate.stream_sync():
@@ -54,8 +76,7 @@ class AudioSwitcher:
     def __producer(self, text):
         """生产者线程：解码TTS流并分块"""
         try:
-            voice = "zh-CN-XiaoxiaoNeural"
-            for audio_sentence in self._stream_decoded_sentences_with_rate(text, voice):
+            for audio_sentence in self._stream_decoded_sentences_with_rate(text):
                 samples, sample_rate, nchannels = audio_sentence
 
                 if self.__stop_flag.is_set():
