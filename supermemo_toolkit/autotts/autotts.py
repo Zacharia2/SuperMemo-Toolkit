@@ -79,7 +79,10 @@ class AutoTTS:
             with open(htmFile, mode="r", encoding="utf-8") as f:
                 htm = f.read()
             soup = BeautifulSoup(htm, "html.parser")
-            parsedText = soup.body.get_text(separator="\n", strip=True)
+            if soup.body:
+                parsedText = soup.body.get_text(separator="\n", strip=True)
+            else:
+                parsedText = soup.get_text(separator="\n", strip=True)
             return (parsedText, True)
         else:
             return ("", False)
