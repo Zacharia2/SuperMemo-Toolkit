@@ -19,7 +19,7 @@ smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
 @click.group()
 @click.version_option()
 def main():
-    """SuperMemo 增强工具(CLI命令行)。\n\n包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、卡片朗读等。"""
+    """SuperMemo 增强工具(CLI命令行)。\n\n包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS 卡片朗读等。"""
 
 
 @click.group()

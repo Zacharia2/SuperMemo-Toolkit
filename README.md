@@ -2,7 +2,7 @@
 
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/Zacharia2/SuperMemo-Toolkit/total)
 
-SuperMemo 增强工具(CLI 命令行)。包含图链整理、EPUB 图书转换导入、Latex 公式转图片、sm2anki、修补导出标题乱码、AutoTTS卡片朗读等。
+SuperMemo 增强工具(CLI 命令行)。包含图链整理、EPUB 图书转换导入、Latex 公式转图片、sm2anki、修补导出标题乱码、AutoTTS 卡片朗读等。
 
 ## 1. Install
 
@@ -164,7 +164,15 @@ AutoTTS 卡片朗读 文本转语音
 7. `A`是再一次的意思
 8. `T`是复制文本转语语音的意思，从最近一次剪贴板中读取文本然后播放
 9. 悬浮条可以拖动。
-10. 右键悬浮条任意位置弹出菜单，可以退出程序。
+10. 右键悬浮条任意位置**弹出菜单**
+    1. 重启监听
+    2. alt+f12+co 后播放 Plain
+    3. ctrl+c 复制后播放 Node 功能
+    4. 退出程序
+11. 配置自定义语音模型、语速、和音量
+    1. `smtk config set voice "your_select_model"`
+    2. `smtk config set rate "your_select_rate"`
+    3. `smtk config set volume "your_select_model"`
 
 ## 关于开发
 
