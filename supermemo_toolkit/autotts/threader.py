@@ -27,11 +27,10 @@ class ThreadController:
             try:
                 target_func(stop_event, *params)
             except Exception as e:
-                print(f"线程{thread_id}异常{e}")
-            finally:
+                print(f"[Thread] {thread_id}线程异常, {e}")
                 with self.lock:
                     if thread_id in self.threads:
-                        del self.threads[thread_id]
+                        self.threads[thread_id] = None
                         # print(f"[Thread] 线程{thread_id}已停止")
 
         thread = threading.Thread(target=wrapped_target, args=(params,))
@@ -46,26 +45,45 @@ class ThreadController:
             if thread_id not in self.threads:
                 print(f"[Thread] {thread_id}不在线程x信号表中")
                 return False
+            # threads[thread_id]空的话就说明异常退出了，只在这删除
+            elif self.threads[thread_id] is None:
+                del self.threads[thread_id]
+                return True
             thread, stop_event = self.threads[thread_id]
+        # thread_id存在表中且threads[thread_id]非空
         # 通知线程退出、等待线程退出
+        # 仅本函数把thread_id从线程x信号表中删除
         stop_event.set()
         thread.join()
+        with self.lock:
+            if thread_id in self.threads:
+                del self.threads[thread_id]
+                # print(f"[Thread] 线程{thread_id}已停止")
         return True
 
     def is_alive(self, thread_id: str):
         with self.lock:
             if thread_id not in self.threads:
-                print(f"[Thread] {thread_id}不在线程表中")
+                print(f"[Thread] {thread_id}不在线程x信号表中")
                 return False
+            # threads[thread_id]空的话就说明异常退出了
+            elif self.threads[thread_id] is None:
+                return False
+            # thread_id存在表中且threads[thread_id]非空
             thread, _ = self.threads[thread_id]
         return thread.is_alive()
 
     def join(self, thread_id: str):
+        # 这是个阻塞函数
         thread: threading.Thread
         with self.lock:
             if thread_id not in self.threads:
-                print(f"[Thread] {thread_id}不在线程表中")
+                print(f"[Thread] {thread_id}不在线程x信号表中")
                 return
+            # threads[thread_id]空的话就说明异常退出了
+            elif self.threads[thread_id] is None:
+                return
+            # thread_id存在表中且threads[thread_id]非空
             thread, _ = self.threads[thread_id]
         thread.join()
 
