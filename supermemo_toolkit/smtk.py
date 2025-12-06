@@ -1,6 +1,7 @@
 import os
 
 import click
+from tabulate import tabulate
 
 from supermemo_toolkit.autotts.autotts import run_auto_tts
 from supermemo_toolkit.epub2sm import epub_convert
@@ -53,7 +54,9 @@ def set(key: str, value: str):
         if key == name:
             conf_dict[key] = value
             smtk_config.dump_config(smtk_config_file_path, conf_dict)
-            click.echo(conf_dict)
+            headers = ["Key", "Value"]
+            table_data = [[key, value] for key, value in conf_dict.items()]
+            click.echo(tabulate(table_data, headers))
 
 
 @config.command()
@@ -66,11 +69,25 @@ def unset(key: str):
 
 
 @config.command()
-def list():
+@click.option("--model", is_flag=True, help="根据目录结构转换")
+def list(model):
     """列出当前所有配置"""
-    conf_dict = smtk_config.read_config(smtk_config_file_path)
-    for key, value in conf_dict.items():
-        click.echo(f"{key}\t:\t{value}")
+    if not model:
+        conf_dict = smtk_config.read_config(smtk_config_file_path)
+        for key, value in conf_dict.items():
+            click.echo(f"{key}\t:\t{value}")
+    else:
+        headers = ["模型名称", "性别", "风格/特点", "适用场景"]
+        table_data = [
+            [
+                voice_model["模型名称"],
+                voice_model["性别"],
+                voice_model["风格/特点"],
+                voice_model["适用场景"],
+            ]
+            for voice_model in smtk_config.VOICE_MODEL_LIST
+        ]
+        click.echo(tabulate(table_data, headers))
 
 
 @main.command()

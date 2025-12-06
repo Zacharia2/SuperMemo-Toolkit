@@ -15,12 +15,17 @@ class WinGUI(Tk):
         self.title("AutoTTS")
         # 设置窗口大小、居中
         width = 450
-        height = 30
+        height = 35
         screenwidth = self.winfo_screenwidth()
         # screenheight = self.winfo_screenheight()
-        geometry = "%dx%d+%d+%d" % (width, height, (screenwidth - width) / 2, 5)
+        self.geometry_size = "%dx%d+%d+%d" % (
+            width,
+            height,
+            (screenwidth - width) / 2,
+            8,
+        )
 
-        self.geometry(geometry)
+        self.geometry(self.geometry_size)
 
         self.minsize(width=width, height=height)
         self.overrideredirect(True)

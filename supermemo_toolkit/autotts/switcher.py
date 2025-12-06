@@ -6,6 +6,7 @@ import sounddevice as sd
 import numpy as np
 import miniaudio
 
+from supermemo_toolkit.autotts.threader import ThreadController
 from supermemo_toolkit.utilscripts.config import RATE, VOICE, VOLUME, get_config
 
 
@@ -13,25 +14,15 @@ class AudioSwitcher:
     def __init__(self):
         self.__current_stream = None
         self.__lock = threading.Lock()
-        self.__stop_flag = threading.Event()
-        self.__player_thread = None
-        self.__producer_thread = None
+        self.__thread_manager = ThreadController()
+        self.__player_id = None
+        self.__producer_id = None
 
         # 声音配置
-        # 模型名称	                    性别	风格/特点	适用场景
-        # zh-CN-YunxiNeural	            男	    自然、沉稳	有声书、男性旁白
-        # zh-CN-XiaoxiaoNeural	        女	    自然、标准	通用、日常对话
-        # zh-CN-XiaoyiNeural	        女	    温柔、亲和	智能助手、教育
-        # zh-CN-YunjianNeural	        男	    播报、解说	新闻、纪录片
-        # zh-CN-YunxiaNeural	        男	    少年、活力	青少年内容、活泼场景
-        # zh-CN-YunyangNeural	        男	    新闻播报	新闻、正式场合
-        # zh-CN-XiaoxuanNeural	        女	    成熟、稳重	成熟女性旁白、纪录片
-        # en-US-AndrewMultilingualNeural
-        # en-US-AriaMultilingualNeural
         config_voice = get_config().get(VOICE)
         config_rate = get_config().get(RATE)
         config_volume = get_config().get(VOLUME)
-        self.__voice = config_voice or "zh-CN-YunxiNeural"
+        self.__voice = config_voice or "zh-CN-XiaoxiaoMultilingualNeural"
         self.__rate = config_rate or "+0%"
         self.__volume = config_volume or "+0%"
 
@@ -73,14 +64,18 @@ class AudioSwitcher:
             samples = np.frombuffer(audio.samples, dtype=np.int16)
             yield (samples, audio.sample_rate, audio.nchannels)
 
-    def __producer(self, text):
+    def __producer(self, stop_event: threading.Event, *param):
         """生产者线程：解码TTS流并分块"""
         try:
-            for audio_sentence in self._stream_decoded_sentences_with_rate(text):
+            # 终止情况一：开始时就结束
+            if stop_event.is_set():
+                return
+            for audio_sentence in self._stream_decoded_sentences_with_rate(param[0]):
                 samples, sample_rate, nchannels = audio_sentence
 
-                if self.__stop_flag.is_set():
-                    break
+                # 终止情况二：执行过程中结束
+                if stop_event.is_set():
+                    return
 
                 # 首次设置采样率、声道数量、初始化音频队列
                 if not self.__audio_params.is_set():
@@ -104,7 +99,8 @@ class AudioSwitcher:
                     block = samples[:target_length]
                     samples = samples[target_length:]
                     # 阻塞式放入，确保不丢数据
-                    while not self.__stop_flag.is_set():
+                    # 终止情况三：执行过程到这的时候结束
+                    while not stop_event.is_set():
                         try:
                             self.__audio_queue.put(block, timeout=0.1)
                             break
@@ -112,10 +108,11 @@ class AudioSwitcher:
                             time.sleep(0.05)  # 队列满时短暂让步
 
                 # 处理剩余数据（最后一块）
+                # 终止情况四：执行过程到快结束时候结束
                 if (
                     len(samples) > 0
                     and len(samples) < target_length
-                    and not self.__stop_flag.is_set()
+                    and not stop_event.is_set()
                 ):
                     # 补齐 0 到完整块
                     padding = target_length - len(samples)
@@ -128,13 +125,13 @@ class AudioSwitcher:
             # 如果按下停止按钮就应该停止。
             print("[Producer] Finished")
 
-    def __play(self):
+    def __play(self, stop_event: threading.Event, *param):
         """播放线程"""
         # 等待参数就绪和缓冲创建
         # self.__audio_params设置后意味着__audio_queue已经准备好了。
         if not self.__audio_params.wait(timeout=self.__timeout):
             print("[Player] Timeout")
-            self.__stop_flag.set()
+            self.stop()
             return
 
         # 预缓冲：确保有足够数据再播放（关键！）
@@ -144,7 +141,7 @@ class AudioSwitcher:
         # 等待生产者生成足够预缓冲数据队列
         while (
             self.__audio_queue.qsize() < pre_blocks
-            and self.__producer_thread.is_alive()
+            and self.__thread_manager.is_alive(self.__producer_id)
         ):
             time.sleep(0.02)
 
@@ -156,7 +153,7 @@ class AudioSwitcher:
         def callback(outdata: np.ndarray, frames: int, time_info, status):
             # 这个对于暂停流程其实没有用，因为几乎是瞬间交替。
             # 他的作用主要是清理余音。
-            if self.__stop_flag.is_set():
+            if stop_event.is_set():
                 outdata.fill(0)
                 raise sd.CallbackStop
 
@@ -198,52 +195,44 @@ class AudioSwitcher:
 
         # 播放，with会自动打开关闭
         with self.__current_stream:
-            self.__producer_thread.join()  # 等待生产完毕
+            self.__thread_manager.join(self.__producer_id)  # 等待生产完毕
             # 继续播放直到缓冲区清空
-            while not self.__stop_flag.is_set():
+            while not stop_event.is_set():
                 if self.__audio_queue is not None:
                     time.sleep(0.05)
 
         self.__current_stream = None
         print("[Player] Finished")
 
+    def __clear_audio_queue(self):
+        if not self.__audio_queue.empty():
+            while True:
+                try:
+                    self.__audio_queue.get_nowait()
+                except queue.Empty:
+                    break
+
     def play(self, text):
         # 重置状态
         self.__audio_queue = None
-        self.__stop_flag.clear()
         self.__audio_params.clear()
 
         # 总之播放前要把两个线程先终止在播放
 
         # 启动生产者（唯一的数据消费点）
-        self.__producer_thread = threading.Thread(
-            target=self.__producer, args=(text,), daemon=True
-        )
-        self.__producer_thread.start()
+        self.__producer_id = self.__thread_manager.thread(self.__producer, text)
 
         # 启动消费者线程
-        self.__player_thread = threading.Thread(target=self.__play, daemon=True)
-        self.__player_thread.start()
+        self.__player_id = self.__thread_manager.thread(self.__play)
 
     def stop(self):
         """停止播放并等待线程完全结束"""
         with self.__lock:
             if self.__current_stream:
-                self.__stop_flag.set()
-
                 # 清空队列以解除生产者阻塞
-                if not self.__audio_queue.empty():
-                    while True:
-                        try:
-                            self.__audio_queue.get_nowait()
-                        except queue.Empty:
-                            break
-
-                # 等待线程结束（关键！）
-                if self.__producer_thread and self.__producer_thread.is_alive():
-                    self.__producer_thread.join()
-                if self.__player_thread and self.__player_thread.is_alive():
-                    self.__player_thread.join()
+                self.__clear_audio_queue()
+                self.__thread_manager.stop(self.__producer_id)
+                self.__thread_manager.stop(self.__player_id)
 
                 # 现在安全地清理资源
                 self.__audio_queue = None
@@ -265,6 +254,10 @@ if __name__ == "__main__":
             主人何为言少钱，径须沽取对君酌。
             五花马，千金裘，呼儿将出换美酒，与尔同销万古愁。"""
     # text = "床前明月光，疑是地上霜。举头望明月，低头思故乡。"
+    switcher = AudioSwitcher()
+    switcher.play(text)
+    time.sleep(3)
+    switcher.stop()
 
     # 方式一测试
     # print(f"Text: {text}")

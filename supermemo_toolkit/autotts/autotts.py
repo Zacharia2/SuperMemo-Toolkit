@@ -288,10 +288,13 @@ class Win(WinGUI):
             command=lambda: self.after(500, self.ctl.run_auto_tts_loop),
         )
         self.menu.add_command(
-            label="alt+f12+co后播放Plain", command=self.ctl.playPrasedPlainText
+            label="播放文本(解析alt+f12+co)", command=self.ctl.playPrasedPlainText
         )
         self.menu.add_command(
-            label="ctrl+c复制后播放Node", command=self.ctl.playParsedNodeText
+            label="播放结点(解析ctrl+c,nodeText)", command=self.ctl.playParsedNodeText
+        )
+        self.menu.add_command(
+            label="重置窗口位置", command=lambda: self.geometry(self.geometry_size)
         )
         self.menu.add_command(label="退出程序", command=self.quit)
 

@@ -12,6 +12,57 @@ PROGRAM, SYSTEMS, SINGLE, VOICE, RATE, VOLUME = (
     "volume",
 )
 
+VOICE_MODEL_LIST = [
+    {
+        "模型名称": "zh-CN-XiaoxiaoMultilingualNeural",
+        "性别": "女",
+        "风格/特点": "温暖、清晰",
+        "适用场景": "默认模型、多语言混合合成",
+    },
+    {
+        "模型名称": "zh-CN-YunxiNeural",
+        "性别": "男",
+        "风格/特点": "自然、沉稳",
+        "适用场景": "有声书、男性旁白",
+    },
+    {
+        "模型名称": "zh-CN-XiaoxiaoNeural",
+        "性别": "女",
+        "风格/特点": "自然、标准",
+        "适用场景": "通用、日常对话",
+    },
+    {
+        "模型名称": "zh-CN-XiaoyiNeural",
+        "性别": "女",
+        "风格/特点": "温柔、亲和",
+        "适用场景": "智能助手、教育",
+    },
+    {
+        "模型名称": "zh-CN-YunjianNeural",
+        "性别": "男",
+        "风格/特点": "播报、解说",
+        "适用场景": "新闻、纪录片",
+    },
+    {
+        "模型名称": "zh-CN-YunxiaNeural",
+        "性别": "男",
+        "风格/特点": "少年、活力",
+        "适用场景": "青少年内容、活泼场景",
+    },
+    {
+        "模型名称": "zh-CN-YunyangNeural",
+        "性别": "男",
+        "风格/特点": "新闻、播报",
+        "适用场景": "新闻、正式场合",
+    },
+    {
+        "模型名称": "zh-CN-XiaoxuanNeural",
+        "性别": "女",
+        "风格/特点": "成熟、稳重",
+        "适用场景": "成熟女性旁白、纪录片",
+    },
+]
+
 
 def get_config_dir():
     user_home_dir = os.path.expanduser("~")
