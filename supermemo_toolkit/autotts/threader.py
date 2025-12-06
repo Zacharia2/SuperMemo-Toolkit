@@ -1,6 +1,5 @@
 import random
 import threading
-import time
 from typing import Callable, Dict
 import uuid
 
@@ -33,7 +32,8 @@ class ThreadController:
                         self.threads[thread_id] = None
                         # print(f"[Thread] 线程{thread_id}已停止")
 
-        thread = threading.Thread(target=wrapped_target, args=(params,))
+        # 设置为守护进程：随主线程结束而强制终止，继承父线程的守护状态，通常不需要join()
+        thread = threading.Thread(target=wrapped_target, args=(params,), daemon=True)
         with self.lock:
             self.threads[thread_id] = (thread, stop_event)
 
@@ -54,7 +54,10 @@ class ThreadController:
         # 通知线程退出、等待线程退出
         # 仅本函数把thread_id从线程x信号表中删除
         stop_event.set()
-        thread.join()
+        # 每个线程都是不一样的，抛弃也没事。
+        # 只要信号到位，不继续产生东西清除，清除已经产生的东西就好
+        # 主线程不用等待，让这个线程他自己收到信号后自己慢慢停下手中的活就好了
+        # thread.join(timeout=1)
         with self.lock:
             if thread_id in self.threads:
                 del self.threads[thread_id]
@@ -88,26 +91,26 @@ class ThreadController:
         thread.join()
 
 
-if __name__ == "__main__":
-    # 使用示例
-    def worker1(stop_event: threading.Event, *param):
-        count = 0
-        while not stop_event.is_set():
-            print(f"{param[0]},param:{param[1]}: 工作次数 {count}")
-            count += 1
-            time.sleep(1)
+# if __name__ == "__main__":
+#     # 使用示例
+#     def worker1(stop_event: threading.Event, *param):
+#         count = 0
+#         while not stop_event.is_set():
+#             print(f"{param[0]},param:{param[1]}: 工作次数 {count}")
+#             count += 1
+#             time.sleep(1)
 
-    def worker2(stop_event: threading.Event, *param):
-        count = 0
-        while not stop_event.is_set():
-            print(f"worker2: 工作次数 {count}")
-            count += 1
-            time.sleep(1)
+#     def worker2(stop_event: threading.Event, *param):
+#         count = 0
+#         while not stop_event.is_set():
+#             print(f"worker2: 工作次数 {count}")
+#             count += 1
+#             time.sleep(1)
 
-    tc = ThreadController()
+#     tc = ThreadController()
 
-    # 创建多个线程
-    id1 = tc.thread(worker1, "worker1", 1)
-    id2 = tc.thread(worker2)
-    time.sleep(6)
-    tc.stop(id2)
+#     # 创建多个线程
+#     id1 = tc.thread(worker1, "worker1", 1)
+#     id2 = tc.thread(worker2)
+#     time.sleep(6)
+#     tc.stop(id2)
