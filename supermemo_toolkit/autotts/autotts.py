@@ -145,8 +145,8 @@ class AutoTTS:
 
     @staticmethod
     def format_title(text: str) -> str:
-        title = text[:10].translate(str.maketrans("\n\r", "  ")).strip()
-        return f"[Main] len={len(title)}, {title}"
+        title = text[:12].translate(str.maketrans("\n\r", "  ")).strip()
+        return f"[Main] len={len(text)}, {title}"
 
     def run_main_loop(self):
         # 停止监听守卫，默认停止监听
