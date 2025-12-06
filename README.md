@@ -166,13 +166,16 @@ AutoTTS 卡片朗读 文本转语音
 9. 悬浮条可以拖动。
 10. 右键悬浮条任意位置**弹出菜单**
     1. 重启监听
-    2. alt+f12+co 后播放 Plain
-    3. ctrl+c 复制后播放 Node 功能
-    4. 退出程序
+    2. 重置窗口位置
+    3. 播放文本(解析alt+f12+co)
+    4. 播放结点(解析ctrl+c,nodeText)
+    5. 退出程序
 11. 配置自定义语音模型、语速、和音量
-    1. `smtk config set voice "your_select_model"`
-    2. `smtk config set rate "your_select_rate"`
-    3. `smtk config set volume "your_select_model"`
+    1. 默认模型：zh-CN-XiaoxiaoMultilingualNeural
+    2. `smtk config list --model`
+    3. `smtk config set voice "your_select_model"`
+    4. `smtk config set rate "your_select_rate"`
+    5. `smtk config set volume "your_select_model"`
 
 ## 关于开发
 
