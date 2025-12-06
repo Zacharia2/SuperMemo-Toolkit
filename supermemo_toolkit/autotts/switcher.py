@@ -211,7 +211,6 @@ class AudioSwitcher:
 
         # 播放，with会自动打开关闭
         with self.__current_stream:
-            self.__thread_manager.join(self.__producer_id)  # 等待生产完毕
             # 继续播放直到缓冲区清空
             while not stop_event.is_set():
                 if self.__audio_queue is not None:

@@ -143,6 +143,11 @@ class AutoTTS:
             return False
         return True
 
+    @staticmethod
+    def format_title(text: str) -> str:
+        title = text[:10].translate(str.maketrans("\n\r", "  ")).strip()
+        return f"[Main] len={len(title)}, {title}"
+
     def run_main_loop(self):
         # 停止监听守卫，默认停止监听
         if self.stop_run_main_loop:
@@ -170,11 +175,9 @@ class AutoTTS:
                 )
                 self.window.after(500, self.run_main_loop)
                 return
-            print(f"[Main] len={len(text)}, {text[:10].strip()}")
-            self.window.update_lable_text(
-                f"[Main] len={len(text)}, {text[:10].strip()}"
-            )
             if text is not None and text != "":
+                print(self.format_title(text))
+                self.window.update_lable_text(self.format_title(text))
                 self.switcher.stop()
                 self.switcher.play(text)
                 # 保存到重播按钮
@@ -212,12 +215,10 @@ class Controller:
 
     def onAClick(self, evt):
         # 目前为止所有获取内容都不是主动获得焦点的，而是被动获取
-        text = self.ui.last_text
-        print(f"[Main] len={len(text)}, {text[:10].strip()}")
-        self.auto_tts.window.update_lable_text(
-            f"[Main] len={len(text)}, {text[:10].strip()}"
-        )
+        text: str = self.ui.last_text
         if text is not None and text != "":
+            print(self.auto_tts.format_title(text))
+            self.auto_tts.window.update_lable_text(self.auto_tts.format_title(text))
             self.auto_tts.switcher.stop()
             self.auto_tts.switcher.play(text)
 
@@ -226,11 +227,9 @@ class Controller:
         time.sleep(0.3)
         pyperclip.copy("")
         text = self.auto_tts.getPrasedPlainText(text)
-        print(f"[Main]T len={len(text)}, {text[:10].strip()}")
-        self.auto_tts.window.update_lable_text(
-            f"[Main]T len={len(text)}, {text[:10].strip()}"
-        )
         if text is not None and text != "":
+            print(self.auto_tts.format_title(text))
+            self.auto_tts.window.update_lable_text(self.auto_tts.format_title(text))
             self.auto_tts.switcher.stop()
             self.auto_tts.switcher.play(text)
             self.auto_tts.window.update_text(text)
@@ -246,11 +245,9 @@ class Controller:
         time.sleep(0.3)
         pyperclip.copy("")
         text = self.auto_tts.getPrasedPlainText(text)
-        print(f"[Main]T len={len(text)}, {text[:10].strip()}")
-        self.auto_tts.window.update_lable_text(
-            f"[Main]T len={len(text)}, {text[:10].strip()}"
-        )
         if text != "":
+            print(self.auto_tts.format_title(text))
+            self.auto_tts.window.update_lable_text(self.auto_tts.format_title(text))
             self.auto_tts.switcher.stop()
             self.auto_tts.switcher.play(text)
             self.auto_tts.window.update_text(text)
@@ -260,11 +257,9 @@ class Controller:
         time.sleep(0.3)
         pyperclip.copy("")
         text, ok = self.auto_tts.getParsedNodeText(text)
-        print(f"[Main]T len={len(text)}, {text[:10].strip()}")
-        self.auto_tts.window.update_lable_text(
-            f"[Main]T len={len(text)}, {text[:10].strip()}"
-        )
         if ok:
+            print(self.auto_tts.format_title(text))
+            self.auto_tts.window.update_lable_text(self.auto_tts.format_title(text))
             self.auto_tts.switcher.stop()
             self.auto_tts.switcher.play(text)
             self.auto_tts.window.update_text(text)
