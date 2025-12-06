@@ -171,11 +171,10 @@ AutoTTS 卡片朗读 文本转语音
     4. 播放结点(解析ctrl+c,nodeText)
     5. 退出程序
 11. 配置自定义语音模型、语速、和音量
-    1. 默认模型：zh-CN-XiaoxiaoMultilingualNeural
-    2. `smtk config list --model`
-    3. `smtk config set voice "your_select_model"`
-    4. `smtk config set rate "your_select_rate"`
-    5. `smtk config set volume "your_select_model"`
+    1. `smtk config list --model`，列出推荐的中文模型，也可搜索edge tts模型
+    2. `smtk config set voice "model"`，默认模型：zh-CN-XiaoxiaoMultilingualNeural
+    3. `smtk config set rate "rate"`，默认rate：+0%
+    4. `smtk config set volume "volume"`，默认volume：+0%
 
 ## 关于开发
 
