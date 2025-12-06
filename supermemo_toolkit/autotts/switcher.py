@@ -70,11 +70,14 @@ class AudioSwitcher:
             # 终止情况一：开始时就结束
             if stop_event.is_set():
                 return
+            # 生成器阻塞：如果TTS生成器本身在等待数据（比如网络请求或文件读取），
+            # 即使设置了stop_event，也要等到生成器产生下一个数据时才能检查到。
             for audio_sentence in self._stream_decoded_sentences_with_rate(param[0]):
                 samples, sample_rate, nchannels = audio_sentence
 
                 # 终止情况二：执行过程中结束
                 if stop_event.is_set():
+                    self.__clear_audio_queue()
                     return
 
                 # 首次设置采样率、声道数量、初始化音频队列
@@ -102,11 +105,18 @@ class AudioSwitcher:
                     # 终止情况三：执行过程到这的时候结束
                     while not stop_event.is_set():
                         try:
-                            self.__audio_queue.put(block, timeout=0.1)
+                            self.__audio_queue.put(block, timeout=0.5)
                             break
                         except queue.Full:
+                            # [阻塞守卫] 添加stop_event检查
+                            if stop_event.is_set():
+                                self.__clear_audio_queue()
+                                return
                             time.sleep(0.05)  # 队列满时短暂让步
-
+                    # 在分块入队中结束
+                    if stop_event.is_set():
+                        self.__clear_audio_queue()
+                        return
                 # 处理剩余数据（最后一块）
                 # 终止情况四：执行过程到快结束时候结束
                 if (
@@ -117,7 +127,13 @@ class AudioSwitcher:
                     # 补齐 0 到完整块
                     padding = target_length - len(samples)
                     samples = np.pad(samples, (0, padding), mode="constant")
-                    self.__audio_queue.put(samples)
+                    # [阻塞守卫] 添加超时机制和stop_event检查
+                    while not stop_event.is_set():
+                        try:
+                            self.__audio_queue.put(samples, timeout=0.1)
+                            break
+                        except queue.Full:
+                            time.sleep(0.05)
 
         except Exception as e:
             print(f"[Producer] Error: {e}")
@@ -205,7 +221,7 @@ class AudioSwitcher:
         print("[Player] Finished")
 
     def __clear_audio_queue(self):
-        if not self.__audio_queue.empty():
+        if self.__audio_queue and not self.__audio_queue.empty():
             while True:
                 try:
                     self.__audio_queue.get_nowait()
@@ -231,6 +247,10 @@ class AudioSwitcher:
             if self.__current_stream:
                 # 清空队列以解除生产者阻塞
                 self.__clear_audio_queue()
+                # 为啥终止__producer会卡呢？是因为thread.join()会卡
+                # 为啥thread.join()会卡呢？是因为__producer会卡。
+                # 为啥__producer会卡呢?，不纠结了，反正发个信号让进程停止
+                # 然后直接丢掉这个进程就好了
                 self.__thread_manager.stop(self.__producer_id)
                 self.__thread_manager.stop(self.__player_id)
 
@@ -254,10 +274,10 @@ if __name__ == "__main__":
             主人何为言少钱，径须沽取对君酌。
             五花马，千金裘，呼儿将出换美酒，与尔同销万古愁。"""
     # text = "床前明月光，疑是地上霜。举头望明月，低头思故乡。"
-    switcher = AudioSwitcher()
-    switcher.play(text)
-    time.sleep(3)
-    switcher.stop()
+    # switcher = AudioSwitcher()
+    # switcher.play(text)
+    # time.sleep(3)
+    # switcher.stop()
 
     # 方式一测试
     # print(f"Text: {text}")

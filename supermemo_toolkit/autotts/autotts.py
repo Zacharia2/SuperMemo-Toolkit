@@ -1,3 +1,4 @@
+import sys
 import time
 from bs4 import BeautifulSoup
 import pyperclip
@@ -199,9 +200,9 @@ class Controller:
     def onEClick(self, evt):
         self.auto_tts.stop_run_main_loop = not self.auto_tts.stop_run_main_loop
         if self.auto_tts.stop_run_main_loop:
-            self.auto_tts.window.update_lable_text("AutoTTS 已停止")
+            self.auto_tts.window.update_lable_text("AutoTTS 窗口监听 已停止")
         else:
-            self.auto_tts.window.update_lable_text("AutoTTS 已恢复")
+            self.auto_tts.window.update_lable_text("AutoTTS 窗口监听 已恢复")
 
     def onERightClick(self, evt):
         self.auto_tts.switcher.stop()
@@ -303,7 +304,15 @@ class Win(WinGUI):
     def quit(self):
         """退出程序"""
         print("[Replay] 正在退出程序...")
-        exit()
+        # 设置守护线程的话，这边就直接终止不用等待？
+        # 然后我也可以join守护线程嘛？
+        # 不用，丢就丢了，通知到位就可以
+        # join的话就丢不了了。
+        # exit(0)
+        # os._exit(0)
+        # 先暂停把，清理完成就退出了
+        self.ctl.auto_tts.switcher.stop()
+        sys.exit(0)
 
     def __style_config(self):
         pass
