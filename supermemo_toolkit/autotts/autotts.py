@@ -132,6 +132,8 @@ class AutoTTS:
         return True
 
     def foregroundInArea(self) -> bool:
+        # pywintypes.error: (5, 'GetCursorPos', '拒绝访问。')
+        # 典型的 Windows 权限问题，最常见、最直接的解决方案：以管理员身份运行
         foreground_hwnd = win32gui.GetForegroundWindow()
         if foreground_hwnd == 0:
             return False
