@@ -2,7 +2,7 @@ import os
 
 import click
 from tabulate import tabulate
-
+import asyncio
 from supermemo_toolkit.autotts.autotts import run_auto_tts
 from supermemo_toolkit.epub2sm import epub_convert
 from supermemo_toolkit.latex2img import formula_to_png
@@ -11,7 +11,7 @@ from supermemo_toolkit.pathpix.gui import run_pathpix_ui
 from supermemo_toolkit.sa_sync.sm2anki import qa_to_anki
 from supermemo_toolkit.title_complete import tcomp as title_complete
 from supermemo_toolkit.utilscripts import config as smtk_config
-
+from edge_tts.voices import list_voices
 
 sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM)
 smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
@@ -68,26 +68,46 @@ def unset(key: str):
     smtk_config.dump_config(smtk_config_file_path, conf_dict)
 
 
+async def _print_voices() -> None:
+    """Print all available voices."""
+    voices = await list_voices()
+    voices = sorted(voices, key=lambda voice: voice["ShortName"])
+    headers = ["Name", "Gender", "ContentCategories", "VoicePersonalities"]
+    table = [
+        [
+            voice["ShortName"],
+            voice["Gender"],
+            ", ".join(voice["VoiceTag"]["ContentCategories"]),
+            ", ".join(voice["VoiceTag"]["VoicePersonalities"]),
+        ]
+        for voice in voices
+    ]
+    click.echo(tabulate(table, headers))
+
+
 @config.command()
-@click.option("--model", is_flag=True, help="根据目录结构转换")
-def list(model):
+@click.option("--voices", is_flag=True, help="打印所有可用语音模型")
+@click.option("--recommend", is_flag=True, help="打印推荐可用语音模型")
+def list(voices, recommend):
     """列出当前所有配置"""
-    if not model:
-        conf_dict = smtk_config.read_config(smtk_config_file_path)
-        for key, value in conf_dict.items():
-            click.echo(f"{key}\t:\t{value}")
-    else:
-        headers = ["模型名称", "性别", "风格/特点", "适用场景"]
+    if recommend:
+        headers = ["Name", "Gender", "ContentCategories", "VoicePersonalities"]
         table_data = [
             [
-                voice_model["模型名称"],
-                voice_model["性别"],
-                voice_model["风格/特点"],
-                voice_model["适用场景"],
+                voice_model["Name"],
+                voice_model["Gender"],
+                voice_model["ContentCategories"],
+                voice_model["VoicePersonalities"],
             ]
             for voice_model in smtk_config.VOICE_MODEL_LIST
         ]
         click.echo(tabulate(table_data, headers))
+    elif voices:
+        asyncio.run(_print_voices())
+    else:
+        conf_dict = smtk_config.read_config(smtk_config_file_path)
+        for key, value in conf_dict.items():
+            click.echo(f"{key}\t:\t{value}")
 
 
 @main.command()

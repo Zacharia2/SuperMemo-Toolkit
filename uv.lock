@@ -472,7 +472,7 @@ wheels = [
 
 [[package]]
 name = "edge-tts"
-version = "7.2.3"
+version = "7.2.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -480,9 +480,9 @@ dependencies = [
     { name = "tabulate" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e8/d0/db9a841ac29f119ca8e3d2a22325849997c571a4f31f728042c5fdbdff33/edge_tts-7.2.3.tar.gz", hash = "sha256:b85e271181cd52656934069237bfc3853335a17f7e51a4f7116e2936d32e62d2", size = 27308, upload-time = "2025-08-28T21:13:53.376Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5b/85/b12a016e70b340f703da061518c0ccddbe84ee6961f6b854ed8770831692/edge_tts-7.2.6.tar.gz", hash = "sha256:5919462c6345a24073896c4974b47b6276aac42d676b54180003d44167883a6f", size = 27528, upload-time = "2025-12-11T16:31:13.782Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c3/c6/9387c3f9decdd9780dfe21b7d9c0831aafd5d6813baf4f17b50afc7b7d77/edge_tts-7.2.3-py3-none-any.whl", hash = "sha256:62c87df25dedb6cd565cbdf87c639e01c466095b1e8f48ab8fa9efbb2123f53c", size = 30349, upload-time = "2025-08-28T21:13:52.145Z" },
+    { url = "https://files.pythonhosted.org/packages/9b/b8/c2f904d64ea31f34769bb3eefa0d6c957a91005bcd299a64cb97ca8559a4/edge_tts-7.2.6-py3-none-any.whl", hash = "sha256:5e46b41bbc44f71eff6b7121a88194586835adaedbd07bfe02600673235162b0", size = 30560, upload-time = "2025-12-11T16:31:12.538Z" },
 ]
 
 [[package]]
@@ -1587,7 +1587,7 @@ wheels = [
 
 [[package]]
 name = "supermemo-toolkit"
-version = "0.1.20"
+version = "0.1.22"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
@@ -1619,7 +1619,7 @@ requires-dist = [
     { name = "chardet", specifier = ">=5.2.0,<6.0.0" },
     { name = "click", specifier = ">=8.1.7,<9.0.0" },
     { name = "ebooklib", specifier = ">=0.18,<1.0" },
-    { name = "edge-tts", specifier = ">=7.2.3" },
+    { name = "edge-tts", specifier = ">=7.2.6" },
     { name = "filetype", specifier = ">=1.2.0,<2.0.0" },
     { name = "matplotlib", specifier = ">=3.8.2,<4.0.0" },
     { name = "miniaudio", specifier = ">=1.61" },
