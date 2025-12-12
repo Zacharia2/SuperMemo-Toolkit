@@ -177,8 +177,8 @@ AutoTTS 卡片朗读 文本转语音
       4. 重置窗口位置
       5. 退出程序
    6. 配置自定义语音模型、语速、和音量
-      1. `smtk config list --model`，列出推荐的中文模型，也可搜索 edge tts 模型
-      2. `smtk config set voice zh-CN-XiaoxiaoMultilingualNeural`，默认模型：zh-CN-XiaoxiaoMultilingualNeural
+      1. `smtk config list --recommend`，列出推荐的中文模型，或者所有可用模型`smtk config list --voices`
+      2. `smtk config set voice en-US-BrianMultilingualNeural`，默认模型：en-US-BrianMultilingualNeural
       3. `smtk config set rate +0%`，默认 rate：+0%
       4. `smtk config set volume +0%`，默认 volume：+0%
 3. 注意事项和常见问题解决
@@ -197,7 +197,7 @@ AutoTTS 卡片朗读 文本转语音
 
 ## 关于开发
 
-依赖模块 python_lzo-1.16 包含 C/C++模块，构建时会链接到特定版本的 Python 运行库，由于 pypi 已经许久未更新，所以通过 fork 后执行 action 构建离线包，对应版本的离线包已放置到 docs\python_lzo_win_amd64，使用时请根据自己的 python 版本修改 pyproject.toml
+依赖模块 python_lzo-1.16 包含 C/C++模块，构建时会链接到特定版本的 Python 运行库，由于 pypi 已经许久未更新，所以通过 fork 后执行 action 构建离线包，对应版本的离线包已放置到 supermemo_toolkit\libs\python_lzo_win_amd64，使用时请根据自己的 python 版本修改 pyproject.toml
 
 ## LICENSE
 

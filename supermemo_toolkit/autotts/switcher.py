@@ -22,7 +22,7 @@ class AudioSwitcher:
         config_voice = get_config().get(VOICE)
         config_rate = get_config().get(RATE)
         config_volume = get_config().get(VOLUME)
-        self.__voice = config_voice or "zh-CN-XiaoxiaoMultilingualNeural"
+        self.__voice = config_voice or "en-US-BrianMultilingualNeural"
         self.__rate = config_rate or "+0%"
         self.__volume = config_volume or "+0%"
 
