@@ -105,6 +105,8 @@ class AudioSwitcher:
                     # 终止情况三：执行过程到这的时候结束
                     while not stop_event.is_set():
                         try:
+                            if self.__audio_queue is None:
+                                break
                             self.__audio_queue.put(block, timeout=0.5)
                             break
                         except queue.Full:
@@ -130,10 +132,14 @@ class AudioSwitcher:
                     # [阻塞守卫] 添加超时机制和stop_event检查
                     while not stop_event.is_set():
                         try:
+                            if self.__audio_queue is None:
+                                break
                             self.__audio_queue.put(samples, timeout=0.1)
                             break
                         except queue.Full:
                             time.sleep(0.05)
+            if not stop_event.is_set() and self.__audio_queue is not None:
+                self.__audio_queue.put(None)
 
         except Exception as e:
             print(f"[Producer] Error: {e}")
@@ -141,15 +147,7 @@ class AudioSwitcher:
             # 如果按下停止按钮就应该停止。
             print("[Producer] Finished")
 
-    def __play(self, stop_event: threading.Event, *param):
-        """播放线程"""
-        # 等待参数就绪和缓冲创建
-        # self.__audio_params设置后意味着__audio_queue已经准备好了。
-        if not self.__audio_params.wait(timeout=self.__timeout):
-            print("[Player] Timeout")
-            self.stop()
-            return
-
+    def __pre_blocks(self):
         # 预缓冲：确保有足够数据再播放（关键！）
         pre_blocks = int(
             self.__prebuffer_seconds * self.__audio_sample_rate / self.__block_size
@@ -164,6 +162,15 @@ class AudioSwitcher:
         print(
             f"[Player] Buffered {pre_blocks}/{self.__audio_queue.qsize()} blocks, starting playback"
         )
+
+    def __play(self, stop_event: threading.Event, *param):
+        """播放线程"""
+        # 等待参数就绪
+        # self.__audio_params设置后意味着__audio_queue已经准备好了。
+        if not self.__audio_params.wait(timeout=self.__timeout):
+            print("[Player] Timeout")
+            self.stop()
+            return
 
         # 回调函数：禁止任何阻塞操作！
         def callback(outdata: np.ndarray, frames: int, time_info, status):
@@ -181,6 +188,12 @@ class AudioSwitcher:
                     raise sd.CallbackStop
 
                 block = self.__audio_queue.get_nowait()
+
+                # 收到结束标志，停止回调并通知player停止等待
+                if block is None:
+                    self.__audio_queue = None
+                    outdata.fill(0)
+                    raise sd.CallbackStop
 
                 # 严格检查长度
                 if len(block) == samples_needed:
@@ -211,10 +224,13 @@ class AudioSwitcher:
 
         # 播放，with会自动打开关闭
         with self.__current_stream:
-            # 继续播放直到缓冲区清空
+            # 继续播放直到缓冲区为None，缓冲区为empty()不代表全部播放完成。
+            # 判断播放完成的条件，就是生产者完成生产，回调函数收到End消息
             while not stop_event.is_set():
                 if self.__audio_queue is not None:
                     time.sleep(0.05)
+                else:
+                    break
 
         self.__current_stream = None
         print("[Player] Finished")
