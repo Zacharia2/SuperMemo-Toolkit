@@ -153,13 +153,13 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
 
 AutoTTS 卡片朗读 文本转语音
 
-功能列表：翻页自动播放（启动监听 E、停止监听 E、重启监听）、停止播放 RE、重复播放 A、复制播放、解析播放
+功能列表：翻页自动播放（启动监听 LE、停止监听 LE、重启监听）、停止播放 RE、重复播放 A、复制播放、解析播放
 
 ![](./docs/Snipaste_2025-12-06_21-55-56.png)
 
 1. 如何使用
    1. 首先必须打开 supermemo 软件，否则 autotts 结束运行。
-   2. 第二步使用命令行执行`smtk autotts`，可选: 使用管理员运行可以避免 GetCursorPos，拒绝访问。
+   2. 第二步使用`Win + R`执行`smtk autotts`，可选: 使用管理员运行可以避免 GetCursorPos，拒绝访问。
    3. 启动后会在屏幕上中部，显示软件悬浮条。
    4. **左键**点击`E`按钮开始监听卡片翻页，翻页自动切换
       1. **右键**点击`E`按钮停止当前播放。
@@ -181,6 +181,9 @@ AutoTTS 卡片朗读 文本转语音
       2. `smtk config set voice en-US-BrianMultilingualNeural`，默认模型：en-US-BrianMultilingualNeural
       3. `smtk config set rate +0%`，默认 rate：+0%
       4. `smtk config set volume +0%`，默认 volume：+0%
+   7. 仅使用拷贝发音模式
+      1. 不用打开 supermemo，使用`Win + R`执行`smtk autotts --onlyat`
+      2. 软件会禁用关于 supermemo 的功能。只保留基本的 A 按钮和 T 按钮的功能。
 3. 注意事项和常见问题解决
    1. **必须使用英文版 SuperMemo，汉化版本可能因部分快捷键修改而导致不可用。**autotts 使用快捷键序列详见 6.2 节。
    2. 监听的逻辑是鼠标必须在 SuperMemo 的内容主窗口的矩形区域，而且这个主窗口必须置于最前面。这种情况下就判定为窗口聚焦。
