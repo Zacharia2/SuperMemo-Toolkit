@@ -243,7 +243,7 @@ class AudioSwitcher:
                 except queue.Empty:
                     break
 
-    def play(self, text):
+    def play(self, text: str, config={}):
         # 重置状态
         self.__audio_queue = None
         self.__audio_params.clear()
@@ -251,6 +251,7 @@ class AudioSwitcher:
         # 总之播放前要把两个线程先终止在播放
 
         # 启动生产者（唯一的数据消费点）
+        text = text.replace("[...]", "，什么，")
         self.__producer_id = self.__thread_manager.thread(self.__producer, text)
 
         # 启动消费者线程
