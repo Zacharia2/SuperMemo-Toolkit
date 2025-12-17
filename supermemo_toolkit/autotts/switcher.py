@@ -36,6 +36,7 @@ class AudioSwitcher:
         self.__audio_sample_rate = None
         self.__audio_channels = None
         self.__audio_queue = None
+        self.replace_list: dict = {}
 
     def _stream_decoded_sentences_with_rate(self, text):
         communicate = edge_tts.Communicate(
@@ -243,7 +244,7 @@ class AudioSwitcher:
                 except queue.Empty:
                     break
 
-    def play(self, text: str, config={}):
+    def play(self, text: str):
         # 重置状态
         self.__audio_queue = None
         self.__audio_params.clear()
@@ -251,7 +252,9 @@ class AudioSwitcher:
         # 总之播放前要把两个线程先终止在播放
 
         # 启动生产者（唯一的数据消费点）
-        text = text.replace("[...]", "，什么，")
+        if len(self.replace_list) > 0:
+            for k, v in self.replace_list.items():
+                text = text.replace(k, v)
         self.__producer_id = self.__thread_manager.thread(self.__producer, text)
 
         # 启动消费者线程

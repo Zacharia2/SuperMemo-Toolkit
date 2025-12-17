@@ -229,9 +229,10 @@ def tcomp(htmtoc: str, node: str, xml: str):
 
 
 @main.command()
-def autotts():
+@click.option("--onlyat", is_flag=True, help="仅使用拷贝发音功能")
+def autotts(onlyat):
     """运行 AutoTTS卡片朗读 文本转语音"""
-    run_auto_tts()
+    run_auto_tts(onlyat)
 
 
 if __name__ == "__main__":

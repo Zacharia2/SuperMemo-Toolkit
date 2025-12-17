@@ -15,20 +15,20 @@ from supermemo_toolkit.title_complete.tcomp import parseNodeAsText
 
 
 class AutoTTS:
-    def __init__(self):
+    def __init__(self, onlyat=False):
         self.logger = logging.getLogger(__name__)
         warnings.filterwarnings(
             "ignore", message=".*32-bit application should be automated.*"
         )
-
-        try:
-            self.app = Application(backend="win32").connect(class_name="TElWind")
-        except Exception as e:
-            if isinstance(e, ElementNotFoundError):
-                messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
-            else:
-                messagebox.showerror("错误", e)
-            exit()
+        if not onlyat:
+            try:
+                self.app = Application(backend="win32").connect(class_name="TElWind")
+            except Exception as e:
+                if isinstance(e, ElementNotFoundError):
+                    messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
+                else:
+                    messagebox.showerror("错误", e)
+                exit()
 
         self.switcher = AudioSwitcher()
         self.hisWindowText = ""
@@ -47,6 +47,9 @@ class AutoTTS:
 
     def set_autotts_window(self, window: WinGUI):
         self.window = window
+
+    def set_replace_list(self, replace_list: dict):
+        self.switcher.replace_list = replace_list
 
     def get_text_by_parseNodeText(self) -> tuple[str, bool]:
         """方案一，解析nodeText"""
@@ -268,15 +271,18 @@ class Controller:
 class Win(WinGUI):
     ctl: Controller
 
-    def __init__(self, controller):
+    def __init__(self, controller: Controller, onlyat=False):
         self.ctl = controller
         super().__init__()
-        self.__event_bind()
+        if onlyat:
+            self.__onlyat_event_bind()
+        else:
+            self.__full_event_bind()
         self.__style_config()
         self.ctl.init(self)
         self.last_text = ""
 
-    def __event_bind(self):
+    def __full_event_bind(self):
         self.tk_button_miik3xn9.bind("<Button-1>", self.ctl.onEClick)
         self.tk_button_miik3xn9.bind("<Button-3>", self.ctl.onERightClick)
         self.tk_button_miileno7.bind("<Button-1>", self.ctl.onAClick)
@@ -291,6 +297,15 @@ class Win(WinGUI):
         self.menu.add_command(
             label="播放结点(解析ctrl+c,nodeText)", command=self.ctl.playParsedNodeText
         )
+        self.menu.add_command(
+            label="重置窗口位置", command=lambda: self.geometry(self.geometry_size)
+        )
+        self.menu.add_command(label="退出程序", command=self.quit)
+
+    def __onlyat_event_bind(self):
+        self.tk_button_miik3xn9.config(state="disabled")
+        self.tk_button_miileno7.bind("<Button-1>", self.ctl.onAClick)
+        self.tk_button_mipjikfh.bind("<Button-1>", self.ctl.onTClick)
         self.menu.add_command(
             label="重置窗口位置", command=lambda: self.geometry(self.geometry_size)
         )
@@ -321,11 +336,12 @@ class Win(WinGUI):
         super().update_lable_text(mtext)
 
 
-def run_auto_tts():
+def run_auto_tts(onlyat: bool = False):
     controller = Controller()
-    autotts_window = Win(controller)
-    autotts = AutoTTS()
+    autotts_window = Win(controller, onlyat)
+    autotts = AutoTTS(onlyat)
     autotts.set_autotts_window(autotts_window)
+    autotts.set_replace_list({"[...]": "，什么，"})
     controller.set_autotts(autotts)
     autotts_window.after(500, controller.run_auto_tts_loop())
     autotts_window.mainloop()
