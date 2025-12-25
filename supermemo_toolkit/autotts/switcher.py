@@ -19,16 +19,12 @@ class AudioSwitcher:
         self.__producer_id = None
 
         # 声音配置
-        config_voice = get_config().get(VOICE)
-        config_rate = get_config().get(RATE)
-        config_volume = get_config().get(VOLUME)
-        self.__voice = config_voice or "en-US-BrianMultilingualNeural"
-        self.__rate = config_rate or "+0%"
-        self.__volume = config_volume or "+0%"
+        self.__voice = get_config().get(VOICE) or "en-US-BrianMultilingualNeural"
+        self.__rate = get_config().get(RATE) or "+0%"
+        self.__volume = get_config().get(VOLUME) or "+0%"
 
         # 缓冲配置
         self.__block_size = 1024
-        self.__prebuffer_seconds = 0.5
         self.__timeout = 8
 
         # 音频参数（延迟初始化）
@@ -150,24 +146,33 @@ class AudioSwitcher:
 
     def __pre_blocks(self):
         # 预缓冲：确保有足够数据再播放（关键！）
+        prebuffer_seconds = 0.3
         pre_blocks = int(
-            self.__prebuffer_seconds * self.__audio_sample_rate / self.__block_size
+            prebuffer_seconds * self.__audio_sample_rate / self.__block_size
         )
         # 等待生产者生成足够预缓冲数据队列
-        while (
-            self.__audio_queue.qsize() < pre_blocks
-            and self.__thread_manager.is_alive(self.__producer_id)
-        ):
-            time.sleep(0.02)
+        while True:
+            is_enough = self.__audio_queue.qsize() > pre_blocks
+            is_alive = self.__thread_manager.is_alive(self.__producer_id)
 
-        print(
-            f"[Player] Buffered {pre_blocks}/{self.__audio_queue.qsize()} blocks, starting playback"
-        )
+            if is_enough:
+                break
+            if not is_alive:
+                if self.__audio_queue.qsize() == 0:
+                    raise RuntimeError(
+                        "TTS Producer died unexpectedly (no audio data)."
+                    )
+                break
+            time.sleep(0.005)
+
+        print(f"[Player] Buffered {pre_blocks}/{self.__audio_queue.qsize()} blocks")
 
     def __play(self, stop_event: threading.Event, *param):
         """播放线程"""
         # 等待参数就绪
-        # self.__audio_params设置后意味着__audio_queue已经准备好了。
+        # self.__audio_params设置后意味着__audio_queue已初始化。
+        # 这儿已经请求好了一个chunk，也算是缓冲了一个chunk。
+        # 其实这个chunk缓存的秒数已经比我设定的秒要大很多。
         if not self.__audio_params.wait(timeout=self.__timeout):
             print("[Player] Timeout")
             self.stop()
@@ -233,7 +238,8 @@ class AudioSwitcher:
                 else:
                     break
 
-        self.__current_stream = None
+        with self.__lock:
+            self.__current_stream = None
         print("[Player] Finished")
 
     def __clear_audio_queue(self):
@@ -264,16 +270,9 @@ class AudioSwitcher:
         """停止播放并等待线程完全结束"""
         with self.__lock:
             if self.__current_stream:
-                # 清空队列以解除生产者阻塞
-                self.__clear_audio_queue()
-                # 为啥终止__producer会卡呢？是因为thread.join()会卡
-                # 为啥thread.join()会卡呢？是因为__producer会卡。
-                # 为啥__producer会卡呢?，不纠结了，反正发个信号让进程停止
-                # 然后直接丢掉这个进程就好了
+                # 终止__producer会卡 -> thread.join() -> __producer进程卡 -> 发个信号让进程停止，然后直接丢掉这个进程
                 self.__thread_manager.stop(self.__producer_id)
                 self.__thread_manager.stop(self.__player_id)
-
-                # 现在安全地清理资源
                 self.__audio_queue = None
                 self.__current_stream = None
 
