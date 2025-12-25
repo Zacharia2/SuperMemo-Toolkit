@@ -51,21 +51,21 @@ class AutoTTS:
     def set_replace_list(self, replace_list: dict):
         self.switcher.replace_list = replace_list
 
+    def clear_clipboard(self):
+        time.sleep(0.3)
+        pyperclip.copy("")
+
     def get_text_by_parseNodeText(self) -> tuple[str, bool]:
         """方案一，解析nodeText"""
         TElWind = self.app.window(class_name="TElWind")
-        TElWind.type_keys("%{F12}mp^c")  # alt+f12, m, p, ctrl+c
         # TODO 有时mp会写到笔记里面
-        time.sleep(0.3)
+        TElWind.type_keys("%{F12}mp^c")  # alt+f12, m, p, ctrl+c
         nodeText = pyperclip.paste()
         if len(nodeText) < 5:
-            time.sleep(0.3)
-            pyperclip.copy("")
+            self.clear_clipboard()
             TElWind.type_keys("%{F12}b^c")  # alt+f12, b, ctrl+c
-            time.sleep(0.3)
             nodeText = pyperclip.paste()
-        time.sleep(0.3)
-        pyperclip.copy("")
+        self.clear_clipboard()
         return self.getParsedNodeText(nodeText)
 
     def getParsedNodeText(self, nodeText: str):
@@ -97,10 +97,8 @@ class AutoTTS:
         # 如果鼠标选中执行将复制获取焦点的组件内容
         TElWind = self.app.window(class_name="TElWind")
         TElWind.type_keys("%{F12}co")  # alt+f12, c, o
-        time.sleep(0.3)
         text = pyperclip.paste()
-        time.sleep(0.3)
-        pyperclip.copy("")
+        self.clear_clipboard()
         return self.getPrasedPlainText(text)
 
     def getPrasedPlainText(self, text: str):
@@ -227,8 +225,6 @@ class Controller:
 
     def onTClick(self, evt):
         text = pyperclip.paste()
-        time.sleep(0.3)
-        pyperclip.copy("")
         text = self.auto_tts.getPrasedPlainText(text)
         if text is not None and text != "":
             print(self.auto_tts.format_title(text))
@@ -245,8 +241,6 @@ class Controller:
 
     def playPrasedPlainText(self):
         text = pyperclip.paste()
-        time.sleep(0.3)
-        pyperclip.copy("")
         text = self.auto_tts.getPrasedPlainText(text)
         if text != "":
             print(self.auto_tts.format_title(text))
@@ -257,8 +251,6 @@ class Controller:
 
     def playParsedNodeText(self):
         text = pyperclip.paste()
-        time.sleep(0.3)
-        pyperclip.copy("")
         text, ok = self.auto_tts.getParsedNodeText(text)
         if ok:
             print(self.auto_tts.format_title(text))

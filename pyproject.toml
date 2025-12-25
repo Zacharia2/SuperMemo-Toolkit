@@ -16,7 +16,7 @@ requires-python = "<4.0,>=3.10"
 dependencies = [
     "beautifulsoup4<5.0.0,>=4.13.3",
     "chardet<6.0.0,>=5.2.0",
-    "click<9.0.0,>=8.1.7",
+    "click>=8.3.1",
     "ebooklib<1.0,>=0.18",
     "pillow<12.0.0,>=11.1.0",
     "pypinyin<1.0.0,>=0.53.0",
