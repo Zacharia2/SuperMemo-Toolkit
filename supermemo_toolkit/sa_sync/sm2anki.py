@@ -8,7 +8,7 @@ class qa_to_anki:
         self.deckName = "SM19 Cards"
         self.modelName = "SM19问答题"
 
-    def setDeckName(self, deckName):
+    def setDeckName(self, deckName: str):
         self.deckName = deckName
 
     def __addNote(self, deckName: str, fields: dict):
@@ -40,13 +40,13 @@ class qa_to_anki:
             invoke(
                 "createModel",
                 modelName=self.modelName,
-                inOrderFields=["Question", "Answer", "ENum"],
+                inOrderFields=["Question", "Answer", "ENum", "《》"],
                 css=".card {\n font-family: arial;\n font-size: 20px;\n text-align: center;\n color: black;\n background-color: white;\n}\n.cloze {\n color: rgb(255, 0, 0);\n background-color: rgb(255, 255, 0);\n}",
                 isCloze=False,
                 cardTemplates=[
                     {
                         "Name": "卡片1",
-                        "Front": "{{Question}}",
+                        "Front": "{{Question}}<br /><div style='font-family: Arial; font-size: 12px; float: left; color: #dcdcdc'>{{《》}}》</div>",
                         "Back": '{{FrontSide}}<div id="back"><hr id="answer" /><span id="content">{{Answer}}</span></div><script>$("#content").text() === "" ? $("#back").hide() : null;</script>',
                     }
                 ],
@@ -101,12 +101,30 @@ class qa_to_anki:
             if "Q" in qa and "A" in qa and "E" in qa:
                 self.__addNote(
                     self.deckName,
-                    {"Question": qa["Q"], "Answer": qa["A"], "ENum": qa["E"]},
+                    {
+                        "Question": qa["Q"],
+                        "Answer": qa["A"],
+                        "ENum": qa["E"],
+                        "《》": self.deckName,
+                    },
                 )
             elif "Q" in qa and "A" in qa:
-                self.__addNote(self.deckName, {"Question": qa["Q"], "Answer": qa["A"]})
+                self.__addNote(
+                    self.deckName,
+                    {
+                        "Question": qa["Q"],
+                        "Answer": qa["A"],
+                        "《》": self.deckName,
+                    },
+                )
             elif "Q" in qa:
-                self.__addNote(self.deckName, {"Question": qa["Q"]})
+                self.__addNote(
+                    self.deckName,
+                    {
+                        "Question": qa["Q"],
+                        "《》": self.deckName,
+                    },
+                )
         print("\nDone!")
 
     def sent_cards(self):
