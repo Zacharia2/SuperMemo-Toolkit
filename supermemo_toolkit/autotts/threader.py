@@ -49,16 +49,15 @@ class ThreadController:
             elif self.threads[thread_id] is None:
                 del self.threads[thread_id]
                 return True
-            thread, stop_event = self.threads[thread_id]
-        # thread_id存在表中且threads[thread_id]非空
-        # 通知线程退出、等待线程退出
-        # 仅本函数把thread_id从线程x信号表中删除
-        stop_event.set()
-        # 每个线程都是不一样的，抛弃也没事。
-        # 只要信号到位，不继续产生东西清除，清除已经产生的东西就好
-        # 主线程不用等待，让这个线程他自己收到信号后自己慢慢停下手中的活就好了
-        # thread.join(timeout=1)
-        with self.lock:
+            _, stop_event = self.threads[thread_id]
+            # thread_id存在表中且threads[thread_id]非空
+            # 通知线程退出、等待线程退出
+            # 仅本函数把thread_id从线程x信号表中删除
+            stop_event.set()
+            # 每个线程都是不一样的，抛弃也没事。
+            # 只要信号到位，不继续产生东西清除，清除已经产生的东西就好
+            # 主线程不用等待，让这个线程他自己收到信号后自己慢慢停下手中的活就好了
+            # thread.join(timeout=1)
             if thread_id in self.threads:
                 del self.threads[thread_id]
                 # print(f"[Thread] 线程{thread_id}已停止")

@@ -210,9 +210,7 @@ class Controller:
 
     def onERightClick(self, evt):
         self.auto_tts.switcher.stop()
-        self.auto_tts.window.update_lable_text(
-            "[Main] stop play, wait again or next or copy-tts"
-        )
+        self.auto_tts.window.update_lable_text("[Main] play stopped")
 
     def onAClick(self, evt):
         # 目前为止所有获取内容都不是主动获得焦点的，而是被动获取

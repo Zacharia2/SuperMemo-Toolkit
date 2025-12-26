@@ -200,7 +200,7 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
 @click.option(
     "--deckname",
     type=str,
-    help="设置目标牌组名",
+    help="设置目标牌组名，SM19 Cards（默认）",
 )
 def sm2anki(qafile, deckname):
     """发送问答卡(Item)到Anki"""
