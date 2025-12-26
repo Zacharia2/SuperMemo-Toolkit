@@ -179,7 +179,6 @@ class AutoTTS:
             if text is not None and text != "":
                 print(self.format_title(text))
                 self.window.update_lable_text(self.format_title(text))
-                self.switcher.stop()
                 self.switcher.play(text)
                 # 保存到重播按钮
                 self.window.update_text(text)
@@ -218,7 +217,6 @@ class Controller:
         if text is not None and text != "":
             print(self.auto_tts.format_title(text))
             self.auto_tts.window.update_lable_text(self.auto_tts.format_title(text))
-            self.auto_tts.switcher.stop()
             self.auto_tts.switcher.play(text)
 
     def onTClick(self, evt):
@@ -227,7 +225,6 @@ class Controller:
         if text is not None and text != "":
             print(self.auto_tts.format_title(text))
             self.auto_tts.window.update_lable_text(self.auto_tts.format_title(text))
-            self.auto_tts.switcher.stop()
             self.auto_tts.switcher.play(text)
             self.auto_tts.window.update_text(text)
 
@@ -243,7 +240,6 @@ class Controller:
         if text != "":
             print(self.auto_tts.format_title(text))
             self.auto_tts.window.update_lable_text(self.auto_tts.format_title(text))
-            self.auto_tts.switcher.stop()
             self.auto_tts.switcher.play(text)
             self.auto_tts.window.update_text(text)
 
@@ -253,7 +249,6 @@ class Controller:
         if ok:
             print(self.auto_tts.format_title(text))
             self.auto_tts.window.update_lable_text(self.auto_tts.format_title(text))
-            self.auto_tts.switcher.stop()
             self.auto_tts.switcher.play(text)
             self.auto_tts.window.update_text(text)
 
