@@ -1,25 +1,62 @@
-import random
+import sys
 import threading
-from typing import Callable, Dict
-import uuid
+from typing import Callable, Dict, List
+
+
+class Id:
+    def __init__(self):
+        self._free: set[int] = set()
+        self._used: set[int] = set()
+
+    def apply(self) -> str:
+        """
+        获取一个新的唯一ID。
+        优先从 free_set 中复用，如果没有则生成新的最小整数。
+        """
+        # 1. 如果 free_set 不为空，从中取出一个 ID
+        if self._free:
+            tid = min(self._free)
+            self._free.remove(tid)
+            self._used.add(tid)
+            return f"thread_{tid}"
+
+        # 2. 如果 free_set 为空，从 0 开始查找第一个未被注册的整数
+        for tid in range(sys.maxsize):
+            if tid not in self._used:
+                self._used.add(tid)
+                return f"thread_{tid}"
+
+        raise Exception("No available ID")
+
+    def __release(self, tid: int) -> None:
+        self._used.discard(tid)
+        self._free.add(tid)
+
+    def release(self, tid: str) -> None:
+        """
+        释放一个 ID，将其从已注册集合移至空闲集合。
+        """
+        self.__release(int(tid.split("thread_")[-1]))
+
+    def to_array(self) -> List[int]:
+        """
+        返回当前已注册 ID 的列表。
+        """
+        return list(self._used)
 
 
 class ThreadController:
     def __init__(self):
         self.threads: Dict[str, tuple[threading.Thread, threading.Event]] = {}
         self.lock = threading.Lock()
-
-    @staticmethod
-    def from_uuid(length: int = 8) -> str:
-        start_pos = random.randint(0, 32 - length)
-        return uuid.uuid4().hex[start_pos : start_pos + length]
+        self.reg_id = Id()
 
     def thread(
         self,
         target_func: Callable[[threading.Event, tuple], None],
         *params,
     ) -> str:
-        thread_id = f"thread_{self.from_uuid()}"
+        thread_id = self.reg_id.apply()
         stop_event = threading.Event()
 
         def wrapped_target(params):
@@ -48,6 +85,7 @@ class ThreadController:
             # threads[thread_id]空的话就说明异常退出了，只在这删除
             elif self.threads[thread_id] is None:
                 del self.threads[thread_id]
+                self.reg_id.release(thread_id)
                 return True
             _, stop_event = self.threads[thread_id]
             # thread_id存在表中且threads[thread_id]非空
@@ -60,6 +98,7 @@ class ThreadController:
             # thread.join(timeout=1)
             if thread_id in self.threads:
                 del self.threads[thread_id]
+                self.reg_id.release(thread_id)
                 # print(f"[Thread] 线程{thread_id}已停止")
         return True
 
@@ -88,28 +127,3 @@ class ThreadController:
             # thread_id存在表中且threads[thread_id]非空
             thread, _ = self.threads[thread_id]
         thread.join()
-
-
-# if __name__ == "__main__":
-#     # 使用示例
-#     def worker1(stop_event: threading.Event, *param):
-#         count = 0
-#         while not stop_event.is_set():
-#             print(f"{param[0]},param:{param[1]}: 工作次数 {count}")
-#             count += 1
-#             time.sleep(1)
-
-#     def worker2(stop_event: threading.Event, *param):
-#         count = 0
-#         while not stop_event.is_set():
-#             print(f"worker2: 工作次数 {count}")
-#             count += 1
-#             time.sleep(1)
-
-#     tc = ThreadController()
-
-#     # 创建多个线程
-#     id1 = tc.thread(worker1, "worker1", 1)
-#     id2 = tc.thread(worker2)
-#     time.sleep(6)
-#     tc.stop(id2)

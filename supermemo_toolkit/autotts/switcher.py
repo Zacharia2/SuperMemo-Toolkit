@@ -251,9 +251,7 @@ class AudioSwitcher:
                     break
 
     def play(self, text: str):
-        # 重置状态
-        self.__audio_queue = None
-        self.__audio_params.clear()
+        self.stop()
 
         # 总之播放前要把两个线程先终止在播放
 
@@ -273,6 +271,7 @@ class AudioSwitcher:
                 # 终止__producer会卡 -> thread.join() -> __producer进程卡 -> 发个信号让进程停止，然后直接丢掉这个进程
                 self.__thread_manager.stop(self.__producer_id)
                 self.__thread_manager.stop(self.__player_id)
+                self.__audio_params.clear()
                 self.__audio_queue = None
                 self.__current_stream = None
 
