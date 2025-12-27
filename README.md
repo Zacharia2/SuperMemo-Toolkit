@@ -202,6 +202,9 @@ AutoTTS 卡片朗读 文本转语音
 
 依赖模块 python_lzo-1.16 包含 C/C++模块，构建时会链接到特定版本的 Python 运行库，由于 pypi 已经许久未更新，所以通过 fork 后执行 action 构建离线包，对应版本的离线包已放置到 supermemo_toolkit\libs\python_lzo_win_amd64，使用时请根据自己的 python 版本修改 pyproject.toml
 
+- 构建whl：`uv build`
+- 构建exe：`uv run pyinstaller smtk.spec`
+
 ## LICENSE
 
 本软件遵守开源协议，协议类型为：GPLv2。

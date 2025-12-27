@@ -36,7 +36,8 @@ dependencies = [
     "numpy>=2.2.6",
 ]
 
-# [dependency-groups]
+[dependency-groups]
+dev = ["pyinstaller>=6.17.0"]
 # dev = [
 #     "premailer<4.0.0,>=3.10.0",
 #     "pystache<1.0.0,>=0.6.7",
