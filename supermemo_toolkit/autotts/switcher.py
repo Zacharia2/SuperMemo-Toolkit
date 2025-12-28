@@ -251,17 +251,21 @@ class AudioSwitcher:
                     break
 
     def play(self, text: str):
+        # 重置状态
+        self.__audio_queue = None
+        self.__current_stream = None
+        self.__audio_params.clear()
+
+        # 停止播放
         self.stop()
 
-        # 总之播放前要把两个线程先终止在播放
-
-        # 启动生产者（唯一的数据消费点）
+        # 自定义
         if len(self.replace_list) > 0:
             for k, v in self.replace_list.items():
                 text = text.replace(k, v)
-        self.__producer_id = self.__thread_manager.thread(self.__producer, text)
 
-        # 启动消费者线程
+        # 启动进程
+        self.__producer_id = self.__thread_manager.thread(self.__producer, text)
         self.__player_id = self.__thread_manager.thread(self.__play)
 
     def stop(self):
@@ -271,9 +275,6 @@ class AudioSwitcher:
                 # 终止__producer会卡 -> thread.join() -> __producer进程卡 -> 发个信号让进程停止，然后直接丢掉这个进程
                 self.__thread_manager.stop(self.__producer_id)
                 self.__thread_manager.stop(self.__player_id)
-                self.__audio_params.clear()
-                self.__audio_queue = None
-                self.__current_stream = None
 
 
 # ------------------ 测试代码 ------------------
