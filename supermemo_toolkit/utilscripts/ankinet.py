@@ -93,11 +93,11 @@ def download_word_sound(target_word: str, us_or_uk: int):
         if b'{"code": 403}' not in content:
             # 判断文件类型生成文件名。
             if content_type:
-                file_name = f"youdao-{target_word}-{sha1_hash.hexdigest()}.{audio_mime[content_type]}"
+                file_name = f"youdao-{target_word}-{sha1_hash.hexdigest()[:8]}.{audio_mime[content_type]}"
             else:
                 try:
                     audio_kind = filetype.guess(content)
-                    file_name = f"youdao-{target_word}-{sha1_hash.hexdigest()}.{audio_mime[audio_kind.mime]}"
+                    file_name = f"youdao-{target_word}-{sha1_hash.hexdigest()[:8]}.{audio_mime[audio_kind.mime]}"
                 except Exception:
                     print(f"{target_word} 未下载！")
             return (file_name, base64.b64encode(content).decode())

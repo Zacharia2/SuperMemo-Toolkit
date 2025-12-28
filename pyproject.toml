@@ -37,7 +37,11 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pyinstaller>=6.17.0"]
+dev = [
+    "openpyxl>=3.1.5",
+    "pandas>=2.3.3",
+    "pyinstaller>=6.17.0",
+]
 # dev = [
 #     "premailer<4.0.0,>=3.10.0",
 #     "pystache<1.0.0,>=0.6.7",
@@ -61,6 +65,10 @@ excludes = ["docs/**"]
 name = "tencent"
 url = "https://mirrors.aliyun.com/pypi/simple/"
 verify_ssl = true
+
+[[tool.uv.index]]
+name = "aliyun"
+url = "https://mirrors.aliyun.com/pypi/simple/"
 
 [build-system]
 requires = ["pdm-backend"]
