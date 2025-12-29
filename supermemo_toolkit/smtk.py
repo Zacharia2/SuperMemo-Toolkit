@@ -1,4 +1,5 @@
 import os
+import sys
 
 import click
 from tabulate import tabulate
@@ -21,6 +22,16 @@ smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
 @click.version_option()
 def main():
     """SuperMemo 增强工具(CLI命令行)。\n\n包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS 卡片朗读等。"""
+    # 修复：确保标准输出句柄有效（防止被关闭或重定向）
+    if sys.stdout.closed:
+        sys.stdout = open(sys.stdout.fileno(), "w", encoding="utf-8")
+    if sys.stdout is not sys.__stdout__:
+        sys.stdout = sys.__stdout__
+
+    if sys.stderr.closed:
+        sys.stderr = open(sys.stderr.fileno(), "w", encoding="utf-8")
+    if sys.stderr is not sys.__stderr__:
+        sys.stderr = sys.__stderr__
 
 
 @click.group()
