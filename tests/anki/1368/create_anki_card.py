@@ -13,8 +13,7 @@ from supermemo_toolkit.utilscripts.ankinet import invoke
 #     "D:/Develop/repo/SuperMemo-Toolkit/tests/anki/1368/1368.xlsx", sheet_name="Sheet1"
 # )
 # print(df.head(3))
-note_id_list = invoke("findNotes", query="deck:1368个单词就够了")
-notesInfo = invoke("notesInfo", notes=note_id_list)
+
 
 # for index, row in df.iterrows():
 #     m_class = row["大类"]
@@ -64,52 +63,111 @@ notesInfo = invoke("notesInfo", notes=note_id_list)
 #             print(noteId, result_filename)
 
 
+# with open("m.log", "w", encoding="utf-8") as f:
+#     line: list[str] = []
+
+#         line.append(log + "\n")
+#     f.writelines(line)
 # for index, noteInfo in enumerate(notesInfo):
 #     noteId = noteInfo["noteId"]
 #     tags: list = noteInfo["tags"]
 #     fields = noteInfo["fields"]
 #     a = fields["大类"]["value"]
 #     b = fields["小类"]["value"].split("-")[0]
-#     deck = f"1368个单词就够了::{a}::{b}"
+#     c = (
+#         fields["小类"]["value"].split("-")[1]
+#         if len(fields["小类"]["value"].split("-")) > 1
+#         else ""
+#     )
+#     deck = (
+#         f"1368个单词就够了::{a}::{b}::{c}"
+#         if len(c) > 0
+#         else f"1368个单词就够了::{a}::{b}"
+#     )
+#     invoke("createDeck", deck=deck)
+#     # deck = "1368个单词就够了"
 #     invoke("changeDeck", cards=[noteId], deck=deck)
-#     # invoke(
-#     #     "updateNote",
-#     #     note={"id": noteId, "tags": []},
-#     # )
-#     print(fields["单词"]["value"], f"{index + 1}/{len(notesInfo)}")
+#     log = f"{index + 1}/{len(notesInfo)}\t{deck}\t{fields['单词']['value']}"
+#     print(log)
+
+# 验证
+# num = 0
+# for index, noteInfo in enumerate(notesInfo):
+#     noteId = noteInfo["noteId"]
+#     tags: list = noteInfo["tags"]
+#     fields = noteInfo["fields"]
+#     word = fields["单词"]["value"]
+#     deckName = invoke("cardsInfo", cards=noteInfo["cards"])[0]["deckName"]
+
+#     a = fields["大类"]["value"]
+#     b = fields["小类"]["value"].split("-")[0]
+#     c = (
+#         fields["小类"]["value"].split("-")[1]
+#         if len(fields["小类"]["value"].split("-")) > 1
+#         else ""
+#     )
+#     deck = (
+#         f"1368个单词就够了::{a}::{b}::{c}"
+#         if len(c) > 0
+#         else f"1368个单词就够了::{a}::{b}"
+#     )
+
+#     if deckName != deck:
+#         # invoke("changeDeck", cards=[noteId], deck=deck)
+#         num += 1
+#         print(num, word)
+#     # print(f"{index + 1}/{len(notesInfo)}")
 
 
-notesInfoMap = {
-    noteInfo["fields"]["单词"]["value"]: noteInfo["noteId"]
-    for noteInfo in invoke(
-        "notesInfo", notes=invoke("findNotes", query="deck:26意境语义红宝石")
-    )
-}
+# notesInfoMap = {
+#     noteInfo["fields"]["单词"]["value"]: noteInfo["noteId"]
+#     for noteInfo in invoke(
+#         "notesInfo", notes=invoke("findNotes", query="deck:26意境语义红宝石")
+#     )
+# }
 
-for noteInfo in notesInfo:
+# for noteInfo in notesInfo:
+#     noteId = noteInfo["noteId"]
+#     tag = noteInfo["tags"]
+#     fields = noteInfo["fields"]
+#     word = fields["单词"]["value"]
+#     if word in notesInfoMap:
+#         # 获取id对应卡片的数据，写入到这个卡片中
+#         m_noteInfo = invoke("notesInfo", notes=[notesInfoMap[word]])[0]
+#         m_fields = m_noteInfo["fields"]
+#         us = m_fields["US"]["value"]
+#         uk = m_fields["UK"]["value"]
+#         sy = m_fields["释义"]["value"]
+#         yj = m_fields["语音音节"]["value"]
+#         # US、UK、释义、音节
+#         invoke(
+#             "updateNote",
+#             note={
+#                 "id": noteId,
+#                 "fields": {
+#                     "US": us,
+#                     "UK": uk,
+#                     "释义": sy,
+#                     "音节": yj,
+#                 },
+#             },
+#         )
+#         print(word)
+name = "01-具体名词：背下来就可以"
+note_id_list = invoke("findNotes", query=f"deck:1368个单词就够了::{name}")
+notesInfo = invoke("notesInfo", notes=note_id_list)
+for index, noteInfo in enumerate(notesInfo):
     noteId = noteInfo["noteId"]
-    tag = noteInfo["tags"]
+    tags: list = noteInfo["tags"]
     fields = noteInfo["fields"]
-    word = fields["单词"]["value"]
-    if word in notesInfoMap:
-        # 获取id对应卡片的数据，写入到这个卡片中
-        m_noteInfo = invoke("notesInfo", notes=[notesInfoMap[word]])[0]
-        m_fields = m_noteInfo["fields"]
-        us = m_fields["US"]["value"]
-        uk = m_fields["UK"]["value"]
-        sy = m_fields["释义"]["value"]
-        yj = m_fields["语音音节"]["value"]
-        # US、UK、释义、音节
-        invoke(
-            "updateNote",
-            note={
-                "id": noteId,
-                "fields": {
-                    "US": us,
-                    "UK": uk,
-                    "释义": sy,
-                    "音节": yj,
-                },
+    a = fields["大类"]["value"]
+    invoke(
+        "updateNote",
+        note={
+            "id": noteId,
+            "fields": {
+                "大类": "具体名词",
             },
-        )
-        print(word)
+        },
+    )
+    print(f"{index + 1}/{len(notesInfo)}")
