@@ -38,16 +38,15 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "openpyxl>=3.1.5",
-    "pandas>=2.3.3",
+    # "openpyxl>=3.1.5",
+    # "pandas>=2.3.3",
     "pyinstaller>=6.17.0",
+    # "openai>=2.16.0",
+    # "zai-sdk>=0.2.1",
+    # "readmdict>=0.1.1",
+    # "python-lzo",
+    # "nltk>=3.9.2",
 ]
-# dev = [
-#     "premailer<4.0.0,>=3.10.0",
-#     "pystache<1.0.0,>=0.6.7",
-#     "readmdict<1.0.0,>=0.1.1",
-#     "python-lzo @ file:///${PROJECT_ROOT}/supermemo_toolkit/libs/python_lzo_win_amd64/python_lzo-1.16-cp310-cp310-win_amd64.whl",
-# ]
 
 [project.urls]
 homepage = "https://github.com/Zacharia2/SuperMemo-Toolkit"
@@ -69,6 +68,9 @@ verify_ssl = true
 [[tool.uv.index]]
 name = "aliyun"
 url = "https://mirrors.aliyun.com/pypi/simple/"
+
+# [tool.uv.sources]
+# python-lzo = { path = "supermemo_toolkit/libs/python_lzo_win_amd64/python_lzo-1.16-cp310-cp310-win_amd64.whl" }
 
 [build-system]
 requires = ["pdm-backend"]

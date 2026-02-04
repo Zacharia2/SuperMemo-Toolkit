@@ -1,23 +1,78 @@
 <div class="front_word_dc">{{单词}}</div>
-<div class="front_phonetic" style="opacity: 0.4">
+<div class="front_phonetic">
   <div class="front_yinbiao">
     <img alt="S" class="yinbiao_img" src="_us4.png" />
-    <div class="us">{{US}}</div>
+    <div class="us">{{US音标}}</div>
   </div>
   <div class="front_yinbiao">
     <img alt="K" class="yinbiao_img" src="_uk4.png" />
-    <div class="uk">{{UK}}</div>
+    <div class="uk">{{UK音标}}</div>
   </div>
 </div>
-<div
-  class="center-screen"
-  style="
+<div class="front_center_screen">
+  <div id="front_q_sentence">{{例句}}</div>
+</div>
+
+<style>
+  /* 卡片正面样式 */
+  .front_word_dc {
+    padding: 2rem 0 0rem 0;
+    position: relative;
+    margin-top: 5rem;
+    font-size: 2rem;
+    font-weight: 700;
+    color: transparent;
+    text-align: center;
+    background-clip: text;
+    background-image: linear-gradient(45deg, #3120ea, #45f6d6);
+    background-size: 100% 100%;
+    background-position: 100% 100%;
+    opacity: 0.4;
+  }
+
+  .front_phonetic {
+    margin: auto;
+    width: fit-content;
+    color: #b7b7b7;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    font-size: 0.9rem;
+    -webkit-width: fit-content;
+    opacity: 0.4;
+  }
+
+  .front_yinbiao {
+    display: flex;
+    align-items: center;
+  }
+
+  .front_yinbiao img {
+    padding-right: 5px;
+    width: 18px;
+  }
+
+  #front_q_sentence {
+    text-align: center;
+    word-wrap: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+  }
+
+  #front_q_sentence b {
+    color: red;
+  }
+
+  .front_center_screen {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 50vh;
+    flex-direction: column;
+    font-size: 24px;
     text-align: center;
     word-wrap: break-word;
     hyphens: auto;
     -webkit-hyphens: auto;
     height: 40vh;
-  "
->
-  <div>{{q_sentence}}</div>
-</div>
+  }
+</style>

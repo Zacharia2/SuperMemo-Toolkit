@@ -1,12 +1,14 @@
 <audio id="audio_c"></audio>
+<audio id="example_audio"></audio>
+
 <div class="a_line">
   <div class="back_yinbiao">
     <img alt="S" class="yinbiao_img" src="_us4.png" />
-    <div class="us" style="font-size: 1rem">{{US}}</div>
+    <div class="us" style="font-size: 1rem">{{US音标}}</div>
   </div>
   <div class="back_yinbiao">
     <img alt="K" class="yinbiao_img" src="_uk4.png" />
-    <div class="uk" style="font-size: 1rem">{{UK}}</div>
+    <div class="uk" style="font-size: 1rem">{{UK音标}}</div>
   </div>
 </div>
 <div class="back_word_div">
@@ -16,49 +18,39 @@
   </div>
   <div class="back_word_phonetic">{{单词音频}}</div>
 </div>
-<div id="paraphrase">{{释义}}</div>
-<div id="SA"></div>
+<div id="definition">{{单词释义}}</div>
+<div id="synonym">{{同义词}}</div>
 
 <hr />
 
-<div class="locat">重要性：{{重要程度}}. {{所在组}} - {{序号}}</div>
-<div class="center-screen">
+<div class="locat">重要性：{{重要程度}}；《{{所在组}} - {{序号}}》</div>
+<div class="locat_word_class_tree">词类树：《》</div>
+<div class="back_center_screen">
   <div id="back_synonym_card">
-    <span id="synonym_phrases">{{同义短句}}</span>
-    <span id="synonym_trans">{{同义释义}}</span>
+    <span id="synonym_phrases">{{同义句}}</span>
+    <span id="synonym_trans">{{同义句翻译}}</span>
   </div>
-  <div id="q_sentence">{{q_sentence}}</div>
-  <div
-    id="a_sentence"
-    style="opacity: 0.3; text-align: center; font-size: 1rem"
-  >
-    {{a_sentence}}
-  </div>
+  <div id="back_q_sentence">{{例句}}</div>
+  <div id="back_a_sentence">{{例句翻译}}</div>
 </div>
 
 <script>
-  $("#q_sentence").on("click", () => {
-    const text = encodeURIComponent($("#q_sentence").text());
-    $("#audio_c")
-      .prop(
-        "src",
-        `https://t.leftsite.cn/tts?t=${text}&v=zh-CN-XiaochenMultilingualNeural&s=general`
-      )[0]
-      .play();
+  if (`` === "") {
+    $(".locat_word_class_tree").hide();
+  }
+</script>
+<script>
+  $("#back_q_sentence").on("click", () => {
+    var audio = document.getElementById("example_audio");
+    audio.setAttribute("src", `{{例句音频U}}`);
+    audio.play();
   });
 </script>
 <script>
-  var strSA = `{{SA}}`;
-  var sa_div = document.getElementById("SA");
-  var SA = JSON.parse(strSA.replace(/'/g, '"'));
-  sa_div.innerHTML = `<span class="synonyms">${SA["synonyms"].join(", ")}</span><br>`;
-</script>
-<script>
-  var back_synonym_card = document.getElementById("back_synonym_card");
-  var synonym_trans = document.getElementById("synonym_trans");
   var show_trans = false;
+  var synonym_trans = document.getElementById("synonym_trans");
   synonym_trans.style.display = "none";
-  back_synonym_card.addEventListener("click", function () {
+  $("#back_synonym_card").on("click", () => {
     if (show_trans) {
       synonym_trans.style.display = "none";
     } else {
@@ -68,12 +60,14 @@
   });
 </script>
 <script>
-  var back_word_dc = document.getElementById("back_word_dc");
+  var show_syllable = false;
   var back_word = document.getElementById("back_word");
   var back_syllable = document.getElementById("back_syllable");
   back_syllable.style.display = "none";
-  var show_syllable = false;
-  back_word_dc.addEventListener("click", function () {
+  $("#back_word_dc").on("click", () => {
+    if (back_syllable.innerText.trim() === "") {
+      return;
+    }
     if (show_syllable) {
       back_word.style.display = "inline-block";
       back_syllable.style.display = "none";
@@ -84,3 +78,159 @@
     show_syllable = !show_syllable;
   });
 </script>
+
+<style>
+  /* 词义分割 */
+  div span b::after {
+    content: "；";
+  }
+
+  /* 背面样式 */
+  .back_yinbiao {
+    display: flex;
+    align-items: center;
+  }
+
+  .back_yinbiao img {
+    padding-right: 5px;
+    width: 14px;
+  }
+
+  .back_center_screen {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 50vh;
+    flex-direction: column;
+    font-size: 24px;
+  }
+
+  .a_line {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-left: 0px;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    opacity: 0.4;
+  }
+
+  .a_line div {
+    font-size: 20px;
+  }
+
+  #back_synonym_card {
+    font-family: "Arial";
+    font-size: 14px;
+    color: #faad14;
+    text-align: left;
+    opacity: 0.4;
+    text-align: center;
+    word-wrap: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+  }
+
+  .back_word_div {
+    text-align: left;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  #back_word_dc {
+    display: inline-block;
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: red;
+    border: 2px solid rgba(255, 0, 0, 0.6);
+    border-radius: 8px;
+    box-sizing: border-box;
+    padding: 0 5px;
+    margin-top: 0;
+    margin-bottom: 0;
+    opacity: 0.3;
+  }
+
+  .back_word_phonetic {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  #definition {
+    opacity: 0.55;
+    font-size: 0.8rem;
+    text-align: left;
+    color: #007bff;
+  }
+
+  #definition b {
+    font-weight: normal !important;
+  }
+
+  #synonym {
+    font-size: 14px;
+    color: #28a745;
+    opacity: 0.2;
+  }
+
+  #back_syllable b::after {
+    content: "|";
+    color: red;
+  }
+
+  #back_q_sentence {
+    cursor: pointer;
+    text-align: center;
+    word-wrap: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+  }
+
+  #back_q_sentence b {
+    color: red;
+  }
+
+  #back_q_sentence:hover {
+    color: #1b9eeb;
+  }
+
+  #back_a_sentence {
+    opacity: 0.25;
+    text-align: center;
+    font-size: 1rem;
+  }
+
+  .locat {
+    font-size: 0.7rem;
+    text-align: right;
+    margin: 0.6rem 0;
+    color: #f61358;
+    opacity: 0.5;
+  }
+
+  .locat_word_class_tree {
+    font-size: 0.7rem;
+    text-align: right;
+    margin: 0.6rem 0;
+    opacity: 0.5;
+    color: #27ae60;
+    font-weight: 600;
+  }
+
+  /* 音频播放按钮 */
+  .replay-button svg {
+    width: 25px;
+    height: 25px;
+  }
+
+  .replay-button svg circle {
+    display: none;
+    fill: #fff;
+  }
+
+  .replay-button svg path {
+    stroke: #56fcfc;
+    fill: #56fcfc;
+  }
+</style>
