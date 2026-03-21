@@ -46,6 +46,7 @@ dev = [
     # "readmdict>=0.1.1",
     # "python-lzo",
     # "nltk>=3.9.2",
+    "selenium>=4.41.0",
 ]
 
 [project.urls]
