@@ -59,6 +59,10 @@ def split_section(html, doc_id):
 
 
 def get_content(book: epub.EpubBook, href: str):
+    # TODO: 目录的指向位置全部指向锚点，就会导致内容缺少的可能性发生。
+    # 解决方法？编辑epub目录，修改指向位置为文件而非锚点即可。
+    # 自动方法？暂时想不出来。
+    # 还有一点就是，有些函数和变量的名字命名太菜了，有些认不出函数的语义了。
     if href.find("#") != -1:
         doc_id = href.split("#")[-1]
         doc_href = href.split("#")[0]
