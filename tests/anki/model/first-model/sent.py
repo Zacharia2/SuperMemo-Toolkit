@@ -1,7 +1,7 @@
 import re
 import pandas as pd
 
-from until.cmp_2word import cmp_2word
+from tests.anki.test.cmp_2word import cmp_2word
 from supermemo_toolkit.utilscripts.ankinet import invoke
 
 df = pd.read_excel("C:/Users/Snowy/Desktop/2000.xlsx", sheet_name="Sheet1")
