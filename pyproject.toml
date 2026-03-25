@@ -38,6 +38,8 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    # "levenshtein>=0.27.3",
+    # "metaphone>=0.6",
     # "openpyxl>=3.1.5",
     # "pandas>=2.3.3",
     "pyinstaller>=6.17.0",
@@ -46,7 +48,8 @@ dev = [
     # "readmdict>=0.1.1",
     # "python-lzo",
     # "nltk>=3.9.2",
-    "selenium>=4.41.0",
+    # "selenium>=4.41.0",
+    # "spacy>=3.8.13",
 ]
 
 [project.urls]
@@ -70,8 +73,8 @@ verify_ssl = true
 name = "aliyun"
 url = "https://mirrors.aliyun.com/pypi/simple/"
 
-# [tool.uv.sources]
-# python-lzo = { path = "supermemo_toolkit/libs/python_lzo_win_amd64/python_lzo-1.16-cp310-cp310-win_amd64.whl" }
+[tool.uv.sources]
+python-lzo = { path = "supermemo_toolkit/libs/python_lzo_win_amd64/python_lzo-1.16-cp310-cp310-win_amd64.whl" }
 
 [build-system]
 requires = ["pdm-backend"]
