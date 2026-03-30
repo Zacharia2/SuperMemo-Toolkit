@@ -38,18 +38,20 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    # "gensim>=4.4.0",
     # "levenshtein>=0.27.3",
     # "metaphone>=0.6",
+    # "nltk>=3.9.4",
     # "openpyxl>=3.1.5",
     # "pandas>=2.3.3",
-    "pyinstaller>=6.17.0",
+    # "pyinstaller>=6.17.0",
     # "openai>=2.16.0",
     # "zai-sdk>=0.2.1",
     # "readmdict>=0.1.1",
     # "python-lzo",
-    # "nltk>=3.9.2",
     # "selenium>=4.41.0",
-    # "spacy>=3.8.13",
+    # "sentence-transformers>=5.3.0",
+    # "spacy>=3.8.14",
 ]
 
 [project.urls]
@@ -74,7 +76,12 @@ name = "aliyun"
 url = "https://mirrors.aliyun.com/pypi/simple/"
 
 [tool.uv.sources]
-python-lzo = { path = "supermemo_toolkit/libs/python_lzo_win_amd64/python_lzo-1.16-cp310-cp310-win_amd64.whl" }
+python-lzo = [
+    { path = "supermemo_toolkit/libs/python_lzo_win_amd64/python_lzo-1.16-cp310-cp310-win_amd64.whl", marker = "sys_platform == 'win32' and platform_machine == 'amd64' and python_version == '3.10'" },
+    { path = "supermemo_toolkit/libs/python_lzo_win_amd64/python_lzo-1.16-cp311-cp311-win_amd64.whl", marker = "sys_platform == 'win32' and platform_machine == 'amd64' and python_version == '3.11'" },
+    { path = "supermemo_toolkit/libs/python_lzo_win_amd64/python_lzo-1.16-cp312-cp312-win_amd64.whl", marker = "sys_platform == 'win32' and platform_machine == 'amd64' and python_version == '3.12'" },
+    { path = "supermemo_toolkit/libs/python_lzo_win_amd64/python_lzo-1.16-cp313-cp313-win_amd64.whl", marker = "sys_platform == 'win32' and platform_machine == 'amd64' and python_version == '3.13'" },
+]
 
 [build-system]
 requires = ["pdm-backend"]
