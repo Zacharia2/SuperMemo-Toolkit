@@ -26,45 +26,58 @@ def is_synonym(w1: str, w2: str, threshold: float = 0.65) -> tuple[bool, float]:
 
 # ========== 4. 测试 ==========
 
-words = [
-    str(noteInfo["fields"]["orderKey"]["value"]).lower()
-    for noteInfo in invoke(
-        "notesInfo", notes=invoke("findNotes", query="deck:01意境语义红宝石")
-    )
-]
-synonym_words = {}
-for idx, w1 in enumerate(words):
-    for w2 in words:
-        if w1 == w2:
-            continue
-        flag, score = is_synonym(w1, w2)
-        if flag:
-            print(
-                f"{idx + 1}\t{w1:<12} {w2:<12} | {'YES' if flag else 'NO':^6} | {score:+.4f}"
-            )
-            if w1 not in synonym_words:
-                synonym_words[w1] = [w2]
-            else:
-                synonym_words[w1].append(w2)
-with open("synonym_words.json", "w+", encoding="utf-8") as f:
-    f.write(json.dumps(synonym_words, ensure_ascii=False, indent=4))
-
-# 改写为表格
+# words = [
+#     str(noteInfo["fields"]["orderKey"]["value"]).lower()
+#     for noteInfo in invoke(
+#         "notesInfo", notes=invoke("findNotes", query="deck:01意境语义红宝石")
+#     )
+# ]
 # lines = []
-# for w1, words in synonym_words.items():
-#     lines.extend(",".join([w1] + [w2 for w2 in words]))
+# for idx, w1 in enumerate(words):
+#     for w2 in words:
+#         if w1 == w2:
+#             continue
+#         flag, score = is_synonym(w1, w2)
+#         if flag:
+#             line = f"{idx + 1},{w1},{w2},{score}\n"
+#             lines.append(line)
+#             print(line, end="")
 # with open("synonym_words.csv", "w+", encoding="utf-8", newline="") as f:
 #     f.writelines(lines)
 
-# 表格处理后重写
-# with open("synonym_words.csv", "r+", encoding="utf-8") as f:
-#     lines = f.readlines()
-# synonym_words = {}
-# for line in lines:
-#     w1, w2 = line.split(",")
-#     if w1 not in synonym_words:
-#         synonym_words[w1] = [w2]
-#     else:
-#         synonym_words[w1].append(w2)
-# with open("synonym_words.json", "w+", encoding="utf-8") as f:
-#     f.write(json.dumps(synonym_words, ensure_ascii=False, indent=4))
+# 表格处理后写入anki
+with open("order_synonym_words.csv", "r+", encoding="utf-8") as f:
+    lines = f.readlines()
+synonym_words = {}
+for line in lines[1:]:
+    w1, w2, _ = line.split(",")
+    if w1 not in synonym_words:
+        synonym_words[w1] = [w2]
+    else:
+        synonym_words[w1].append(w2)
+head3_synonym_words = {}
+for w1, w2_list in synonym_words.items():
+    head3_synonym_words[w1] = w2_list[:3]
+note_id_list = invoke("findNotes", query="deck:01意境语义红宝石")
+notesInfo = invoke("notesInfo", notes=note_id_list)
+for index, noteInfo in enumerate(notesInfo):
+    noteId = noteInfo["noteId"]
+    fields = noteInfo["fields"]
+    word = fields["orderKey"]["value"]
+    invoke(
+        "updateNote",
+        note={
+            "id": noteId,
+            "fields": {"同义词": ""},
+        },
+    )
+    if word in head3_synonym_words:
+        tyc = ", ".join(head3_synonym_words.get(word))
+        invoke(
+            "updateNote",
+            note={
+                "id": noteId,
+                "fields": {"同义词": tyc},
+            },
+        )
+        print(f"{index + 1} / {len(notesInfo)}  {tyc}")
