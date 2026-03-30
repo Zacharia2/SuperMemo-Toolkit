@@ -4,6 +4,60 @@ import json
 from metaphone import doublemetaphone  # pip install metaphone
 from supermemo_toolkit.utilscripts.ankinet import invoke
 
+
+"""
+    {{#易混词}}
+    <div id="homophones">{{易混词}}</div>
+    <script>
+        if (document.getElementById("homophones")) {
+            var hintDiv = document.getElementById("homophones");
+            hintDiv.addEventListener("click", function () {
+                this.classList.toggle("revealed");
+            });
+        }
+    </script>
+    {{/易混词}}
+    #homophones {
+        background-color: #e8e8e8;
+        color: #e8e8e8;
+        border-radius: 4px;
+        padding: 0 5px;
+        cursor: pointer;
+        display: inline-block;
+        transition: all 0.2s ease;
+    }
+
+    #homophones:hover {
+        background-color: #d0d0d0;
+        color: #d0d0d0;
+    }
+
+    #homophones.revealed {
+        background-color: transparent;
+        color: purple;
+        font-size: 1.2rem;
+        font-weight: bold;
+        cursor: text;
+    }
+
+    .nightMode #homophones {
+        background-color: #3a3a3a; /* 深灰色背景 */
+        color: #3a3a3a; /* 文字同色隐藏 */
+    }
+
+    .nightMode #homophones:hover {
+        background-color: #555; /* hover 时稍亮 */
+        color: #555;
+    }
+
+    .nightMode #homophones.revealed {
+        background-color: transparent;
+        color: #c8a2c8;
+        font-size: 1.2rem;
+        font-weight: bold;
+    }
+"""
+
 # 1. 预加载视觉相似度矩阵 (全局加载一次，不要放在函数里)
 df_visual = pd.read_excel(
     r"tests/anki/res/Simpsonetal2012-SupplementaryMaterial.xlsx",
@@ -69,6 +123,7 @@ def is_phonetic_similar(word1, word2):
 
 
 def print_similar_word_optimized():
+    # 单词分布1-3、4-9（最多）、10-12（次多）、12-19
     words = [
         str(noteInfo["fields"]["orderKey"]["value"]).lower()
         for noteInfo in invoke(
@@ -87,14 +142,14 @@ def print_similar_word_optimized():
     similarity_words = {}
 
     # 遍历每个单词
-    for i, w1 in enumerate(words):
+    for idx, w1 in enumerate(words):
         len_word = len(w1)
 
         # 只检查长度相近的候选词
         candidates = []
-        for l in range(len_word - 3, len_word + 4):
-            if l in len_dict:
-                candidates.extend(len_dict[l])
+        for w_len in range(len_word - 3, len_word + 4):
+            if w_len in len_dict:
+                candidates.extend(len_dict[w_len])
 
         for w2 in candidates:
             if w1 == w2:
@@ -192,7 +247,7 @@ def print_similar_word_optimized():
                 else:
                     similarity_words[w1].append(w2)
                 print(
-                    f"{i}/{len(words)} Found: {w1} <-> {w2} | Reason: {reason} | VisualScore: {avg_visual_score:.2f}"
+                    f"{idx}/{len(words)} Found: {w1} <-> {w2} | Reason: {reason} | VisualScore: {avg_visual_score:.2f}"
                 )
 
     # 输出结果
@@ -228,5 +283,5 @@ def sync():
             print(f"{index + 1} / {len(notesInfo)}  {yhc}")
 
 
-# print_similar_word_optimized()
-sync()
+print_similar_word_optimized()
+# sync()
