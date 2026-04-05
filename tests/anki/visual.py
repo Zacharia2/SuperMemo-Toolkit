@@ -6,17 +6,17 @@ from supermemo_toolkit.utilscripts.ankinet import invoke
 
 
 """
-    {{#易混词}}
-    <div id="homophones">{{易混词}}</div>
-    <script>
-        if (document.getElementById("homophones")) {
-            var hintDiv = document.getElementById("homophones");
-            hintDiv.addEventListener("click", function () {
-                this.classList.toggle("revealed");
-            });
-        }
-    </script>
-    {{/易混词}}
+{{#易混词}}
+<div id="homophones">{{易混词}}</div>
+<script>
+    if (document.getElementById("homophones")) {
+        var hintDiv = document.getElementById("homophones");
+        hintDiv.addEventListener("click", function () {
+            this.classList.toggle("revealed");
+        });
+    }
+</script>
+<style>
     #homophones {
         background-color: #e8e8e8;
         color: #e8e8e8;
@@ -56,6 +56,8 @@ from supermemo_toolkit.utilscripts.ankinet import invoke
         font-size: 1.2rem;
         font-weight: bold;
     }
+</style>
+{{/易混词}} 
 """
 
 # 1. 预加载视觉相似度矩阵 (全局加载一次，不要放在函数里)

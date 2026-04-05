@@ -1,0 +1,282 @@
+<audio id="audio_c"></audio>
+<div class="card-container">
+    <div class="a_line">
+        <div class="back_yinbiao">
+            <img alt="S" class="yinbiao_img" src="_us4.png" />
+            <div class="us" style="font-size: 1rem">{{US音标}}</div>
+        </div>
+        <div class="back_yinbiao">
+            <img alt="K" class="yinbiao_img" src="_uk4.png" />
+            <div class="uk" style="font-size: 1rem">{{UK音标}}</div>
+        </div>
+    </div>
+    <div class="back_word_div">
+        <div id="back_word_dc">
+            <div id="back_syllable">{{语音音节}}</div>
+            <div id="back_word">{{单词}}</div>
+        </div>
+        <div class="back_word_phonetic">{{单词音频}}</div>
+    </div>
+    <div id="definition">{{单词释义}}</div>
+    <div id="synonym">{{同义词}}</div>
+
+    <hr />
+    {{#易混词}}
+    <div id="homophones">{{易混词}}</div>
+    <script>
+        if (document.getElementById("homophones")) {
+            var hintDiv = document.getElementById("homophones");
+            hintDiv.addEventListener("click", function () {
+                this.classList.toggle("revealed");
+            });
+        }
+    </script>
+    <style>
+        #homophones {
+            background-color: #e8e8e8;
+            color: #e8e8e8;
+            border-radius: 4px;
+            padding: 0 5px;
+            cursor: pointer;
+            display: inline-block;
+            transition: all 0.2s ease;
+        }
+
+        #homophones:hover {
+            background-color: #d0d0d0;
+            color: #d0d0d0;
+        }
+
+        #homophones.revealed {
+            background-color: transparent;
+            color: purple;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: text;
+        }
+
+        .nightMode #homophones {
+            background-color: #3a3a3a; /* 深灰色背景 */
+            color: #3a3a3a; /* 文字同色隐藏 */
+        }
+
+        .nightMode #homophones:hover {
+            background-color: #555; /* hover 时稍亮 */
+            color: #555;
+        }
+
+        .nightMode #homophones.revealed {
+            background-color: transparent;
+            color: #c8a2c8;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+    </style>
+    {{/易混词}}
+
+    <div class="locat">重要性：{{重要程度}}；《{{所在组}} - {{序号}}》</div>
+    <div class="back_center_screen">
+        <div id="back_a_sentence">{{例句翻译}}</div>
+        <div id="back_q_sentence">{{例句}}</div>
+        <div id="synonym_phrases_card">
+            <span id="synonym_phrases">{{同义句}}</span>
+            <span id="synonym_trans">{{同义句翻译}}</span>
+        </div>
+    </div>
+</div>
+
+<script>
+    function play_q() {
+        // Python 先替换模板字符串生成 HTML，再由 WebView 渲染，最后 JavaScript 执行。
+        // 在替换模板字符串时音频字段会解析为HTML并
+        // 生成音频数组和对应的命令play:a:1，我拿到命令直接调用pycmd播放即可。
+        var audio_cmd = `{{例句音频}}`.match(/pycmd\('([^']+)'\)/)[1];
+        pycmd(audio_cmd);
+        console.log(audio_cmd);
+    }
+    $("#back_q_sentence").off("click.play_q").on("click.play_q", play_q);
+    $(document)
+        .off("keydown.play_q")
+        .on("keydown.play_q", function (e) {
+            if (e.code === "Backslash") {
+                play_q();
+            }
+        });
+</script>
+<script>
+    var show_trans = false;
+    var synonym_trans = document.getElementById("synonym_trans");
+    synonym_trans.style.display = "none";
+    $("#synonym_phrases_card").on("click", () => {
+        if (show_trans) {
+            synonym_trans.style.display = "none";
+        } else {
+            synonym_trans.style.display = "inline-block";
+        }
+        show_trans = !show_trans;
+    });
+</script>
+<script>
+    var show_syllable = true;
+    var back_word = document.getElementById("back_word");
+    var back_syllable = document.getElementById("back_syllable");
+    back_word.style.display = "none";
+    back_syllable.style.display = "inline-block";
+    function play_s() {
+        if (back_syllable.innerText.trim() === "") {
+            return;
+        }
+        if (show_syllable) {
+            back_word.style.display = "inline-block";
+            back_syllable.style.display = "none";
+        } else {
+            back_word.style.display = "none";
+            back_syllable.style.display = "inline-block";
+        }
+        show_syllable = !show_syllable;
+    }
+    $("#back_word_dc").off("click.play_s").on("click.play_s", play_s);
+    $(document)
+        .off("keydown.play_s")
+        .on("keydown.play_s", (e) => {
+            if (e.code === "BracketRight") {
+                play_s();
+            }
+        });
+</script>
+
+<style>
+    /* 背面样式 */
+    .back_yinbiao {
+        display: flex;
+        align-items: center;
+    }
+
+    .back_yinbiao img {
+        padding-right: 5px;
+        width: 14px;
+    }
+
+    .a_line {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        margin-left: 0px;
+        margin-top: 5px;
+        margin-bottom: 5px;
+        opacity: 0.2;
+    }
+
+    .a_line div {
+        font-size: 20px;
+    }
+
+    .back_word_div {
+        text-align: left;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+    }
+
+    #back_word_dc {
+        cursor: pointer;
+        display: inline-block;
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: red;
+        border: 2px solid rgba(255, 0, 0, 0.6);
+        border-radius: 8px;
+        box-sizing: border-box;
+        padding: 0 5px;
+        margin-top: 0;
+        margin-bottom: 0;
+        opacity: 0.4;
+    }
+
+    .back_word_phonetic {
+        margin-top: 0;
+        margin-bottom: 0;
+    }
+
+    #definition {
+        opacity: 0.8;
+        font-size: 0.8rem;
+        text-align: left;
+        color: #007bff;
+    }
+
+    #definition b {
+        font-weight: normal !important;
+    }
+
+    .back_center_screen {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 50vh;
+        flex-direction: column;
+        font-size: 24px;
+    }
+
+    #synonym_phrases_card {
+        font-size: 0.8rem;
+        color: #faad14;
+        text-align: left;
+        opacity: 0.3;
+        word-wrap: break-word;
+        hyphens: auto;
+        -webkit-hyphens: auto;
+    }
+
+    #synonym {
+        font-size: 0.8rem;
+        color: #28a745;
+        opacity: 0.4;
+    }
+
+    #back_q_sentence {
+        cursor: pointer;
+        text-align: center;
+        word-wrap: break-word;
+        hyphens: auto;
+        -webkit-hyphens: auto;
+    }
+
+    #back_q_sentence b {
+        color: red;
+    }
+
+    #back_q_sentence:hover {
+        color: #1b9eeb;
+    }
+
+    #back_a_sentence {
+        opacity: 0.2;
+        text-align: center;
+        font-size: 1rem;
+    }
+
+    .locat {
+        font-size: 0.7rem;
+        text-align: right;
+        margin: 0.6rem 0;
+        color: #f61358;
+        opacity: 0.4;
+    }
+
+    /* 音频播放按钮 */
+    .replay-button svg {
+        width: 25px;
+        height: 25px;
+    }
+
+    .replay-button svg circle {
+        display: none;
+        fill: #fff;
+    }
+
+    .replay-button svg path {
+        stroke: #56fcfc;
+        fill: #56fcfc;
+    }
+</style>
