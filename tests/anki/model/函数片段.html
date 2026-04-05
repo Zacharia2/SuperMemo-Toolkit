@@ -3,6 +3,7 @@
         // Python 先替换模板字符串生成 HTML，再由 WebView 渲染，最后 JavaScript 执行。
         // 在替换模板字符串时音频字段会解析为HTML并
         // 生成音频数组和对应的命令play:a:1，我拿到命令直接调用pycmd播放即可。
+        // 仅电脑端可以，安卓端只要插入字段就自动播放，而且是一个链接，不适配。
         var audio_cmd = `{{例句音频}}`.match(/pycmd\('([^']+)'\)/)[1];
         pycmd(audio_cmd);
         console.log(audio_cmd);

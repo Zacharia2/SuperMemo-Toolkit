@@ -5,8 +5,3 @@
 .card.nightMode {
   background-color: #1c1b1f;
 }
-
-.card-container {
-  max-width: 550px;
-  margin: 10px auto;
-}

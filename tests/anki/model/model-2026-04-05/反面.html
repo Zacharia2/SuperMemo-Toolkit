@@ -49,25 +49,25 @@
 
         #homophones.revealed {
             background-color: transparent;
-            color: purple;
+            color: #1565c0;
             font-size: 1.2rem;
             font-weight: bold;
             cursor: text;
         }
 
         .nightMode #homophones {
-            background-color: #3a3a3a; /* 深灰色背景 */
-            color: #3a3a3a; /* 文字同色隐藏 */
+            background-color: #3a3a3a;
+            color: #3a3a3a;
         }
 
         .nightMode #homophones:hover {
-            background-color: #555; /* hover 时稍亮 */
+            background-color: #555;
             color: #555;
         }
 
         .nightMode #homophones.revealed {
             background-color: transparent;
-            color: #c8a2c8;
+            color: #2979ff; /* 夜间模式：深邃电光蓝 */
             font-size: 1.2rem;
             font-weight: bold;
         }
@@ -86,13 +86,15 @@
 </div>
 
 <script>
+    var isPlaying = false;
     function play_q() {
-        // Python 先替换模板字符串生成 HTML，再由 WebView 渲染，最后 JavaScript 执行。
-        // 在替换模板字符串时音频字段会解析为HTML并
-        // 生成音频数组和对应的命令play:a:1，我拿到命令直接调用pycmd播放即可。
-        var audio_cmd = `{{例句音频}}`.match(/pycmd\('([^']+)'\)/)[1];
-        pycmd(audio_cmd);
-        console.log(audio_cmd);
+        var audio = document.getElementById("audio_c");
+        audio.setAttribute("src", `{{例句音频U}}`);
+        if (isPlaying) {
+            audio.pause();
+        }
+        audio.play();
+        isPlaying = true;
     }
     $("#back_q_sentence").off("click.play_q").on("click.play_q", play_q);
     $(document)
@@ -146,7 +148,12 @@
 </script>
 
 <style>
-    /* 背面样式 */
+    .card-container {
+        max-width: 550px;
+        margin: 10px auto;
+    }
+
+    /* --- 基础布局保留 --- */
     .back_yinbiao {
         display: flex;
         align-items: center;
@@ -164,7 +171,8 @@
         margin-left: 0px;
         margin-top: 5px;
         margin-bottom: 5px;
-        opacity: 0.2;
+        opacity: 0.4;
+        color: #555;
     }
 
     .a_line div {
@@ -178,19 +186,20 @@
         justify-content: space-between;
     }
 
+    /* --- 核心单词样式：深海蓝主题 --- */
     #back_word_dc {
         cursor: pointer;
         display: inline-block;
         font-size: 1.8rem;
         font-weight: bold;
-        color: red;
-        border: 2px solid rgba(255, 0, 0, 0.6);
+        color: #1565c0; /* 日间：深海蓝 */
+        border: 2px solid rgba(21, 101, 192, 0.3);
         border-radius: 8px;
         box-sizing: border-box;
         padding: 0 5px;
         margin-top: 0;
         margin-bottom: 0;
-        opacity: 0.4;
+        opacity: 0.5;
     }
 
     .back_word_phonetic {
@@ -198,11 +207,12 @@
         margin-bottom: 0;
     }
 
+    /* --- 辅助信息弱化：统一灰色调 --- */
     #definition {
-        opacity: 0.8;
+        opacity: 0.7;
         font-size: 0.8rem;
         text-align: left;
-        color: #007bff;
+        color: #444;
     }
 
     #definition b {
@@ -220,9 +230,9 @@
 
     #synonym_phrases_card {
         font-size: 0.8rem;
-        color: #faad14;
+        color: #888;
         text-align: left;
-        opacity: 0.3;
+        opacity: 0.4;
         word-wrap: break-word;
         hyphens: auto;
         -webkit-hyphens: auto;
@@ -230,20 +240,23 @@
 
     #synonym {
         font-size: 0.8rem;
-        color: #28a745;
+        color: #555;
         opacity: 0.4;
     }
 
+    /* --- 例句样式 --- */
     #back_q_sentence {
         cursor: pointer;
         text-align: center;
         word-wrap: break-word;
         hyphens: auto;
         -webkit-hyphens: auto;
+        color: #555;
     }
 
+    /* --- 核心高亮：唯一的视觉焦点 --- */
     #back_q_sentence b {
-        color: red;
+        color: #1565c0; /* 日间：深海蓝 */
     }
 
     #back_q_sentence:hover {
@@ -251,7 +264,7 @@
     }
 
     #back_a_sentence {
-        opacity: 0.2;
+        opacity: 0.3;
         text-align: center;
         font-size: 1rem;
     }
@@ -260,11 +273,11 @@
         font-size: 0.7rem;
         text-align: right;
         margin: 0.6rem 0;
-        color: #f61358;
-        opacity: 0.4;
+        color: #888;
+        opacity: 0.5;
     }
 
-    /* 音频播放按钮 */
+    /* --- 播放按钮保留原样 --- */
     .replay-button svg {
         width: 25px;
         height: 25px;
@@ -278,5 +291,43 @@
     .replay-button svg path {
         stroke: #56fcfc;
         fill: #56fcfc;
+    }
+
+    /* --- 夜间模式适配 --- */
+    .nightMode .a_line {
+        color: #aaa;
+    }
+
+    /* 夜间模式单词：深邃电光蓝 + 微光晕 */
+    .nightMode #back_word_dc {
+        color: #2979ff;
+        border-color: rgba(41, 121, 255, 0.4);
+        text-shadow: 0 0 4px rgba(41, 121, 255, 0.3);
+    }
+
+    .nightMode #definition {
+        color: #ccc;
+    }
+
+    .nightMode #synonym {
+        color: #aaa;
+    }
+
+    .nightMode #synonym_phrases_card {
+        color: #aaa;
+    }
+
+    .nightMode .locat {
+        color: #aaa;
+    }
+
+    .nightMode #back_q_sentence {
+        color: #ccc;
+    }
+
+    /* 夜间高亮：深邃电光蓝 + 微光晕，印象深刻 */
+    .nightMode #back_q_sentence b {
+        color: #2979ff;
+        text-shadow: 0 0 4px rgba(41, 121, 255, 0.3);
     }
 </style>

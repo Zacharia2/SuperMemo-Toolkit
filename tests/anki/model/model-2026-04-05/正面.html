@@ -15,7 +15,7 @@
 </div>
 
 <style>
-    /* 加上你要求的属性（作为整体基准，如果未来有非 fixed 元素会生效） */
+    /* 整体基准 */
     .card-container {
         max-width: 550px;
         margin: 10px auto;
@@ -26,25 +26,26 @@
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        /* 核心改变1：取 90% 和 550px 中的较小值，宽屏下永远不会超过 550px */
-        width: min(90%, 550px); 
+        width: min(90%, 550px);
         display: flex;
         justify-content: center;
         align-items: center;
         font-size: 24px;
         text-align: center;
         overflow-wrap: break-word;
+        color: #555;
     }
 
+    /* 例句高亮词颜色：深海蓝 */
     #front_q_sentence b {
-        color: red;
+        color: #1565c0;
+        font-weight: bold;
     }
 
     .front_phonetic {
         position: fixed;
         top: 20px;
-        /* 核心改变2：动态计算右边距，让它永远死死贴在 550px 宽度的右边缘 */
-        right: max(20px, calc((100% - 550px) / 2)); 
+        right: max(20px, calc((100% - 550px) / 2));
         display: flex;
         flex-direction: column;
         align-items: flex-start;
@@ -56,13 +57,30 @@
         align-items: center;
         gap: 4px;
         font-size: 12px;
-        color: #b7b7b7;
+        color: #999;
         letter-spacing: 0.04em;
         white-space: nowrap;
+        opacity: 0.6;
     }
 
     .yinbiao_img {
         width: 16px;
         height: auto;
+    }
+
+    /* --- 夜间模式适配 --- */
+    .nightMode .front_center_screen {
+        color: #ccc;
+    }
+
+    /* 夜间高亮：深邃电光蓝 + 微光晕 */
+    .nightMode #front_q_sentence b {
+        color: #2979ff;
+        text-shadow: 0 0 4px rgba(41, 121, 255, 0.3);
+    }
+
+    .nightMode .front_yinbiao {
+        color: #aaa;
+        opacity: 0.8;
     }
 </style>
