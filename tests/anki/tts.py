@@ -15,10 +15,9 @@ def sentence():
     notesInfo = invoke("notesInfo", notes=note_id_list)
     for index, noteInfo in enumerate(notesInfo):
         noteId = noteInfo["noteId"]
-        tags: list = noteInfo["tags"]
         fields = noteInfo["fields"]
         lj: str = fields["例句"]["value"]
-        if len(fields["例句音频"]["value"]) != 0:
+        if len(fields["例句音频U"]["value"]) != 0:
             continue
         lj_stripped = lj.strip().replace("<b>", "").replace("</b>", "")
         file_name = makeNameSafe(lj_stripped).replace(".", "") + ".mp3"
@@ -40,7 +39,8 @@ def sentence():
                     note={
                         "id": noteId,
                         "fields": {
-                            "例句音频": f"[sound:{result_filename}]",
+                            "例句音频U": f"{result_filename}",
+                            "例句音频S": f"[sound:{result_filename}]",
                         },
                     },
                 )
@@ -73,5 +73,6 @@ def word():
                         },
                     )
                     print(noteId, result_filename)
+
 
 sentence()
