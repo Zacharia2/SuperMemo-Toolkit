@@ -5,8 +5,8 @@ from supermemo_toolkit.utilscripts.ankinet import invoke
 class qa_to_anki:
     def __init__(self, qafile):
         self.qafile = qafile
-        self.deckName = "SM19 Cards"
-        self.modelName = "SM19问答题"
+        self.deckName = "SuperMemo Cards"
+        self.modelName = "问答题（SuperMemo）"
 
     def setDeckName(self, deckName: str):
         self.deckName = deckName
