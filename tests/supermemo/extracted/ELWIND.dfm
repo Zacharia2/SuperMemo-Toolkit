@@ -13,7 +13,7 @@ object ElWind: TElWind
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -32
-  Font.Name = 'Tahoma'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   PopupMenu = ElementMenu
   PopupMode = pmAuto
@@ -95,7 +95,7 @@ object ElWind: TElWind
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -20
-      Font.Name = 'MS Sans Serif'
+      Font.Name = 'Microsoft YaHei'
       Font.Style = []
       ParentFont = False
       ReadOnly = True
@@ -124,7 +124,7 @@ object ElWind: TElWind
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWhite
     Font.Height = -29
-    Font.Name = 'Tahoma'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = [fsBold]
     ParentBiDiMode = False
     ParentBackground = False
@@ -344,7 +344,7 @@ object ElWind: TElWind
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clBlue
         Font.Height = -20
-        Font.Name = 'Tahoma'
+        Font.Name = 'Microsoft YaHei'
         Font.Style = [fsBold]
         ParentColor = False
         ParentFont = False
@@ -406,7 +406,7 @@ object ElWind: TElWind
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWhite
         Font.Height = -20
-        Font.Name = 'Tahoma'
+        Font.Name = 'Microsoft YaHei'
         Font.Style = [fsBold]
         GlowSize = 3
         ParentColor = False
@@ -448,7 +448,7 @@ object ElWind: TElWind
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -17
-        Font.Name = 'Tahoma'
+        Font.Name = 'Microsoft YaHei'
         Font.Style = []
         ParentColor = False
         ParentFont = False
@@ -475,7 +475,7 @@ object ElWind: TElWind
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -17
-        Font.Name = 'Tahoma'
+        Font.Name = 'Microsoft YaHei'
         Font.Style = []
         ParentColor = False
         ParentFont = False
@@ -1073,7 +1073,7 @@ object ElWind: TElWind
       ButtonHeight = 70
       ButtonWidth = 340
       HideClippedButtons = True
-      Images = AboutBox.VirtualImageList64
+      Images = AboutBox.VirtualImageList32
       List = True
       PopupMenu = ElementMenu
       ShowCaptions = True
@@ -2489,7 +2489,7 @@ object ElWind: TElWind
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
-    Font.Name = 'System'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     Left = 112
     Top = 331

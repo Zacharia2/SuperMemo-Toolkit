@@ -16,7 +16,7 @@ object MyFindDlg: TMyFindDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -23
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   FormStyle = fsStayOnTop
   KeyPreview = True

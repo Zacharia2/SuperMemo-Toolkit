@@ -14,7 +14,7 @@ object AddressDlg: TAddressDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -30
-  Font.Name = 'System'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   KeyPreview = True
   Position = poScreenCenter

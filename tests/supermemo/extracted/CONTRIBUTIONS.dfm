@@ -10,7 +10,7 @@ object Contributions: TContributions
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clBtnText
   Font.Height = -17
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   OldCreateOrder = True
   Position = poScreenCenter
@@ -29,7 +29,7 @@ object Contributions: TContributions
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clBlack
     Font.Height = -24
-    Font.Name = 'Arial'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = [fsBold]
     ParentFont = False
     Transparent = True
@@ -44,7 +44,7 @@ object Contributions: TContributions
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clBtnText
     Font.Height = -15
-    Font.Name = 'MS Sans Serif'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = [fsUnderline]
     ParentFont = False
     OnClick = Label2Click
@@ -64,10 +64,10 @@ object Contributions: TContributions
     Top = 65
     Width = 665
     Height = 489
-    Font.Charset = ANSI_CHARSET
+    Font.Charset = DEFAULT_CHARSET
     Font.Color = clBtnText
     Font.Height = -20
-    Font.Name = 'Arial'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     Lines.Strings = (
       'Design: Dr Piotr Wozniak, SuperMemo R&D, SuperMemo Library, '

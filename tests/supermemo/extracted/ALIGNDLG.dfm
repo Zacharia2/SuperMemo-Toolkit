@@ -6,10 +6,10 @@ object AlignDlg: TAlignDlg
   ClientHeight = 496
   ClientWidth = 707
   Color = clBtnFace
-  Font.Charset = ANSI_CHARSET
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -18
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   OldCreateOrder = True
   Position = poScreenCenter

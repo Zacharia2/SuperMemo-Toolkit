@@ -15,7 +15,7 @@ object Browser: TBrowser
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -26
-  Font.Name = 'System'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   KeyPreview = True
   PopupMenu = PopupMenu1
@@ -61,7 +61,7 @@ object Browser: TBrowser
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -20
-    Font.Name = 'System'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = [fsBold]
     Options = [goFixedVertLine, goFixedHorzLine, goVertLine, goDrawFocusSelected, goColSizing, goColMoving, goTabs]
     ParentFont = False
@@ -97,7 +97,7 @@ object Browser: TBrowser
     AutoSize = True
     ButtonHeight = 90
     ButtonWidth = 107
-    Images = AboutBox.VirtualImageList64
+    Images = AboutBox.VirtualImageList32
     ParentShowHint = False
     ShowHint = True
     TabOrder = 1

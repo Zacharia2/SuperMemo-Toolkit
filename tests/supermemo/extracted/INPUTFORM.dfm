@@ -8,7 +8,7 @@ object InputForm: TInputForm
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -37
-  Font.Name = 'Tahoma'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = [fsBold]
   OldCreateOrder = False
   PopupMenu = PopupMenu1

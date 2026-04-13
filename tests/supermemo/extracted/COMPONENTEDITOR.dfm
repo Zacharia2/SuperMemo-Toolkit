@@ -15,7 +15,7 @@ object ComponentEditor: TComponentEditor
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -21
-  Font.Name = 'System'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   Position = poDefault
   ShowHint = True

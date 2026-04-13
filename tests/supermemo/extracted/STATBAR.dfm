@@ -13,7 +13,7 @@ object StatBar: TStatBar
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -10
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   OldCreateOrder = False
   StyleElements = []

@@ -10,7 +10,7 @@ object ChangeCompSize: TChangeCompSize
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clBlack
   Font.Height = -14
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = [fsBold]
   OldCreateOrder = True
   Position = poScreenCenter

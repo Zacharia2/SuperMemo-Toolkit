@@ -17,7 +17,7 @@ object SMMain: TSMMain
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -44
-  Font.Name = 'Segoe UI'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   Icon.Data = {
     0000010001002020100000000000E80200001600000028000000200000004000
@@ -115,7 +115,7 @@ object SMMain: TSMMain
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -32
-    Font.Name = 'Segoe UI'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     GradientEndColor = 11982554
     Images = AboutBox.VirtualImageList32
@@ -678,7 +678,7 @@ object SMMain: TSMMain
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -32
-    Font.Name = 'Segoe UI'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     GradientEndColor = 11982554
     Images = AboutBox.VirtualImageList32
@@ -708,10 +708,10 @@ object SMMain: TSMMain
       Color = clWindow
       Ctl3D = False
       DoubleBuffered = False
-      Font.Charset = ANSI_CHARSET
+      Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -26
-      Font.Name = 'Arial'
+      Font.Name = 'Microsoft YaHei'
       Font.Style = []
       ParentBiDiMode = False
       ParentBackground = False
@@ -771,10 +771,10 @@ object SMMain: TSMMain
       Color = clBlack
       Ctl3D = False
       DoubleBuffered = False
-      Font.Charset = ANSI_CHARSET
+      Font.Charset = DEFAULT_CHARSET
       Font.Color = clYellow
       Font.Height = -26
-      Font.Name = 'Arial'
+      Font.Name = 'Microsoft YaHei'
       Font.Style = []
       ParentBiDiMode = False
       ParentBackground = False
@@ -834,7 +834,7 @@ object SMMain: TSMMain
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -32
-    Font.Name = 'Segoe UI'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     GradientEndColor = 11982554
     Images = AboutBox.VirtualImageList32
@@ -1216,7 +1216,7 @@ object SMMain: TSMMain
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -32
-    Font.Name = 'Segoe UI'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     GradientEndColor = 11982554
     Images = AboutBox.VirtualImageList32
@@ -1635,7 +1635,7 @@ object SMMain: TSMMain
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -32
-    Font.Name = 'Segoe UI'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     GradientEndColor = 11982554
     Images = AboutBox.VirtualImageList32
@@ -4541,7 +4541,7 @@ object SMMain: TSMMain
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -17
-    Font.Name = 'System'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     Left = 1164
     Top = 486

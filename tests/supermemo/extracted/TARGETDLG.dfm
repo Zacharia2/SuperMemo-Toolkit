@@ -13,7 +13,7 @@ object TargetDlg: TTargetDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -24
-  Font.Name = 'Tahoma'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   KeyPreview = True
   PopupMenu = PopupMenu1
@@ -159,7 +159,7 @@ object TargetDlg: TTargetDlg
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -24
-      Font.Name = 'Tahoma'
+      Font.Name = 'Microsoft YaHei'
       Font.Style = [fsItalic]
       ParentFont = False
       TabOrder = 4

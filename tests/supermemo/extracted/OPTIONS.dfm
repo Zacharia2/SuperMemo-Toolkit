@@ -12,10 +12,10 @@ object Options: TOptions
   ClientHeight = 923
   ClientWidth = 1547
   Color = clBtnFace
-  Font.Charset = ANSI_CHARSET
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -29
-  Font.Name = 'Arial Narrow'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   Position = poScreenCenter
   OnClose = FormClose
@@ -2150,7 +2150,7 @@ object Options: TOptions
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -17
-    Font.Name = 'System'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     Left = 597
     Top = 13

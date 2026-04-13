@@ -13,7 +13,7 @@ object Ancestors: TAncestors
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -15
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   PopupMenu = PopupMenu1
   Position = poDesigned
@@ -28,10 +28,10 @@ object Ancestors: TAncestors
     Width = 665
     Height = 554
     Align = alClient
-    Font.Charset = ANSI_CHARSET
+    Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -18
-    Font.Name = 'MS Sans Serif'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     ItemHeight = 26
     ParentFont = False

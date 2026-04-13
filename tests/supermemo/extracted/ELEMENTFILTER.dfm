@@ -7,10 +7,10 @@ object ElementFilter: TElementFilter
   ClientHeight = 712
   ClientWidth = 731
   Color = clBtnFace
-  Font.Charset = ANSI_CHARSET
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -16
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   OldCreateOrder = True
   Position = poScreenCenter

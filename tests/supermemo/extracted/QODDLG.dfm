@@ -12,7 +12,7 @@ object QODDlg: TQODDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -21
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   FormStyle = fsStayOnTop
   OldCreateOrder = True

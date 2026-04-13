@@ -13,7 +13,7 @@ object ThemeTestDlg: TThemeTestDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -17
-  Font.Name = 'Tahoma'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   FormStyle = fsStayOnTop
   PopupMenu = PopupMenu1
@@ -35,7 +35,7 @@ object ThemeTestDlg: TThemeTestDlg
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -32
-    Font.Name = 'Tahoma'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = [fsBold]
     ParentFont = False
   end
@@ -52,7 +52,7 @@ object ThemeTestDlg: TThemeTestDlg
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -29
-    Font.Name = 'Tahoma'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = [fsBold]
     ParentFont = False
     TabOrder = 0
@@ -73,7 +73,7 @@ object ThemeTestDlg: TThemeTestDlg
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -29
-    Font.Name = 'Tahoma'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     ParentFont = False
     TabOrder = 1
@@ -91,7 +91,7 @@ object ThemeTestDlg: TThemeTestDlg
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -23
-    Font.Name = 'Tahoma'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = [fsBold]
     Items.Strings = (
       'Choice 1'
@@ -112,7 +112,7 @@ object ThemeTestDlg: TThemeTestDlg
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -24
-    Font.Name = 'Tahoma'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = [fsBold]
     Lines.Strings = (
       'Some text to type ...')
@@ -132,7 +132,7 @@ object ThemeTestDlg: TThemeTestDlg
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -20
-    Font.Name = 'Tahoma'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = [fsBold]
     ParentFont = False
     ParentShowHint = False

@@ -13,7 +13,7 @@ object MyReplaceDlg: TMyReplaceDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -17
-  Font.Name = 'Tahoma'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   FormStyle = fsStayOnTop
   PopupMenu = PopupMenu1

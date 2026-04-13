@@ -7,10 +7,10 @@ object Workload: TWorkload
   ClientHeight = 805
   ClientWidth = 1059
   Color = clBtnFace
-  Font.Charset = ANSI_CHARSET
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -13
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   PopupMenu = PopupMenu1
   Position = poScreenCenter

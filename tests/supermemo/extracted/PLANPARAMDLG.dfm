@@ -8,7 +8,7 @@ object PlanParamDlg: TPlanParamDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -17
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   OldCreateOrder = False
   PopupMenu = PopupMenu1

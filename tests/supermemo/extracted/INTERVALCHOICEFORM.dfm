@@ -10,10 +10,10 @@ object IntervalChoiceForm: TIntervalChoiceForm
   ClientHeight = 760
   ClientWidth = 1350
   Color = clBtnFace
-  Font.Charset = ANSI_CHARSET
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -17
-  Font.Name = 'Rubik'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   KeyPreview = True
   PopupMenu = PopupMenu1
@@ -142,10 +142,10 @@ object IntervalChoiceForm: TIntervalChoiceForm
     Margins.Bottom = 5
     BevelOuter = bvLowered
     Color = clWhite
-    Font.Charset = ANSI_CHARSET
+    Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -26
-    Font.Name = 'Arial Narrow'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     ParentBackground = False
     ParentFont = False
@@ -180,10 +180,10 @@ object IntervalChoiceForm: TIntervalChoiceForm
     Margins.Bottom = 5
     BevelOuter = bvNone
     Color = 15790320
-    Font.Charset = ANSI_CHARSET
+    Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -26
-    Font.Name = 'Arial Narrow'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     ParentBackground = False
     ParentFont = False
@@ -198,7 +198,7 @@ object IntervalChoiceForm: TIntervalChoiceForm
       Margins.Right = 5
       Margins.Bottom = 5
       Align = alClient
-      Font.Charset = ANSI_CHARSET
+      Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -17
       Font.Name = 'Amiri'

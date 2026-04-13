@@ -16,7 +16,7 @@ object BrImp: TBrImp
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -17
-  Font.Name = 'Tahoma'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   FormStyle = fsStayOnTop
   PopupMenu = PopUpMenu
@@ -64,7 +64,7 @@ object BrImp: TBrImp
     ButtonHeight = 90
     ButtonWidth = 71
     Caption = 'ToolBar'
-    Images = AboutBox.VirtualImageList64
+    Images = AboutBox.VirtualImageList32
     TabOrder = 0
     object SetLinksBtn: TToolButton
       Left = 0

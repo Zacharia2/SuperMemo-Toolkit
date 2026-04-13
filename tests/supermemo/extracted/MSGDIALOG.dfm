@@ -13,7 +13,7 @@ object MsgDialog: TMsgDialog
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -20
-  Font.Name = 'Segoe UI'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   KeyPreview = True
   StyleElements = []
@@ -55,7 +55,7 @@ object MsgDialog: TMsgDialog
     ButtonWidth = 139
     DoubleBuffered = False
     EdgeBorders = [ebLeft, ebTop, ebRight, ebBottom]
-    Images = AboutBox.VirtualImageList64
+    Images = AboutBox.VirtualImageList32
     List = True
     ParentDoubleBuffered = False
     ParentShowHint = False

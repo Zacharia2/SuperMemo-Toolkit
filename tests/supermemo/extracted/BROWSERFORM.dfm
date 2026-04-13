@@ -8,7 +8,7 @@ object BrowserForm: TBrowserForm
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -13
-  Font.Name = 'Tahoma'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   OldCreateOrder = False
   OnCreate = FormCreate

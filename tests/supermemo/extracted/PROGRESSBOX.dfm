@@ -13,10 +13,10 @@ object ProgressBox: TProgressBox
   ClientHeight = 353
   ClientWidth = 1151
   Color = clBtnFace
-  Font.Charset = ANSI_CHARSET
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -24
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   OnActivate = FormActivate
   OnCreate = FormCreate

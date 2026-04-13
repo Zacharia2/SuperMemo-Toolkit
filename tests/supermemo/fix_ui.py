@@ -1,6 +1,5 @@
 import os
 import subprocess
-import sys
 
 
 def extract_resources(exe_path, output_dir, rh_path="ResourceHacker.exe"):
@@ -84,26 +83,12 @@ def repack_resources(
 
     # 当前工作 EXE 从原始文件开始，依次覆写
     current_exe = original_exe
-    temp_exe = None
-
-    for idx, filename in enumerate(files):
+    for filename in files:
         file_path = os.path.join(resources_dir, filename)
-        # 资源名称 = 文件名不含扩展名
         resource_name, resource_ext = os.path.splitext(filename)
-        if resource_ext != "dfm":
+        if resource_ext != ".dfm":
             continue
 
-        # 如果不是最后一个文件，使用临时文件作为中间输出，避免反复读取原文件
-        if idx == len(files) - 1:
-            # 最后一次覆写，直接输出到最终 output_exe
-            out_exe = output_exe
-        else:
-            # 生成临时文件
-            temp_exe = os.path.join(
-                os.path.dirname(output_exe),
-                f"_temp_{idx}_{os.path.basename(original_exe)}",
-            )
-            out_exe = temp_exe
         # -res "修改好的.dfm" -mask RCData, <资源名称 在程序里的确切名称（例如 TMainForm）>, <语言ID 英语通常是 1033>
         # 构建 addoverwrite 命令
         cmd = [
@@ -111,7 +96,7 @@ def repack_resources(
             "-open",
             current_exe,
             "-save",
-            out_exe,
+            output_exe,
             "-action",
             "addoverwrite",
             "-res",
@@ -135,19 +120,79 @@ def repack_resources(
             print(f"发生异常：{e}")
             return False
 
-        # 准备下一次循环：将当前输出作为下一次的输入
-        if idx != len(files) - 1:
-            # 删除上一次的临时文件（如果存在且不是当前输入）
-            if current_exe != original_exe and os.path.exists(current_exe):
-                os.remove(current_exe)
-            current_exe = out_exe
-
-    # 清理残留的临时文件
-    if temp_exe and os.path.exists(temp_exe) and temp_exe != output_exe:
-        os.remove(temp_exe)
-
     print(f"所有资源覆写完成，最终 EXE：{output_exe}")
     return True
+
+
+import os
+
+
+def generate_rh_script(
+    original_exe,
+    output_exe,
+    resources_dir,
+    script_path="update_resources.rh",
+    resource_type="RCData",
+    lang_id=1033,
+):
+    """
+    生成 ResourceHacker 脚本文件，用于批量覆写 EXE 中的 DFM 资源。
+
+    :param original_exe:  原始 EXE 文件路径
+    :param output_exe:    输出 EXE 文件路径
+    :param resources_dir: 包含 .dfm 文件的文件夹
+    :param script_path:   生成的脚本文件路径（建议 .rh 或 .txt）
+    :param resource_type: 资源类型，默认为 RCData
+    :param lang_id:       语言 ID，英语通常为 1033
+    :return:              成功返回脚本文件路径，失败返回 None
+    """
+    # 检查输入
+    if not os.path.isfile(original_exe):
+        print(f"错误：原始 EXE 不存在 -> {original_exe}")
+        return None
+    if not os.path.isdir(resources_dir):
+        print(f"错误：资源文件夹不存在 -> {resources_dir}")
+        return None
+    if original_exe == output_exe:
+        print("错误：输出 EXE 不能与原始 EXE 相同")
+        return None
+
+    # 收集所有 .dfm 文件
+    dfm_files = [
+        f
+        for f in os.listdir(resources_dir)
+        if f.lower().endswith(".dfm") and os.path.isfile(os.path.join(resources_dir, f))
+    ]
+    if not dfm_files:
+        print(f"警告：资源文件夹中没有 .dfm 文件 -> {resources_dir}")
+        return None
+
+    # 生成脚本内容
+    lines = []
+    lines.append("[FILENAMES]")
+    lines.append(f"Open={original_exe}")
+    lines.append(f"Save={output_exe}")
+    lines.append("Log=")  # 留空表示不生成日志文件
+    lines.append("")
+    lines.append("[COMMANDS]")
+
+    for filename in dfm_files:
+        file_path = os.path.join(resources_dir, filename)
+        resource_name = os.path.splitext(filename)[0]  # 不含 .dfm
+        # ResourceHacker 的掩码格式：资源类型, 资源名称, 语言ID
+        mask = f"{resource_type}, T{resource_name}, "
+        # 注意：路径中如果有空格，用双引号包裹
+        lines.append(f'-addoverwrite "{file_path}", {mask}')
+
+    # 写入脚本文件
+    try:
+        with open(script_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        print(f"脚本已生成：{script_path}")
+        return script_path
+    except Exception as e:
+        print(f"写入脚本失败：{e}")
+        return None
 
 
 # 为dfm存历史记录。
@@ -159,6 +204,9 @@ def repack_resources(
             1. 宋体（SimSun）-> 'Times New Roman'
             2. Microsoft YaHei -> ['Tahoma', 'Arial', 'Segoe UI', 'Rubik', 'MS Sans Serif', 'System', 'Arial Narrow']
         6. 元素菜单和组件菜单，右单击的字体也太大
+            ParentFont 一般是false 、AutoSize是true、WordWrap是true、Scaled没有、TextHeight有、PixelsPerInch 有、Font.Size没有、Font.Height有。TextHeight有。
+            TPopupMenu 和 TMenuItem
+            即使把TextHeight 、Font.Height全部改为一致，也没有用。
 分析类
     2. contents的图标栏太高了
     4. Learn Add new的按钮太大了，Lean的图标太大
@@ -178,15 +226,17 @@ def repack_resources(
 if __name__ == "__main__":
     # 示例参数
     exe_file = r"C:\Users\Snowy\Downloads\SuperMemo\sm20.exe"
-    extract_folder = "tests\supermemo\extracted"
-    modified_folder = "tests\supermemo\extracted"  # 假设修改后的资源仍在同一文件夹
+    extract_folder = (
+        r"D:\Dropbox\10-TODO\Develop\repo\SuperMemo-Toolkit\tests\supermemo\extracted"
+    )
+    modified_folder = r"D:\Dropbox\10-TODO\Develop\repo\SuperMemo-Toolkit\tests\supermemo\extracted"  # 假设修改后的资源仍在同一文件夹
     output_exe_file = r"C:\Users\Snowy\Downloads\SuperMemo\sm20_modified.exe"
 
-    extract_resources(
-        exe_file,
-        extract_folder,
-        rh_path=r"C:\Users\Snowy\Desktop\ResourceHacker5.2.8.448V5\ResourceHacker.exe",
-    )
+    # extract_resources(
+    #     exe_file,
+    #     extract_folder,
+    #     rh_path=r"C:\Users\Snowy\Desktop\ResourceHacker5.2.8.448V5\ResourceHacker.exe",
+    # )
     # repack_resources(
     #     exe_file,
     #     output_exe_file,
@@ -195,3 +245,5 @@ if __name__ == "__main__":
     #     lang_id=1033,
     #     rh_path=r"C:\Users\Snowy\Desktop\ResourceHacker5.2.8.448V5\ResourceHacker.exe",
     # )
+    #  & C:\Users\Snowy\Desktop\ResourceHacker5.2.8.448V5\ResourceHacker.exe -script D:\Dropbox\10-TODO\Develop\repo\SuperMemo-Toolkit\update_resources.rh
+    generate_rh_script(exe_file, output_exe_file, modified_folder)

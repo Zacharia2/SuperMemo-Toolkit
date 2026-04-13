@@ -7,10 +7,10 @@ object ImportTXTDlg: TImportTXTDlg
   ClientHeight = 603
   ClientWidth = 910
   Color = clBtnFace
-  Font.Charset = ANSI_CHARSET
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -27
-  Font.Name = 'Arial'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   OldCreateOrder = False
   Position = poScreenCenter

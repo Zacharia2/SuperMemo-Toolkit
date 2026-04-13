@@ -9,7 +9,7 @@ object URLOpenDlg: TURLOpenDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -16
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   Position = poScreenCenter
   ShowHint = True

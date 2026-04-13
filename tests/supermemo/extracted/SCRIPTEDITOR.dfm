@@ -11,7 +11,7 @@ object ScriptEditor: TScriptEditor
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -15
-  Font.Name = 'System'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   OldCreateOrder = True
   PopupMenu = PopupMenu1

@@ -15,7 +15,7 @@ object TaskManager: TTaskManager
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -15
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   PopupMenu = PopupMenu1
   Position = poScreenCenter
@@ -62,7 +62,7 @@ object TaskManager: TTaskManager
     ButtonHeight = 87
     ButtonWidth = 75
     Caption = 'ToolBar1'
-    Images = AboutBox.VirtualImageList64
+    Images = AboutBox.VirtualImageList32
     ShowCaptions = True
     TabOrder = 1
     Wrapable = False

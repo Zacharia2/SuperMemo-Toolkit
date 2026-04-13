@@ -8,10 +8,10 @@ object RegistryForm: TRegistryForm
   ClientHeight = 920
   ClientWidth = 3844
   Color = clBtnFace
-  Font.Charset = ANSI_CHARSET
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -23
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   KeyPreview = True
   PopupMenu = PopupMenu1
@@ -425,7 +425,7 @@ object RegistryForm: TRegistryForm
     ButtonWidth = 108
     Caption = 'ToolBar'
     HideClippedButtons = True
-    Images = AboutBox.VirtualImageList64
+    Images = AboutBox.VirtualImageList32
     List = True
     AllowTextButtons = True
     TabOrder = 5

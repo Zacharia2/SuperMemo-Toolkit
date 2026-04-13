@@ -13,7 +13,7 @@ object SleepForm: TSleepForm
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -18
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   Menu = MainMenu1
   PopupMenu = PopupMenu1
@@ -488,7 +488,7 @@ object SleepForm: TSleepForm
           Font.Charset = DEFAULT_CHARSET
           Font.Color = clWindowText
           Font.Height = -20
-          Font.Name = 'Arial'
+          Font.Name = 'Microsoft YaHei'
           Font.Style = []
           ParentFont = False
           TabOrder = 0
@@ -505,10 +505,10 @@ object SleepForm: TSleepForm
           Margins.Top = 5
           Margins.Right = 5
           Margins.Bottom = 5
-          Font.Charset = ANSI_CHARSET
+          Font.Charset = DEFAULT_CHARSET
           Font.Color = clWindowText
           Font.Height = -20
-          Font.Name = 'Arial'
+          Font.Name = 'Microsoft YaHei'
           Font.Style = []
           ParentFont = False
           TabOrder = 1

@@ -8,7 +8,7 @@ object TileDlg: TTileDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -16
-  Font.Name = 'Tahoma'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   OldCreateOrder = False
   PopupMenu = PopupMenu1

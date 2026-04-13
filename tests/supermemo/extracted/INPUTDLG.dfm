@@ -12,7 +12,7 @@ object InputDlg: TInputDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -17
-  Font.Name = 'Tahoma'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   PopupMenu = PopupMenu1
   Position = poScreenCenter
@@ -61,7 +61,7 @@ object InputDlg: TInputDlg
     AutoSize = True
     ButtonHeight = 70
     ButtonWidth = 144
-    Images = AboutBox.VirtualImageList64
+    Images = AboutBox.VirtualImageList32
     List = True
     ParentShowHint = False
     ShowCaptions = True

@@ -15,7 +15,7 @@ object ChoicesDlg: TChoicesDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -23
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   KeyPreview = True
   Position = poDefault

@@ -13,7 +13,7 @@ object ConceptSelectBox: TConceptSelectBox
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -17
-  Font.Name = 'Tahoma'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   KeyPreview = True
   ShowHint = True

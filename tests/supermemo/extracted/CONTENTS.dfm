@@ -12,10 +12,10 @@ object Contents: TContents
   ClientHeight = 1830
   ClientWidth = 3249
   Color = clBtnFace
-  Font.Charset = ANSI_CHARSET
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clBlack
   Font.Height = -23
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   KeyPreview = True
   PopupMenu = PopupMenu1
@@ -278,7 +278,7 @@ object Contents: TContents
     ButtonHeight = 90
     ButtonWidth = 107
     Caption = 'ToolBar'
-    Images = AboutBox.VirtualImageList64
+    Images = AboutBox.VirtualImageList32
     TabOrder = 1
     Wrapable = False
     object ToolButton2: TToolButton
@@ -973,7 +973,7 @@ object Contents: TContents
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -17
-    Font.Name = 'System'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     Left = 448
     Top = 288

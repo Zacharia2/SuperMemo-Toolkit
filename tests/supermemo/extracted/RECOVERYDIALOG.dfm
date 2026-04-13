@@ -12,10 +12,10 @@ object RecoveryDialog: TRecoveryDialog
   ClientHeight = 596
   ClientWidth = 760
   Color = clBtnFace
-  Font.Charset = ANSI_CHARSET
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clBlack
   Font.Height = -30
-  Font.Name = 'Arial Narrow'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   PopupMenu = PopupMenu1
   Position = poScreenCenter

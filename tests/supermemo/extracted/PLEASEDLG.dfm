@@ -11,7 +11,7 @@ object PleaseDlg: TPleaseDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clBlack
   Font.Height = -12
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = [fsBold]
   OldCreateOrder = True
   PopupMenu = PopupMenu1
@@ -45,7 +45,7 @@ object PleaseDlg: TPleaseDlg
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -12
-    Font.Name = 'MS Sans Serif'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = [fsBold]
     ParentColor = False
     ParentFont = False
@@ -64,7 +64,7 @@ object PleaseDlg: TPleaseDlg
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -12
-    Font.Name = 'MS Sans Serif'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = [fsBold]
     ParentColor = False
     ParentFont = False

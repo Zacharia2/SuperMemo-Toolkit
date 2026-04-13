@@ -15,7 +15,7 @@ object MercyForm: TMercyForm
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -26
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   Position = poScreenCenter
   ShowHint = True

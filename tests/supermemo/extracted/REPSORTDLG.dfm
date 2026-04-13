@@ -13,7 +13,7 @@ object RepSortDlg: TRepSortDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -18
-  Font.Name = 'Tahoma'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   Position = poScreenCenter
   OnShow = FormShow

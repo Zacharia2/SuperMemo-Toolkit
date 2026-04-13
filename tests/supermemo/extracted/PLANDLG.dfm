@@ -14,7 +14,7 @@ object PlanDlg: TPlanDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -15
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   GlassFrame.Enabled = True
   PopupMenu = PopupMenu1
@@ -270,7 +270,7 @@ object PlanDlg: TPlanDlg
     AutoSize = True
     ButtonHeight = 87
     ButtonWidth = 71
-    Images = AboutBox.VirtualImageList64
+    Images = AboutBox.VirtualImageList32
     ShowCaptions = True
     TabOrder = 0
     Wrapable = False

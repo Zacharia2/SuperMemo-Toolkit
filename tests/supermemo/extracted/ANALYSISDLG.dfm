@@ -14,7 +14,7 @@ object AnalysisDlg: TAnalysisDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -21
-  Font.Name = 'System'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   PopupMenu = PopupMenu1
   Position = poScreenCenter
@@ -41,10 +41,10 @@ object AnalysisDlg: TAnalysisDlg
     Margins.Bottom = 5
     ActivePage = TabFC17
     Align = alClient
-    Font.Charset = ANSI_CHARSET
+    Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -18
-    Font.Name = 'MS Sans Serif'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     ParentFont = False
     TabOrder = 0
@@ -85,7 +85,7 @@ object AnalysisDlg: TAnalysisDlg
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -18
-        Font.Name = 'Tahoma'
+        Font.Name = 'Microsoft YaHei'
         Font.Style = []
         ParentFont = False
         TabOrder = 1
@@ -115,7 +115,7 @@ object AnalysisDlg: TAnalysisDlg
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -18
-        Font.Name = 'Tahoma'
+        Font.Name = 'Microsoft YaHei'
         Font.Style = []
         ParentFont = False
         TabOrder = 0
@@ -252,7 +252,7 @@ object AnalysisDlg: TAnalysisDlg
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -18
-        Font.Name = 'MS Sans Serif'
+        Font.Name = 'Microsoft YaHei'
         Font.Style = []
         ParentFont = False
         ParentShowHint = False
@@ -300,7 +300,7 @@ object AnalysisDlg: TAnalysisDlg
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -18
-        Font.Name = 'MS Sans Serif'
+        Font.Name = 'Microsoft YaHei'
         Font.Style = []
         ParentFont = False
         ParentShowHint = False
@@ -339,7 +339,7 @@ object AnalysisDlg: TAnalysisDlg
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -18
-        Font.Name = 'MS Sans Serif'
+        Font.Name = 'Microsoft YaHei'
         Font.Style = []
         ParentFont = False
         ParentShowHint = False
@@ -587,7 +587,7 @@ object AnalysisDlg: TAnalysisDlg
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -18
-        Font.Name = 'MS Sans Serif'
+        Font.Name = 'Microsoft YaHei'
         Font.Style = []
         ParentFont = False
         TabOrder = 0
@@ -679,7 +679,7 @@ object AnalysisDlg: TAnalysisDlg
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -18
-        Font.Name = 'MS Sans Serif'
+        Font.Name = 'Microsoft YaHei'
         Font.Style = []
         ParentFont = False
         TabOrder = 0
@@ -741,7 +741,7 @@ object AnalysisDlg: TAnalysisDlg
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -18
-        Font.Name = 'MS Sans Serif'
+        Font.Name = 'Microsoft YaHei'
         Font.Style = []
         ParentFont = False
         TabOrder = 0
@@ -842,7 +842,7 @@ object AnalysisDlg: TAnalysisDlg
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -18
-        Font.Name = 'MS Sans Serif'
+        Font.Name = 'Microsoft YaHei'
         Font.Style = []
         ParentFont = False
         TabOrder = 0

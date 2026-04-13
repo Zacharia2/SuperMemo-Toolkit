@@ -5,10 +5,10 @@ object RepSimDlg: TRepSimDlg
   ClientHeight = 284
   ClientWidth = 545
   Color = clBtnFace
-  Font.Charset = ANSI_CHARSET
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clBlack
   Font.Height = -19
-  Font.Name = 'Arial'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   OldCreateOrder = False
   PopupMenu = PopupMenu1

@@ -11,7 +11,7 @@ object GetIntervalDlg: TGetIntervalDlg
   ClientHeight = 810
   ClientWidth = 834
   Color = clBtnFace
-  Font.Charset = ANSI_CHARSET
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clBlack
   Font.Height = -23
   Font.Name = 'MS Reference Sans Serif'

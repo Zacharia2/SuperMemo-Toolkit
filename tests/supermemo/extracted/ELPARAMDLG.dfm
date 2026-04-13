@@ -12,10 +12,10 @@ object ElParamDlg: TElParamDlg
   ClientHeight = 1120
   ClientWidth = 968
   Color = clBtnFace
-  Font.Charset = ANSI_CHARSET
+  Font.Charset = DEFAULT_CHARSET
   Font.Color = clBlack
   Font.Height = -23
-  Font.Name = 'Arial'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   PopupMenu = PopupMenu1
   Position = poScreenCenter

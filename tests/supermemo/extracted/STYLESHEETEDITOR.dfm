@@ -14,7 +14,7 @@ object StylesheetEditor: TStylesheetEditor
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -23
-  Font.Name = 'Tahoma'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   KeyPreview = True
   Position = poScreenCenter
@@ -304,7 +304,7 @@ object StylesheetEditor: TStylesheetEditor
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -14
-    Font.Name = 'Tahoma'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     Left = 440
     Top = 288

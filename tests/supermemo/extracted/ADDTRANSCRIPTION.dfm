@@ -10,7 +10,7 @@ object AddTranscription: TAddTranscription
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -15
-  Font.Name = 'MS Sans Serif'
+  Font.Name = 'Microsoft YaHei'
   Font.Style = []
   OldCreateOrder = True
   Position = poScreenCenter
@@ -40,10 +40,10 @@ object AddTranscription: TAddTranscription
     Width = 535
     Height = 34
     Hint = 'A word that will be added to the Transcription Registry'
-    Font.Charset = ANSI_CHARSET
+    Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -25
-    Font.Name = 'Arial'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     ParentFont = False
     TabOrder = 0
@@ -56,10 +56,10 @@ object AddTranscription: TAddTranscription
     Hint = 
       'Transcription of the word (see Search : Other texts : Pronunciat' +
       'ion)'
-    Font.Charset = ANSI_CHARSET
+    Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -25
-    Font.Name = 'Arial'
+    Font.Name = 'Microsoft YaHei'
     Font.Style = []
     ParentFont = False
     TabOrder = 1
