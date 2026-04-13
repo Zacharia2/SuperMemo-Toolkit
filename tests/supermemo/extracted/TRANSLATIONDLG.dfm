@@ -1,0 +1,69 @@
+object TranslationDlg: TTranslationDlg
+  Left = 472
+  Top = 200
+  HorzScrollBar.Visible = False
+  VertScrollBar.Visible = False
+  ActiveControl = TranslationMemo
+  BorderIcons = [biSystemMenu]
+  Caption = 'Translation'
+  ClientHeight = 122
+  ClientWidth = 322
+  Color = clBtnFace
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -14
+  Font.Name = 'System'
+  Font.Style = []
+  FormStyle = fsStayOnTop
+  OldCreateOrder = True
+  PopupMenu = PopupMenu1
+  Position = poDefault
+  OnClose = FormClose
+  OnCreate = FormCreate
+  OnHide = FormHide
+  OnResize = FormResize
+  PixelsPerInch = 96
+  TextHeight = 16
+  object TextMemo: TMemo
+    Left = 0
+    Top = 6
+    Width = 289
+    Height = 52
+    Margins.Left = 2
+    Margins.Top = 2
+    Margins.Right = 2
+    Margins.Bottom = 2
+    ParentShowHint = False
+    ShowHint = False
+    TabOrder = 0
+    OnKeyDown = TextMemoKeyDown
+  end
+  object TranslationMemo: TMemo
+    Left = 0
+    Top = 64
+    Width = 289
+    Height = 52
+    Margins.Left = 2
+    Margins.Top = 2
+    Margins.Right = 2
+    Margins.Bottom = 2
+    ParentShowHint = False
+    ShowHint = False
+    TabOrder = 1
+    OnKeyDown = TextMemoKeyDown
+  end
+  object PopupMenu1: TPopupMenu
+    Left = 368
+    Top = 24
+    object Close1: TMenuItem
+      Caption = 'Close'
+      ShortCut = 27
+      OnClick = Close1Click
+    end
+    object Hide1: TMenuItem
+      Caption = 'Hide'
+      ShortCut = 16499
+      OnClick = Hide1Click
+    end
+  end
+end
