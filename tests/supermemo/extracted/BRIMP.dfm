@@ -61,7 +61,7 @@ object BrImp: TBrImp
     Margins.Right = 5
     Margins.Bottom = 5
     AutoSize = True
-    ButtonHeight = 90
+    ButtonHeight = 45
     ButtonWidth = 71
     Caption = 'ToolBar'
     Images = AboutBox.VirtualImageList32
@@ -278,6 +278,7 @@ object BrImp: TBrImp
       Margins.Top = 5
       Margins.Right = 5
       Margins.Bottom = 5
+      DoubleBuffered = True
       Caption = '   Sources:'
       TabOrder = 0
     end
@@ -388,7 +389,7 @@ object BrImp: TBrImp
     object TitleEdit: TEdit
       Left = 294
       Top = 36
-      Width = 2450
+      Width = 1900
       Height = 29
       Hint = 'Title of the new import node in SuperMemo'
       Anchors = [akLeft, akTop, akRight]
@@ -750,6 +751,19 @@ object BrImp: TBrImp
       ImageName = 'icon_186'
       ShortCut = 24642
       OnClick = MIBrowseDuplicatesClick
+    end
+    object N6: TMenuItem
+      Caption = '-'
+    end
+    object Import1: TMenuItem
+      Caption = 'Import'
+      object MIPageOfImages: TMenuItem
+        Caption = 'Page of images'
+        Hint = 'Import images from selected tabs to the current element'
+        ImageIndex = 195
+        ImageName = 'icon_195'
+        OnClick = MIPageOfImagesClick
+      end
     end
     object N1: TMenuItem
       Caption = '-'

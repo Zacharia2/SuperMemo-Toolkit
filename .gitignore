@@ -9,3 +9,4 @@ pathpix/build/*
 *.log
 .vscode/*
 /.idea
+tests/supermemo/ResourceHacker/*

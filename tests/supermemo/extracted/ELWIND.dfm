@@ -162,7 +162,7 @@ object ElWind: TElWind
       Margins.Bottom = 5
       Align = alNone
       AutoSize = True
-      ButtonHeight = 51
+      ButtonHeight = 38
       ButtonWidth = 51
       Caption = 'LearnBar'
       Flat = False
@@ -829,8 +829,8 @@ object ElWind: TElWind
   end
   object Learn: TBitBtn
     Left = 12
-    Top = 875
-    Width = 400
+    Top = 876
+    Width = 320
     Height = 94
     Hint = 'Start learning'
     Margins.Left = 5
@@ -848,7 +848,7 @@ object ElWind: TElWind
   object AddNew: TBitBtn
     Left = 422
     Top = 876
-    Width = 277
+    Width = 222
     Height = 90
     Hint = 'Add a new question-answer pair (Alt+A)'
     Margins.Left = 5
@@ -964,7 +964,7 @@ object ElWind: TElWind
   object CancelShowAnswer: TBitBtn
     Left = 732
     Top = 876
-    Width = 205
+    Width = 164
     Height = 90
     Hint = 'Cancel show answer (Alt+G)'
     Margins.Left = 5
@@ -1010,15 +1010,16 @@ object ElWind: TElWind
       TabOrder = 0
       OnMouseDown = FormMouseDown
       object TestBtn: TButton
-        Left = 24
-        Top = 7
-        Width = 121
-        Height = 62
+        Left = 4
+        Top = 4
+        Width = 420
+        Height = 66
         Margins.Left = 5
         Margins.Top = 5
         Margins.Right = 5
         Margins.Bottom = 5
-        Caption = 'TestBtn'
+        Align = alClient
+        Caption = 'TEST--------------------------'
         TabOrder = 0
         Visible = False
         OnClick = TestBtnClick
@@ -1056,6 +1057,7 @@ object ElWind: TElWind
       ReadOnly = True
       TabOrder = 1
       Text = 'Concept'
+      Font.Height = -14
       OnClick = ConceptEditClick
     end
     object NavBar: TToolBar

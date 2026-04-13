@@ -25,7 +25,7 @@ object PasswordDlg: TPasswordDlg
     AlignWithMargins = True
     Left = 28
     Top = 32
-    Width = 597
+    Width = 316
     Height = 29
     Margins.Left = 4
     Margins.Top = 4

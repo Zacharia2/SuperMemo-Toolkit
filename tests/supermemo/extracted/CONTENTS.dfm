@@ -33,7 +33,7 @@ object Contents: TContents
   PixelsPerInch = 144
   TextHeight = 29
   object BottomBar: TToolBar
-    AlignWithMargins = True
+    AllowTextButtons = True
     Left = 5
     Top = 1779
     Width = 3239
@@ -50,7 +50,7 @@ object Contents: TContents
     Caption = 'BottomBar'
     Customizable = True
     EdgeInner = esLowered
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList16
     List = True
     ShowCaptions = True
     TabOrder = 0
@@ -275,10 +275,10 @@ object Contents: TContents
     Margins.Bottom = 5
     AutoSize = True
     BorderWidth = 2
-    ButtonHeight = 90
+    ButtonHeight = 32
     ButtonWidth = 107
     Caption = 'ToolBar'
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList16
     TabOrder = 1
     Wrapable = False
     object ToolButton2: TToolButton
@@ -915,6 +915,13 @@ object Contents: TContents
         Caption = '&Arrange in folders'
         Hint = 'Arrange all elements equally in folders'
         OnClick = MIArrangeFoldersClick
+      end
+      object MIFlatten: TMenuItem
+        Caption = 'Flatten'
+        Hint = 
+          'Convert a branched tree node into a flat linear structure of sib' +
+          'lings'
+        OnClick = MIFlattenClick
       end
       object RandomTest: TMenuItem
         Caption = 'Random test'

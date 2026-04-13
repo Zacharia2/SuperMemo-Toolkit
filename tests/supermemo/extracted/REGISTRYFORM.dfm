@@ -420,8 +420,8 @@ object RegistryForm: TRegistryForm
     Margins.Right = 5
     Margins.Bottom = 5
     AutoSize = True
-    BorderWidth = 3
-    ButtonHeight = 90
+    BorderWidth = 0
+    ButtonHeight = 38
     ButtonWidth = 108
     Caption = 'ToolBar'
     HideClippedButtons = True

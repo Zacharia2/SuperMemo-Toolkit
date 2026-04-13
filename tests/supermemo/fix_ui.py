@@ -41,111 +41,49 @@ def extract_resources(exe_path, output_dir, rh_path="ResourceHacker.exe"):
         return False
 
 
-def repack_resources(
-    original_exe,
-    output_exe,
-    resources_dir,
-    resource_type="RCData",
-    lang_id=1033,
-    rh_path="ResourceHacker.exe",
-):
-    """
-    将 resources_dir 目录下的所有文件，以文件名作为资源名称，覆写回 EXE。
-
-    :param original_exe:  原始 EXE 文件路径（源文件）
-    :param output_exe:    输出 EXE 文件路径（新文件，不应与原始文件相同）
-    :param resources_dir: 包含修改后资源的文件夹
-    :param resource_type: 资源类型（如 RCData、BITMAP 等），默认为 RCData
-    :param lang_id:       语言 ID，通常英语为 1033
-    :param rh_path:       ResourceHacker.exe 的路径
-    :return:              成功返回 True，失败返回 False
-    """
-    # 检查输入文件及文件夹
-    if not os.path.isfile(original_exe):
-        print(f"错误：原始 EXE 不存在 -> {original_exe}")
-        return False
-    if not os.path.isdir(resources_dir):
-        print(f"错误：资源文件夹不存在 -> {resources_dir}")
-        return False
-    if original_exe == output_exe:
-        print("错误：输出 EXE 不能与原始 EXE 相同，请指定不同的输出路径")
-        return False
-
-    # 获取资源文件夹中的所有文件（不递归子目录）
-    files = [
+def replace_dfm(resources_dir):
+    # 1. 替换AboutBox.VirtualImageList64为32。
+    # 2. 字体替换
+    #     宋体（SimSun）-> 'Times New Roman'
+    #     Microsoft YaHei -> ['Tahoma', 'Arial', 'Segoe UI', 'Rubik', 'MS Sans Serif', 'System', 'Arial Narrow']
+    # 3. Font.Charset = ANSI_CHARSET替换为Font.Charset = DEFAULT_CHARSET
+    dfm_files = [
         f
         for f in os.listdir(resources_dir)
-        if os.path.isfile(os.path.join(resources_dir, f))
+        if f.lower().endswith(".dfm") and os.path.isfile(os.path.join(resources_dir, f))
     ]
-    if not files:
-        print(f"警告：资源文件夹中没有文件 -> {resources_dir}")
-        return False
-
-    # 当前工作 EXE 从原始文件开始，依次覆写
-    current_exe = original_exe
-    for filename in files:
+    for filename in dfm_files:
         file_path = os.path.join(resources_dir, filename)
-        resource_name, resource_ext = os.path.splitext(filename)
-        if resource_ext != ".dfm":
-            continue
+        with open(file_path, "r", encoding="utf-8") as f:
+            raw = f.read()
+        raw = raw.replace("AboutBox.VirtualImageList64", "AboutBox.VirtualImageList32")
+        raw = raw.replace("Times New Roman", "SimSun")
+        raw = raw.replace(
+            "Font.Charset = ANSI_CHARSET", "Font.Charset = DEFAULT_CHARSET"
+        )
+        for x in [
+            "Tahoma",
+            "Arial",
+            "Segoe UI",
+            "Rubik",
+            "MS Sans Serif",
+            "System",
+            "Arial Narrow",
+        ]:
+            raw = raw.replace(f"Font.Name = '{x}'", "Font.Name = 'Microsoft YaHei'")
 
-        # -res "修改好的.dfm" -mask RCData, <资源名称 在程序里的确切名称（例如 TMainForm）>, <语言ID 英语通常是 1033>
-        # 构建 addoverwrite 命令
-        cmd = [
-            rh_path,
-            "-open",
-            current_exe,
-            "-save",
-            output_exe,
-            "-action",
-            "addoverwrite",
-            "-res",
-            file_path,
-            "-mask",
-            f"{resource_type}, T{resource_name}, {lang_id}",
-        ]
-
-        print(f"正在覆写资源：{resource_name} <- {filename}")
-        print(f"命令：{' '.join(cmd)}")
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-            if result.returncode != 0:
-                print(f"覆写失败，资源：{resource_name}，返回码：{result.returncode}")
-                print("错误输出：", result.stderr)
-                return False
-        except FileNotFoundError:
-            print(f"错误：找不到 ResourceHacker.exe -> {rh_path}")
-            return False
-        except Exception as e:
-            print(f"发生异常：{e}")
-            return False
-
-    print(f"所有资源覆写完成，最终 EXE：{output_exe}")
-    return True
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(raw)
 
 
-import os
-
-
-def generate_rh_script(
+def gen_script(
     original_exe,
     output_exe,
     resources_dir,
-    script_path="update_resources.rh",
+    script_path,
     resource_type="RCData",
     lang_id=1033,
 ):
-    """
-    生成 ResourceHacker 脚本文件，用于批量覆写 EXE 中的 DFM 资源。
-
-    :param original_exe:  原始 EXE 文件路径
-    :param output_exe:    输出 EXE 文件路径
-    :param resources_dir: 包含 .dfm 文件的文件夹
-    :param script_path:   生成的脚本文件路径（建议 .rh 或 .txt）
-    :param resource_type: 资源类型，默认为 RCData
-    :param lang_id:       语言 ID，英语通常为 1033
-    :return:              成功返回脚本文件路径，失败返回 None
-    """
     # 检查输入
     if not os.path.isfile(original_exe):
         print(f"错误：原始 EXE 不存在 -> {original_exe}")
@@ -172,7 +110,7 @@ def generate_rh_script(
     lines.append("[FILENAMES]")
     lines.append(f"Open={original_exe}")
     lines.append(f"Save={output_exe}")
-    lines.append("Log=")  # 留空表示不生成日志文件
+    lines.append("Log=CONSOLE")  # 留空表示不生成日志文件
     lines.append("")
     lines.append("[COMMANDS]")
 
@@ -189,61 +127,45 @@ def generate_rh_script(
         with open(script_path, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
         print(f"脚本已生成：{script_path}")
-        return script_path
     except Exception as e:
         print(f"写入脚本失败：{e}")
-        return None
 
 
-# 为dfm存历史记录。
+def run_script(rhexe_path, script_path):
+    cmd = [rhexe_path, "-script", script_path]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            print("错误输出：", result.stderr)
+            return
+        print("脚本执行成功")
+    except Exception as e:
+        print(f"发生异常：{e}")
+
+
+# 丢弃修改
+# 6. 元素菜单和组件菜单，右单击的字体也太大
+#             ParentFont 一般是false 、AutoSize是true、WordWrap是true、Scaled没有、TextHeight有、PixelsPerInch 有、Font.Size没有、Font.Height有。TextHeight有。
+#             TPopupMenu 和 TMenuItem
+#             即使把TextHeight 、Font.Height全部改为一致，也没有用。
+
 """
-字符串替换类
-    1. 直接用EmEditor查找替换AboutBox.VirtualImageList64为32即可。
-    3. 字体太大了
-        7. 特殊字体替换为普通字体、Tahoma、Times New Roman、MS Sans Serif、Arial、System、Rubik、Arial Narrow、Segoe UI
-            1. 宋体（SimSun）-> 'Times New Roman'
-            2. Microsoft YaHei -> ['Tahoma', 'Arial', 'Segoe UI', 'Rubik', 'MS Sans Serif', 'System', 'Arial Narrow']
-        6. 元素菜单和组件菜单，右单击的字体也太大
-            ParentFont 一般是false 、AutoSize是true、WordWrap是true、Scaled没有、TextHeight有、PixelsPerInch 有、Font.Size没有、Font.Height有。TextHeight有。
-            TPopupMenu 和 TMenuItem
-            即使把TextHeight 、Font.Height全部改为一致，也没有用。
-分析类
-    2. contents的图标栏太高了
-    4. Learn Add new的按钮太大了，Lean的图标太大
-    5. 队列的按钮栏高度太高
+4. 微调高度：按钮栏高度太高：队列的、contents的、注册表的；Learn Add new的按钮太大了
 """
-# BRIMP.dfm
-# BROWSER.dfm
-# CONTENTS.dfm
-# ELWIND.dfm
-# INPUTDLG.dfm
-# MSGDIALOG.dfm
-# PLANDLG.dfm
-# REGISTRYFORM.dfm
-# TASKMANAGER.dfm
 
 # ----------------- 使用示例 -----------------
 if __name__ == "__main__":
-    # 示例参数
-    exe_file = r"C:\Users\Snowy\Downloads\SuperMemo\sm20.exe"
-    extract_folder = (
-        r"D:\Dropbox\10-TODO\Develop\repo\SuperMemo-Toolkit\tests\supermemo\extracted"
-    )
-    modified_folder = r"D:\Dropbox\10-TODO\Develop\repo\SuperMemo-Toolkit\tests\supermemo\extracted"  # 假设修改后的资源仍在同一文件夹
-    output_exe_file = r"C:\Users\Snowy\Downloads\SuperMemo\sm20_modified.exe"
+    root = r"D:\Dropbox\10-TODO\Develop\repo\SuperMemo-Toolkit"
+    rhexe_path = rf"{root}\tests\supermemo\ResourceHacker\ResourceHacker.exe"
 
-    # extract_resources(
-    #     exe_file,
-    #     extract_folder,
-    #     rh_path=r"C:\Users\Snowy\Desktop\ResourceHacker5.2.8.448V5\ResourceHacker.exe",
-    # )
-    # repack_resources(
-    #     exe_file,
-    #     output_exe_file,
-    #     modified_folder,
-    #     resource_type="RCData",
-    #     lang_id=1033,
-    #     rh_path=r"C:\Users\Snowy\Desktop\ResourceHacker5.2.8.448V5\ResourceHacker.exe",
-    # )
+    ori_exe = r"C:\Users\Snowy\Downloads\SuperMemo\sm20.exe"
+    mod_exe = r"C:\Users\Snowy\Downloads\SuperMemo\sm20_mod.exe"
+
+    extract_folder = rf"{root}\tests\supermemo\extracted"
+    script_path = rf"{root}\tests\supermemo\ResourceHacker\update_resources.rh"
     #  & C:\Users\Snowy\Desktop\ResourceHacker5.2.8.448V5\ResourceHacker.exe -script D:\Dropbox\10-TODO\Develop\repo\SuperMemo-Toolkit\update_resources.rh
-    generate_rh_script(exe_file, output_exe_file, modified_folder)
+
+    # extract_resources(ori_exe, extract_folder, rhexe_path)
+    # gen_script(rhexe_path, ori_exe, mod_exe, extract_folder, script_path)
+    run_script(rhexe_path, script_path)
+    # replace_dfm(extract_folder)

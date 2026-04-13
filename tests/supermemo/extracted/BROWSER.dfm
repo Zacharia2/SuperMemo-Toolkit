@@ -95,7 +95,7 @@ object Browser: TBrowser
     Margins.Right = 5
     Margins.Bottom = 5
     AutoSize = True
-    ButtonHeight = 90
+    ButtonHeight = 45
     ButtonWidth = 107
     Images = AboutBox.VirtualImageList32
     ParentShowHint = False

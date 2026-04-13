@@ -129,7 +129,9 @@ object IntervalChoiceForm: TIntervalChoiceForm
     Margins.Bottom = 5
     Alignment = taCenter
     AutoSize = False
-    Caption = '💡 Click heatmap to select | ← → arrows to adjust'
+    Caption = 
+      'Click heatmap to select | ← → arrows to adjust | Ctrl+Shift+R ma' +
+      'nual interval'
   end
   object pnlHeatmap: TPanel
     Left = 60
@@ -188,25 +190,135 @@ object IntervalChoiceForm: TIntervalChoiceForm
     ParentBackground = False
     ParentFont = False
     TabOrder = 1
-    object pbLegend: TPaintBox
-      Left = 0
-      Top = 0
-      Width = 1230
-      Height = 150
+    object pbAlgSM19: TPaintBox
+      Left = 148
+      Top = 20
+      Width = 16
+      Height = 52
+      OnPaint = AlgorithmMarkerPaint
+    end
+    object pbAlgSM20: TPaintBox
+      Left = 552
+      Top = 20
+      Width = 16
+      Height = 52
+      OnPaint = AlgorithmMarkerPaint
+    end
+    object pbAlgSM2: TPaintBox
+      Left = 24
+      Top = 102
+      Width = 16
+      Height = 52
+      OnPaint = AlgorithmMarkerPaint
+    end
+    object pbAlgSM15: TPaintBox
+      Left = 428
+      Top = 102
+      Width = 16
+      Height = 52
+      OnPaint = AlgorithmMarkerPaint
+    end
+    object pbAlgFSRS: TPaintBox
+      Left = 832
+      Top = 102
+      Width = 16
+      Height = 52
+      OnPaint = AlgorithmMarkerPaint
+    end
+    object btnAlgSM19: TButton
+      Left = 174
+      Top = 18
+      Width = 350
+      Height = 62
       Margins.Left = 5
       Margins.Top = 5
       Margins.Right = 5
       Margins.Bottom = 5
-      Align = alClient
+      Caption = 'SM-19'
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
-      Font.Height = -17
-      Font.Name = 'Amiri'
+      Font.Height = -26
+      Font.Name = 'Microsoft YaHei'
       Font.Style = []
       ParentFont = False
-      OnPaint = pbLegendPaint
-      ExplicitWidth = 1283
-      ExplicitHeight = 109
+      TabOrder = 0
+      OnClick = AlgorithmButtonClick
+    end
+    object btnAlgSM20: TButton
+      Left = 578
+      Top = 18
+      Width = 350
+      Height = 62
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
+      Caption = 'SM-20'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -26
+      Font.Name = 'Microsoft YaHei'
+      Font.Style = []
+      ParentFont = False
+      TabOrder = 1
+      OnClick = AlgorithmButtonClick
+    end
+    object btnAlgSM2: TButton
+      Left = 50
+      Top = 96
+      Width = 350
+      Height = 62
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
+      Caption = 'SM-2'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -26
+      Font.Name = 'Microsoft YaHei'
+      Font.Style = []
+      ParentFont = False
+      TabOrder = 2
+      OnClick = AlgorithmButtonClick
+    end
+    object btnAlgSM15: TButton
+      Left = 454
+      Top = 96
+      Width = 350
+      Height = 62
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
+      Caption = 'SM-15'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -26
+      Font.Name = 'Microsoft YaHei'
+      Font.Style = []
+      ParentFont = False
+      TabOrder = 3
+      OnClick = AlgorithmButtonClick
+    end
+    object btnAlgFSRS: TButton
+      Left = 858
+      Top = 96
+      Width = 350
+      Height = 62
+      Margins.Left = 5
+      Margins.Top = 5
+      Margins.Right = 5
+      Margins.Bottom = 5
+      Caption = 'FSRS'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -26
+      Font.Name = 'Microsoft YaHei'
+      Font.Style = []
+      ParentFont = False
+      TabOrder = 4
+      OnClick = AlgorithmButtonClick
     end
   end
   object btnAccept: TButton
@@ -237,9 +349,9 @@ object IntervalChoiceForm: TIntervalChoiceForm
     OnClick = btnAlwaysDefaultClick
   end
   object btnAskLess: TButton
-    Left = 685
+    Left = 617
     Top = 425
-    Width = 255
+    Width = 190
     Height = 67
     Margins.Left = 5
     Margins.Top = 5
@@ -249,10 +361,23 @@ object IntervalChoiceForm: TIntervalChoiceForm
     TabOrder = 4
     OnClick = btnAskLessClick
   end
-  object btnCancel: TButton
-    Left = 960
+  object btnManual: TButton
+    Left = 823
     Top = 425
-    Width = 255
+    Width = 190
+    Height = 67
+    Margins.Left = 5
+    Margins.Top = 5
+    Margins.Right = 5
+    Margins.Bottom = 5
+    Caption = 'Manual'
+    TabOrder = 5
+    OnClick = btnManualClick
+  end
+  object btnCancel: TButton
+    Left = 1029
+    Top = 425
+    Width = 190
     Height = 67
     Margins.Left = 5
     Margins.Top = 5
@@ -261,11 +386,11 @@ object IntervalChoiceForm: TIntervalChoiceForm
     Cancel = True
     Caption = 'Cancel (Esc)'
     ModalResult = 2
-    TabOrder = 5
+    TabOrder = 6
   end
   object PopupMenu1: TPopupMenu
-    Left = 876
-    Top = 24
+    Left = 1122
+    Top = 48
     object MILaterToday: TMenuItem
       Caption = 'Later today'
       Hint = 'Move the repetition to later today (as if it never happened)'
