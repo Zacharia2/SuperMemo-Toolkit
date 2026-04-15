@@ -55,7 +55,7 @@ object MsgDialog: TMsgDialog
     ButtonWidth = 139
     DoubleBuffered = False
     EdgeBorders = [ebLeft, ebTop, ebRight, ebBottom]
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList64
     List = True
     ParentDoubleBuffered = False
     ParentShowHint = False

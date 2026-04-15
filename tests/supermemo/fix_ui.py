@@ -1,5 +1,40 @@
 import os
 import subprocess
+import psutil
+
+
+def kill_process_by_path(process_path):
+    """
+    根据进程的可执行文件路径终止所有匹配的进程。
+
+    :param process_path: 进程的可执行文件路径（支持绝对路径或相对路径）
+    """
+    # 将路径转换为小写并标准化，以进行不区分大小写的比较（Windows 适用）
+    target_path = os.path.normcase(os.path.abspath(process_path))
+    killed = False
+
+    for proc in psutil.process_iter(["pid", "name", "exe"]):
+        try:
+            # 获取进程的可执行文件路径
+            exe_path = proc.info["exe"]
+            if exe_path is None:
+                continue
+            # 标准化并与目标路径比较
+            if os.path.normcase(os.path.abspath(exe_path)) == target_path:
+                print(
+                    f"终止进程 PID: {proc.info['pid']}, 名称: {proc.info['name']}, 路径: {exe_path}"
+                )
+                proc.terminate()  # 请求终止
+                # 可选：等待进程结束
+                proc.wait(timeout=3)
+                killed = True
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess) as e:
+            print(f"无法访问进程 {proc.info['pid']}: {e}")
+        except Exception as e:
+            print(f"处理进程时出错: {e}")
+
+    if not killed:
+        print(f"未找到路径为 '{process_path}' 的进程。")
 
 
 def extract_resources(exe_path, output_dir, rh_path="ResourceHacker.exe"):
@@ -136,7 +171,7 @@ def run_script(rhexe_path, script_path):
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
         if result.returncode != 0:
-            print("错误输出：", result.stderr)
+            print("错误输出：", result.stdout if len(result.stdout) == 0 else "无")
             return
         print("脚本执行成功")
     except Exception as e:
@@ -166,6 +201,8 @@ if __name__ == "__main__":
     #  & C:\Users\Snowy\Desktop\ResourceHacker5.2.8.448V5\ResourceHacker.exe -script D:\Dropbox\10-TODO\Develop\repo\SuperMemo-Toolkit\update_resources.rh
 
     # extract_resources(ori_exe, extract_folder, rhexe_path)
-    # gen_script(rhexe_path, ori_exe, mod_exe, extract_folder, script_path)
+    # gen_script(ori_exe, mod_exe, extract_folder, script_path)
+    kill_process_by_path(mod_exe)
     run_script(rhexe_path, script_path)
+    subprocess.run([mod_exe])
     # replace_dfm(extract_folder)
