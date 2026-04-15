@@ -1887,7 +1887,7 @@ object SMMain: TSMMain
   end
   object TheMainMenu: TMainMenu
     BiDiMode = bdLeftToRight
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList16
     ParentBiDiMode = False
     Left = 42
     Top = 329

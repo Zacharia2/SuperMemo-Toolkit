@@ -494,7 +494,7 @@ object Contents: TContents
   end
   object PopupMenu1: TPopupMenu
     HelpContext = 28
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList16
     OnPopup = PopupMenu1Popup
     Left = 32
     Top = 88
@@ -993,7 +993,7 @@ object Contents: TContents
     Top = 264
   end
   object ProcessMenu: TPopupMenu
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList16
     Left = 104
     Top = 88
     object Changestatus1: TMenuItem

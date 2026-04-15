@@ -1464,7 +1464,7 @@ object ElWind: TElWind
   end
   object ElementMenu: TPopupMenu
     HelpContext = 7
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList16
     OnPopup = ElementMenuPopup
     Left = 60
     Top = 144
@@ -2513,7 +2513,7 @@ object ElWind: TElWind
   object ComponentMenu: TPopupMenu
     Alignment = paCenter
     HelpContext = 8
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList16
     OnPopup = ComponentMenuPopup
     Left = 216
     Top = 156

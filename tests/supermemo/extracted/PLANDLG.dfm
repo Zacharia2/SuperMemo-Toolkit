@@ -510,7 +510,7 @@ object PlanDlg: TPlanDlg
     end
   end
   object PopupMenu1: TPopupMenu
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList16
     Left = 384
     Top = 88
     object MIOpen: TMenuItem

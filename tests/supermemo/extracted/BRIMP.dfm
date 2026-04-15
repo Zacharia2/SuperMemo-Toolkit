@@ -615,7 +615,7 @@ object BrImp: TBrImp
     OnClick = CollectBtnClick
   end
   object PopUpMenu: TPopupMenu
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList16
     Left = 156
     Top = 528
     object MIText: TMenuItem

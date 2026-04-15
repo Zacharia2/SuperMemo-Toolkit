@@ -1154,7 +1154,7 @@ object AnalysisDlg: TAnalysisDlg
     end
   end
   object PopupMenu1: TPopupMenu
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList16
     Left = 640
     Top = 156
     object MINext: TMenuItem

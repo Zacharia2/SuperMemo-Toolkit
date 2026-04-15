@@ -523,7 +523,7 @@ object Browser: TBrowser
   end
   object PopupMenu1: TPopupMenu
     HelpContext = 14
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList16
     Left = 68
     Top = 516
     object Invisible1: TMenuItem
