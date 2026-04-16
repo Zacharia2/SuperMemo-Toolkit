@@ -7,6 +7,7 @@ from tests.supermemo.dfm_parser import (
     parseObject,
     LineReader,
 )
+from tests.supermemo.patch_font import patch_delphi_menu_font
 
 
 def kill_process_by_path(process_path):
@@ -478,7 +479,13 @@ if __name__ == "__main__":
     extract_resources(ori_exe, extract_folder, rhexe_path)
     replace_dfm(extract_folder)
     fix_ui(extract_folder)
-    # gen_script(ori_exe, mod_exe, extract_folder, script_path)
-    # kill_process_by_path(mod_exe)
-    # run_script(rhexe_path, script_path)
-    # subprocess.run([mod_exe])
+    gen_script(ori_exe, mod_exe, extract_folder, script_path)
+    kill_process_by_path(mod_exe)
+    run_script(rhexe_path, script_path)
+    patch_delphi_menu_font(
+        file_path=mod_exe,
+        old_value=15,  # 原始值（十进制）
+        new_value=9,  # 新值（十进制）
+        backup=True,
+    )
+    subprocess.run([mod_exe])
