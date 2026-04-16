@@ -50,7 +50,6 @@ class FocusSnapshot:
 # 使用示例
 if __name__ == "__main__":
     import time
-    import win32gui  # 仅用于演示打开新窗口
 
     # 假设我们打开记事本并等待一下
     import subprocess

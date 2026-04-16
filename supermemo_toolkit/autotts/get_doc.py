@@ -54,7 +54,8 @@ def find_ie_server_windows(hwnd_parent=None):
     return windows
 
 
-if __name__ == "__main__":
+def get_supermemo_html_doc():
+    """主函数：获取 SuperMemo 中 IE 控件的 HTML 文档对象"""
     # 设置 COM 多线程模型（必须在 CoInitialize 之前）
     import sys
 
@@ -73,7 +74,7 @@ if __name__ == "__main__":
                 # 打印 body 前 200 个字符
                 body_preview = doc.body.innerText[:200].replace("\n", " ")
                 logger.info(f"Body 预览: {body_preview}...")
-                break  # 找到第一个可用的就退出
+                return doc.body.innerText
         else:
             logger.warning("未找到可用的 HTML 文档对象")
 
