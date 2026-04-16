@@ -54,7 +54,7 @@ def word():
         noteId = noteInfo["noteId"]
         tag = noteInfo["tags"]
         fields = noteInfo["fields"]
-        word = fields["orderKey"]["value"]
+        word = fields["主键单词"]["value"]
         sound = fields["单词音频"]["value"]
         if sound == "":
             # 下载单词音频
