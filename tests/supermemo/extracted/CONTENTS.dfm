@@ -33,7 +33,6 @@ object Contents: TContents
   PixelsPerInch = 144
   TextHeight = 29
   object BottomBar: TToolBar
-    AllowTextButtons = True
     Left = 5
     Top = 1779
     Width = 3239
@@ -55,6 +54,7 @@ object Contents: TContents
     ShowCaptions = True
     TabOrder = 0
     Wrapable = False
+    AllowTextButtons = True
     object Learn: TToolButton
       Left = 0
       Top = 0

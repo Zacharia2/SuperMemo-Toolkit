@@ -1057,8 +1057,8 @@ object ElWind: TElWind
       ReadOnly = True
       TabOrder = 1
       Text = 'Concept'
-      Font.Height = -14
       OnClick = ConceptEditClick
+      Font.Height = -14
     end
     object NavBar: TToolBar
       AlignWithMargins = True

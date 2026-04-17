@@ -278,9 +278,9 @@ object BrImp: TBrImp
       Margins.Top = 5
       Margins.Right = 5
       Margins.Bottom = 5
-      DoubleBuffered = True
       Caption = '   Sources:'
       TabOrder = 0
+      DoubleBuffered = True
     end
     object WikiBtn: TToolButton
       Left = 1081
