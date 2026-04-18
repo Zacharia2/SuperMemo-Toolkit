@@ -12,6 +12,7 @@ def convert_html_content(html_bytes: bytes) -> bytes:
     # 解码为字符串
     html_str = html_bytes.decode("utf-8")
     # 使用 BeautifulSoup 解析
+    # 这个可有可无
     html_clean = re.sub(r"^<\?xml.*?\?>\s*", "", html_str, flags=re.MULTILINE)
     soup = BeautifulSoup(html_clean, "html.parser")
     entity_bytes = soup.encode(encoding="ascii", errors="xmlcharrefreplace")
@@ -20,7 +21,7 @@ def convert_html_content(html_bytes: bytes) -> bytes:
     return entity_bytes  # 已经是纯 ASCII 的 bytes
 
 
-def process_epub_in_memory(input_epub_path: str, output_epub_path: str):
+def epub_format_to_ascii(input_epub_path: str, output_epub_path: str):
     """
     在内存中处理 EPUB 文件：
     1. 读取原始 EPUB（ZIP）到内存
@@ -84,4 +85,4 @@ if __name__ == "__main__":
     input_file = r"C:\Users\Snowy\Desktop\Early Retirement Extreme_ A phi - Fisker, Jacob Lund.epub"
     output_file = r"C:\Users\Snowy\Desktop\Early Retirement Extreme_ A phi - Fisker, Jacob Lund.epub_实体版.epub"
 
-    process_epub_in_memory(input_file, output_file)
+    epub_format_to_ascii(input_file, output_file)
