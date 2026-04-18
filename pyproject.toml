@@ -1,6 +1,6 @@
 [project]
 name = "supermemo-toolkit"
-version = "0.1.25"
+version = "0.1.26"
 description = "SuperMemo 增强工具(CLI命令行)。包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、卡片朗读等。"
 readme = "README.md"
 keywords = ["supermemo", "cli-app", "tooltik"]
@@ -12,7 +12,7 @@ classifiers = [
 ]
 authors = [{ name = "tingshu", email = "xinglan42w@outlook.com" }]
 license = { text = "GPL-2.0-only" }
-requires-python = "<4.0,>=3.10"
+requires-python = "<3.14,>=3.10"
 dependencies = [
     "beautifulsoup4<5.0.0,>=4.13.3",
     "chardet<6.0.0,>=5.2.0",
@@ -63,8 +63,7 @@ documentation = "https://docs.qq.com/doc/DQnRpb0VNUEVvR3dl"
 smtk = "supermemo_toolkit.smtk:main"
 
 [tool.pdm.build]
-includes = ["supermemo_toolkit", "docs"]
-excludes = ["docs/**"]
+excludes = ["docs/**", "tests/**", "supermemo_toolkit/libs/**"]
 
 [[tool.pdm.source]]
 name = "tencent"

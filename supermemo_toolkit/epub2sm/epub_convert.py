@@ -249,7 +249,7 @@ def start_with_toc(epub_file, save_folder):
     print("转换完成，已存储至：", save_folder)
 
 
-def start_with_linear(epub_file, save_folder):
+def start_with_seq(epub_file, save_folder):
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
     print("开始处理书籍：", book_f_name)
