@@ -6,6 +6,7 @@ from tabulate import tabulate
 import asyncio
 from supermemo_toolkit.autotts.autotts import run_auto_tts
 from supermemo_toolkit.epub2sm import epub_convert
+from supermemo_toolkit.epub2sm import format_ascii
 from supermemo_toolkit.latex2img import formula_to_png
 from supermemo_toolkit.pathpix import im_sort_out
 from supermemo_toolkit.pathpix.gui import run_pathpix_ui
@@ -140,8 +141,9 @@ def clist():
 @click.option("--linear", is_flag=True, help="根据线性阅读顺序转换")
 @click.option("--topic", is_flag=True, help="转换为一篇Topic文章")
 @click.option("--limit", type=int, help="topic分片长度")
-def e2sm(epub_path, target_folder, toc, linear, topic, limit):
-    """转换 EPUB 书籍格式为 SuperMemo XML 集合格式"""
+@click.option("--prep", is_flag=True, help="预处理epub，转换为纯ASCII字符集（可选）")
+def e2sm(epub_path, target_folder, toc, linear, topic, limit, prep):
+    """转换EPUB书籍格式为SuperMemo XML集合格式、预处理EPUB为纯ASCII字符集"""
     if toc:
         epub_convert.start_with_toc(epub_path, target_folder)
     elif linear:
@@ -151,6 +153,8 @@ def e2sm(epub_path, target_folder, toc, linear, topic, limit):
             epub_convert.start_with_topic(epub_path, target_folder)
         else:
             epub_convert.start_with_topic(epub_path, target_folder, limit)
+    elif prep:
+        format_ascii.epub_format_to_ascii(epub_path, target_folder)
 
 
 @main.command()
