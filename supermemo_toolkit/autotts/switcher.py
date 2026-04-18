@@ -142,6 +142,8 @@ class AudioSwitcher:
             print(f"[Producer] Error: {e}")
         finally:
             # 如果按下停止按钮就应该停止。
+            if stop_event.is_set():
+                self.__clear_audio_queue()
             print("[Producer] Finished")
 
     def __pre_blocks(self):
@@ -271,10 +273,18 @@ class AudioSwitcher:
     def stop(self):
         """停止播放并等待线程完全结束"""
         with self.__lock:
+            # 1. 先设置停止事件
+            self.__thread_manager.stop(self.__producer_id)
+            self.__thread_manager.stop(self.__player_id)
+            # 2. 立即清空音频队列（关键！）
+            self.__clear_audio_queue()
+            # 3. 强制关闭音频流，使回调立刻退出
             if self.__current_stream:
-                # 终止__producer会卡 -> thread.join() -> __producer进程卡 -> 发个信号让进程停止，然后直接丢掉这个进程
-                self.__thread_manager.stop(self.__producer_id)
-                self.__thread_manager.stop(self.__player_id)
+                try:
+                    self.__current_stream.close()
+                except Exception:
+                    pass
+                self.__current_stream = None
 
 
 # ------------------ 测试代码 ------------------
