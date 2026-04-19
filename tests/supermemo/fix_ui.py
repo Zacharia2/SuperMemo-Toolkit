@@ -391,6 +391,27 @@ def fix_ui(directory):
             set_field(toolbar, "ButtonHeight", "38")
             set_field(toolbar, "Images", "AboutBox.VirtualImageList32")
 
+        # 修改 ButtonPanel 中的按钮
+        button_panel = find_object(obj_tree, "ButtonPanel", "TPanel")
+        if button_panel:
+            # 按钮名称顺序及对应的新 Left 值（宽度 226，高度 82）
+            buttons_config = [
+                ("Browse", 0, 159, 57),
+                ("List", 159, 159, 57),
+                ("Go", 318, 159, 57),
+                ("Button1", 477, 159, 57),
+                ("Rename", 636, 159, 57),
+                ("Insert", 795, 159, 57),
+                ("Add", 954, 159, 57),
+                ("Accept", 1113, 159, 57),
+            ]
+            for btn_name, left, width, height in buttons_config:
+                btn = find_object(button_panel, btn_name, "TButton")
+                if btn:
+                    set_field(btn, "Left", str(left))
+                    set_field(btn, "Width", str(width))
+                    set_field(btn, "Height", str(height))
+
     def modify_smmain(obj_tree):
         main_menu = find_object(obj_tree, "TheMainMenu", "TMainMenu")
         if main_menu:

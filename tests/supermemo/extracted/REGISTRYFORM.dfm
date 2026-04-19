@@ -101,10 +101,10 @@ object RegistryForm: TRegistryForm
     TabOrder = 1
     ExplicitTop = 1598
     object Insert: TButton
-      Left = 1145
+      Left = 795
       Top = 1
-      Width = 226
-      Height = 82
+      Width = 159
+      Height = 57
       Hint = 'Create a new component linked to the currently selected member'
       Margins.Left = 5
       Margins.Top = 5
@@ -116,10 +116,10 @@ object RegistryForm: TRegistryForm
       OnClick = InsertClick
     end
     object Accept: TButton
-      Left = 1602
+      Left = 1113
       Top = 1
-      Width = 227
-      Height = 82
+      Width = 159
+      Height = 57
       Hint = 'Link the selected registry member with the requesting source'
       Margins.Left = 5
       Margins.Top = 5
@@ -131,10 +131,10 @@ object RegistryForm: TRegistryForm
       OnClick = AcceptClick
     end
     object Rename: TButton
-      Left = 917
+      Left = 636
       Top = 1
-      Width = 226
-      Height = 82
+      Width = 159
+      Height = 57
       Hint = 'Rename the currently selected registry member (Alt+R)'
       Margins.Left = 5
       Margins.Top = 5
@@ -146,10 +146,10 @@ object RegistryForm: TRegistryForm
       OnClick = RenameClick
     end
     object List: TButton
-      Left = 233
+      Left = 159
       Top = 1
-      Width = 226
-      Height = 82
+      Width = 159
+      Height = 57
       Hint = 
         'Show the list of elements that use the currently selected regist' +
         'ry member'
@@ -164,10 +164,10 @@ object RegistryForm: TRegistryForm
       OnClick = ListClick
     end
     object Browse: TButton
-      Left = 5
+      Left = 0
       Top = 1
-      Width = 226
-      Height = 82
+      Width = 159
+      Height = 57
       Hint = 
         'Browse elements that use the selected registry members (or the h' +
         'ighlighted member if none selected)'
@@ -181,10 +181,10 @@ object RegistryForm: TRegistryForm
       OnClick = BrowseClick
     end
     object Add: TButton
-      Left = 1373
+      Left = 954
       Top = 1
-      Width = 226
-      Height = 82
+      Width = 159
+      Height = 57
       Hint = 'Add a new registry member'
       Margins.Left = 5
       Margins.Top = 5
@@ -195,10 +195,10 @@ object RegistryForm: TRegistryForm
       OnClick = AddClick
     end
     object Go: TButton
-      Left = 461
+      Left = 318
       Top = 1
-      Width = 226
-      Height = 82
+      Width = 159
+      Height = 57
       Hint = 
         'Go to the first element or member using the currently selected r' +
         'egistry member'
@@ -211,10 +211,10 @@ object RegistryForm: TRegistryForm
       OnClick = GoClick
     end
     object Button1: TButton
-      Left = 689
+      Left = 477
       Top = 1
-      Width = 226
-      Height = 82
+      Width = 159
+      Height = 57
       Hint = 'Execute neural review over the selected registry member'
       Margins.Left = 5
       Margins.Top = 5
