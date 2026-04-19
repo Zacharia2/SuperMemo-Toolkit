@@ -8,7 +8,7 @@ Delphi 菜单字体大小补丁脚本
 
 import struct
 
-def patch_delphi_menu_font(file_path, old_value=15, new_value=9, backup=True):
+def patch_delphi_menu_font(file_path, old_value=15, new_value=9):
     """
     修改 Delphi 程序中的菜单字体大小常量
 

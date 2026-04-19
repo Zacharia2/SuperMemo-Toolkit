@@ -7,6 +7,7 @@ from tests.supermemo.dfm_parser import (
     parseObject,
     LineReader,
 )
+from tests.supermemo.imghex import hex_addnew, hex_imagelist1
 from tests.supermemo.patch_font import patch_delphi_menu_font
 
 
@@ -44,7 +45,7 @@ def kill_process_by_path(process_path):
         print(f"未找到路径为 '{process_path}' 的进程。")
 
 
-def extract_resources(exe_path, output_dir, rh_path="ResourceHacker.exe"):
+def extract_dfm(exe_path, output_dir, rh_path="ResourceHacker.exe"):
     """
     使用 Resource Hacker 解压 EXE 中的所有资源到指定文件夹。
 
@@ -157,7 +158,7 @@ def run_script(rhexe_path, script_path):
         print(f"发生异常：{e}")
 
 
-def modify_ui(directory):
+def modify_dfm(directory):
     filenames = [
         os.path.join(directory, aFile)
         for aFile in [
@@ -300,10 +301,11 @@ def modify_ui(directory):
             learn_bar = find_object(learn_panel, "LearnBar", "TToolBar")
             if learn_bar:
                 set_field(learn_bar, "ButtonHeight", "38")
+        # 调整按钮宽度0.65倍，保持高度不变
         for btn_name, width in [
-            ("Learn", "320"),
-            ("AddNew", "222"),
-            ("CancelShowAnswer", "164"),
+            ("Learn", "270"),
+            ("AddNew", "180"),
+            ("CancelShowAnswer", "123"),
         ]:
             btn = find_object(obj_tree, btn_name, "TBitBtn")
             if btn:
@@ -321,6 +323,28 @@ def modify_ui(directory):
             menu = find_object(obj_tree, menu_name, "TPopupMenu")
             if menu:
                 set_field(menu, "Images", "AboutBox.VirtualImageList16")
+
+        # 替换为小图标
+        image_list1 = find_object(obj_tree, "ImageList1", "TImageList")
+        if image_list1:
+            set_field(
+                image_list1,
+                "Bitmap",
+                [
+                    x.strip()
+                    for x in hex_imagelist1.strip().split("\n")
+                    if x.strip() != ""
+                ],
+                "DATA",
+            )
+        add_new = find_object(obj_tree, "AddNew", "TBitBtn")
+        if add_new:
+            set_field(
+                add_new,
+                "Glyph.Data",
+                [x.strip() for x in hex_addnew.strip().split("\n") if x.strip() != ""],
+                "DATA",
+            )
 
     def modify_inputdlg(obj_tree):
         for obj in find_all_objects(obj_tree):
@@ -479,23 +503,17 @@ def modify_ui(directory):
 
 if __name__ == "__main__":
     root = r"D:\Dropbox\10-TODO\Develop\repo\SuperMemo-Toolkit"
+    extract_folder = rf"{root}\tests\supermemo\extracted"
+    script_path = rf"{root}\tests\supermemo\ResourceHacker\update_resources.rh"
     rh_exe = rf"{root}\tests\supermemo\ResourceHacker\ResourceHacker.exe"
 
     ori_exe = r"C:\Users\Snowy\Downloads\SuperMemo\sm20.exe"
     mod_exe = r"C:\Users\Snowy\Downloads\SuperMemo\sm20m.exe"
 
-    extract_folder = rf"{root}\tests\supermemo\extracted"
-    script_path = rf"{root}\tests\supermemo\ResourceHacker\update_resources.rh"
-
-    extract_resources(ori_exe, extract_folder, rh_exe)
+    # kill_process_by_path(mod_exe)
+    extract_dfm(ori_exe, extract_folder, rh_exe)
+    modify_dfm(extract_folder)
     gen_script(ori_exe, mod_exe, extract_folder, script_path)
-    modify_ui(extract_folder)
     run_script(rh_exe, script_path)
-    patch_delphi_menu_font(
-        file_path=mod_exe,
-        old_value=15,  # 原始值（十进制）
-        new_value=9,  # 新值（十进制）
-        backup=True,
-    )
-    kill_process_by_path(mod_exe)
+    patch_delphi_menu_font(file_path=mod_exe)
     subprocess.run([mod_exe])
