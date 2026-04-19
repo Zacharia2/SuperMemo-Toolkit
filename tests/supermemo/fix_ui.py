@@ -90,41 +90,6 @@ def extract_resources(exe_path, output_dir, rh_path="ResourceHacker.exe"):
         return False
 
 
-def replace_dfm(resources_dir):
-    # 1. 替换AboutBox.VirtualImageList64为32。
-    # 2. 字体替换
-    #     宋体（SimSun）-> 'Times New Roman'
-    #     Microsoft YaHei -> ['Tahoma', 'Arial', 'Segoe UI', 'Rubik', 'MS Sans Serif', 'System', 'Arial Narrow']
-    # 3. Font.Charset = ANSI_CHARSET替换为Font.Charset = DEFAULT_CHARSET
-    dfm_files = [
-        f
-        for f in os.listdir(resources_dir)
-        if f.lower().endswith(".dfm") and os.path.isfile(os.path.join(resources_dir, f))
-    ]
-    for filename in dfm_files:
-        file_path = os.path.join(resources_dir, filename)
-        with open(file_path, "r", encoding="utf-8") as f:
-            raw = f.read()
-        # raw = raw.replace("AboutBox.VirtualImageList64", "AboutBox.VirtualImageList32")
-        raw = raw.replace("Times New Roman", "SimSun")
-        raw = raw.replace(
-            "Font.Charset = ANSI_CHARSET", "Font.Charset = DEFAULT_CHARSET"
-        )
-        for x in [
-            "Tahoma",
-            "Arial",
-            "Segoe UI",
-            "Rubik",
-            "MS Sans Serif",
-            "System",
-            "Arial Narrow",
-        ]:
-            raw = raw.replace(f"Font.Name = '{x}'", "Font.Name = 'Microsoft YaHei'")
-
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(raw)
-
-
 def gen_script(
     original_exe,
     output_exe,
@@ -192,18 +157,7 @@ def run_script(rhexe_path, script_path):
         print(f"发生异常：{e}")
 
 
-# 丢弃修改
-# 6. 元素菜单和组件菜单，右单击的字体也太大
-#             ParentFont 一般是false 、AutoSize是true、WordWrap是true、Scaled没有、TextHeight有、PixelsPerInch 有、Font.Size没有、Font.Height有。TextHeight有。
-#             TPopupMenu 和 TMenuItem
-#             即使把TextHeight 、Font.Height全部改为一致，也没有用。
-
-"""
-4. 微调高度：按钮栏高度太高：队列的、contents的、注册表的；Learn Add new的按钮太大了
-"""
-
-
-def fix_ui(directory):
+def modify_ui(directory):
     filenames = [
         os.path.join(directory, aFile)
         for aFile in [
@@ -226,7 +180,7 @@ def fix_ui(directory):
             # ElWind: TElWind>>Learn: TBitBtn>>Width = 320
             # ElWind: TElWind>>AddNew: TBitBtn>>Width = 222
             # ElWind: TElWind>>CancelShowAnswer: TBitBtn>>Width = 164
-            # ElWind: TElWind>>NavPanel: TPanel>>ConceptEdit: TEdit>>增加Font.Height = -14
+            # ElWind: TElWind>>NavPanel: TPanel>>ConceptEdit: TEdit>>增加Font.Height = -24
             # ElWind: TElWind>>NavPanel: TPanel>>NavBar: TToolBar>>Images = AboutBox.VirtualImageList32
             # ElWind: TElWind>>ElementMenu: TPopupMenu>>Images = AboutBox.VirtualImageList16
             # ElWind: TElWind>>ComponentMenu: TPopupMenu>>Images = AboutBox.VirtualImageList16
@@ -358,7 +312,8 @@ def fix_ui(directory):
         if nav_panel:
             concept_edit = find_object(nav_panel, "ConceptEdit", "TEdit")
             if concept_edit:
-                set_field(concept_edit, "Font.Height", "-14")
+                set_field(concept_edit, "BevelWidth", "1")
+                set_field(concept_edit, "Font.Height", "-24")
             nav_bar = find_object(nav_panel, "NavBar", "TToolBar")
             if nav_bar:
                 set_field(nav_bar, "Images", "AboutBox.VirtualImageList32")  # 保持32
@@ -426,6 +381,43 @@ def fix_ui(directory):
                             "VirtualImageList64", "VirtualImageList32"
                         )
 
+    def replace_dfm(resources_dir):
+        # 1. 替换AboutBox.VirtualImageList64为32。
+        # 2. 字体替换
+        #     宋体（SimSun）-> 'Times New Roman'
+        #     Microsoft YaHei -> ['Tahoma', 'Arial', 'Segoe UI', 'Rubik', 'MS Sans Serif', 'System', 'Arial Narrow']
+        # 3. Font.Charset = ANSI_CHARSET替换为Font.Charset = DEFAULT_CHARSET
+        dfm_files = [
+            f
+            for f in os.listdir(resources_dir)
+            if f.lower().endswith(".dfm")
+            and os.path.isfile(os.path.join(resources_dir, f))
+        ]
+        for filename in dfm_files:
+            file_path = os.path.join(resources_dir, filename)
+            with open(file_path, "r", encoding="utf-8") as f:
+                raw = f.read()
+            # raw = raw.replace("AboutBox.VirtualImageList64", "AboutBox.VirtualImageList32")
+            raw = raw.replace("Times New Roman", "SimSun")
+            raw = raw.replace(
+                "Font.Charset = ANSI_CHARSET", "Font.Charset = DEFAULT_CHARSET"
+            )
+            for x in [
+                "Tahoma",
+                "Arial",
+                "Segoe UI",
+                "Rubik",
+                "MS Sans Serif",
+                "System",
+                "Arial Narrow",
+            ]:
+                raw = raw.replace(f"Font.Name = '{x}'", "Font.Name = 'Microsoft YaHei'")
+
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(raw)
+
+    # 先替换字体和ImageList64相关的字段，确保后续修改基于最新的状态
+    replace_dfm(directory)
     # ---------- 主处理循环 ----------
     for aFilename in filenames:
         print(f"Processing: {aFilename}")
@@ -485,82 +477,25 @@ def fix_ui(directory):
             outputFile.write(root_obj.toString())
 
 
-# ----------------- 使用示例 -----------------
 if __name__ == "__main__":
     root = r"D:\Dropbox\10-TODO\Develop\repo\SuperMemo-Toolkit"
-    rhexe_path = rf"{root}\tests\supermemo\ResourceHacker\ResourceHacker.exe"
+    rh_exe = rf"{root}\tests\supermemo\ResourceHacker\ResourceHacker.exe"
 
     ori_exe = r"C:\Users\Snowy\Downloads\SuperMemo\sm20.exe"
-    mod_exe = r"C:\Users\Snowy\Downloads\SuperMemo\sm20p_mod.exe"
+    mod_exe = r"C:\Users\Snowy\Downloads\SuperMemo\sm20m.exe"
 
     extract_folder = rf"{root}\tests\supermemo\extracted"
     script_path = rf"{root}\tests\supermemo\ResourceHacker\update_resources.rh"
-    #  & C:\Users\Snowy\Desktop\ResourceHacker5.2.8.448V5\ResourceHacker.exe -script D:\Dropbox\10-TODO\Develop\repo\SuperMemo-Toolkit\update_resources.rh
 
-    extract_resources(ori_exe, extract_folder, rhexe_path)
-    replace_dfm(extract_folder)
-    fix_ui(extract_folder)
+    extract_resources(ori_exe, extract_folder, rh_exe)
     gen_script(ori_exe, mod_exe, extract_folder, script_path)
-    kill_process_by_path(mod_exe)
-    run_script(rhexe_path, script_path)
+    modify_ui(extract_folder)
+    run_script(rh_exe, script_path)
     patch_delphi_menu_font(
         file_path=mod_exe,
         old_value=15,  # 原始值（十进制）
         new_value=9,  # 新值（十进制）
         backup=True,
     )
+    kill_process_by_path(mod_exe)
     subprocess.run([mod_exe])
-
-    # 手动修改
-    # <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
-    # # 步骤1: 提取清单为 .rc 文件
-    # cmd_extract = [
-    #     rhexe_path,
-    #     "-open",
-    #     ori_exe,
-    #     "-save",
-    #     os.path.join(extract_folder, "MANIFEST.rc"),
-    #     "-action",
-    #     "extract",
-    #     "-mask",
-    #     "MANIFEST,1,",
-    # ]
-
-    # # 步骤2: 编译 .rc 文件为 .res 文件
-    # cmd_compile = [
-    #     rhexe_path,
-    #     "-open",
-    #     os.path.join(extract_folder, "MANIFEST.rc"),
-    #     "-save",
-    #     os.path.join(extract_folder, "MANIFEST.res"),
-    #     "-action",
-    #     "compile",
-    #     "-log",
-    #     "CON",
-    # ]
-
-    # # 步骤3: 用编译好的 .res 文件替换原 exe 中的清单
-    # cmd_replace = [
-    #     rhexe_path,
-    #     "-open",
-    #     ori_exe,
-    #     "-save",
-    #     mod_exe,
-    #     "-action",
-    #     "addoverwrite",
-    #     "-resource",
-    #     os.path.join(extract_folder, "MANIFEST.res"),
-    #     "-mask",
-    #     "MANIFEST,1,1003",
-    # ]
-    # subprocess.run(cmd_extract, capture_output=True, text=True, check=False)
-    # if os.path.exists(os.path.join(extract_folder, "MANIFEST.rc")):
-    #     os.remove(os.path.join(extract_folder, "MANIFEST.rc"))
-    # os.rename(
-    #     os.path.join(extract_folder, "MANIFEST.txt"),
-    #     os.path.join(extract_folder, "MANIFEST.rc"),
-    # )
-    # insert_active_codepage(os.path.join(extract_folder, "MANIFEST1_1.txt"))
-    # subprocess.run(cmd_compile, capture_output=True, text=True, check=False)
-    # subprocess.run(cmd_replace, capture_output=True, text=True, check=False)
-    # print(" ".join(cmd_replace))

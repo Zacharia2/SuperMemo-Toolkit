@@ -1051,14 +1051,14 @@ object ElWind: TElWind
       Margins.Right = 5
       Margins.Bottom = 5
       BevelKind = bkTile
-      BevelWidth = 5
+      BevelWidth = 1
       ParentColor = True
       PopupMenu = Concepts
       ReadOnly = True
       TabOrder = 1
       Text = 'Concept'
       OnClick = ConceptEditClick
-      Font.Height = -14
+      Font.Height = -24
     end
     object NavBar: TToolBar
       AlignWithMargins = True

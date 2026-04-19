@@ -59,3 +59,56 @@ def insert_active_codepage(xml_path: str):
 
 if __name__ == "__main__":
     pass
+    # 手动修改
+    # <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
+    # # 步骤1: 提取清单为 .rc 文件
+    # cmd_extract = [
+    #     rhexe_path,
+    #     "-open",
+    #     ori_exe,
+    #     "-save",
+    #     os.path.join(extract_folder, "MANIFEST.rc"),
+    #     "-action",
+    #     "extract",
+    #     "-mask",
+    #     "MANIFEST,1,",
+    # ]
+
+    # # 步骤2: 编译 .rc 文件为 .res 文件
+    # cmd_compile = [
+    #     rhexe_path,
+    #     "-open",
+    #     os.path.join(extract_folder, "MANIFEST.rc"),
+    #     "-save",
+    #     os.path.join(extract_folder, "MANIFEST.res"),
+    #     "-action",
+    #     "compile",
+    #     "-log",
+    #     "CON",
+    # ]
+
+    # # 步骤3: 用编译好的 .res 文件替换原 exe 中的清单
+    # cmd_replace = [
+    #     rhexe_path,
+    #     "-open",
+    #     ori_exe,
+    #     "-save",
+    #     mod_exe,
+    #     "-action",
+    #     "addoverwrite",
+    #     "-resource",
+    #     os.path.join(extract_folder, "MANIFEST.res"),
+    #     "-mask",
+    #     "MANIFEST,1,1003",
+    # ]
+    # subprocess.run(cmd_extract, capture_output=True, text=True, check=False)
+    # if os.path.exists(os.path.join(extract_folder, "MANIFEST.rc")):
+    #     os.remove(os.path.join(extract_folder, "MANIFEST.rc"))
+    # os.rename(
+    #     os.path.join(extract_folder, "MANIFEST.txt"),
+    #     os.path.join(extract_folder, "MANIFEST.rc"),
+    # )
+    # insert_active_codepage(os.path.join(extract_folder, "MANIFEST1_1.txt"))
+    # subprocess.run(cmd_compile, capture_output=True, text=True, check=False)
+    # subprocess.run(cmd_replace, capture_output=True, text=True, check=False)
+    # print(" ".join(cmd_replace))
