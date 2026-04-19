@@ -52,6 +52,7 @@ dev = [
     # "selenium>=4.41.0",
     # "sentence-transformers>=5.3.0",
     # "spacy>=3.8.14",
+    "psutil>=7.2.2",
 ]
 
 [project.urls]
