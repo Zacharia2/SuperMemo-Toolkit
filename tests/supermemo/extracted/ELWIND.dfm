@@ -844,6 +844,7 @@ object ElWind: TElWind
     Visible = False
     OnClick = LearnClick
     OnKeyDown = FormKeyDown
+    Font.Height = -20
   end
   object AddNew: TBitBtn
     Left = 422
@@ -960,6 +961,7 @@ object ElWind: TElWind
     TabOrder = 3
     Visible = False
     OnClick = AddNewClick
+    Font.Height = -20
   end
   object CancelShowAnswer: TBitBtn
     Left = 732
@@ -977,6 +979,7 @@ object ElWind: TElWind
     Visible = False
     OnClick = CancelLearningClick
     OnKeyDown = FormKeyDown
+    Font.Height = -20
   end
   object NavPanel: TPanel
     Left = 0

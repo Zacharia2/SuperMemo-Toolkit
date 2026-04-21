@@ -318,6 +318,7 @@ def modify_dfm(directory):
             btn = find_object(obj_tree, btn_name, "TBitBtn")
             if btn:
                 set_field(btn, "Width", width)
+                set_field(btn, "Font.Height", "-20")
         nav_panel = find_object(obj_tree, "NavPanel", "TPanel")
         if nav_panel:
             concept_edit = find_object(nav_panel, "ConceptEdit", "TEdit")
