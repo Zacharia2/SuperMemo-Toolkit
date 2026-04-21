@@ -8,7 +8,7 @@ object LocalizationDlg: TLocalizationDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -14
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   OldCreateOrder = True
   Position = poScreenCenter
@@ -227,7 +227,7 @@ object LocalizationDlg: TLocalizationDlg
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     Left = 72
     Top = 392

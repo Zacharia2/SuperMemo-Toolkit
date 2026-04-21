@@ -14,7 +14,7 @@ object PlanDlg: TPlanDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -15
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   GlassFrame.Enabled = True
   PopupMenu = PopupMenu1

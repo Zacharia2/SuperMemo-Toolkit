@@ -13,7 +13,7 @@ object RotateForm: TRotateForm
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -18
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   PopupMenu = PopupMenu1
   WindowState = wsMaximized
@@ -36,7 +36,7 @@ object RotateForm: TRotateForm
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -18
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     ParentColor = False
     ParentFont = False
@@ -58,7 +58,7 @@ object RotateForm: TRotateForm
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -18
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     ParentBackground = False
     ParentFont = False

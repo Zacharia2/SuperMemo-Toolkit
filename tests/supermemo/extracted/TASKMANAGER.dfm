@@ -15,7 +15,7 @@ object TaskManager: TTaskManager
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -15
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   PopupMenu = PopupMenu1
   Position = poScreenCenter

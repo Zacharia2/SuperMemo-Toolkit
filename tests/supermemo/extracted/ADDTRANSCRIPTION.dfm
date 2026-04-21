@@ -10,7 +10,7 @@ object AddTranscription: TAddTranscription
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -15
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   OldCreateOrder = True
   Position = poScreenCenter
@@ -43,7 +43,7 @@ object AddTranscription: TAddTranscription
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -25
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     ParentFont = False
     TabOrder = 0
@@ -59,7 +59,7 @@ object AddTranscription: TAddTranscription
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -25
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     ParentFont = False
     TabOrder = 1

@@ -16,7 +16,7 @@ object Back: TBack
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -15
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   PixelsPerInch = 144
   TextHeight = 16

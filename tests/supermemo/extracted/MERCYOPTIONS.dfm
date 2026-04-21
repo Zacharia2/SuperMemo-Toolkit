@@ -10,7 +10,7 @@ object MercyOptions: TMercyOptions
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clBlack
   Font.Height = -20
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   OldCreateOrder = True
   Position = poScreenCenter

@@ -11,7 +11,7 @@ object RegistryForm: TRegistryForm
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -23
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   KeyPreview = True
   PopupMenu = PopupMenu1

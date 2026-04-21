@@ -11,7 +11,7 @@ object PriorityDlg: TPriorityDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -17
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   KeyPreview = True
   OldCreateOrder = False
@@ -64,7 +64,7 @@ object PriorityDlg: TPriorityDlg
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     ParentFont = False
   end
@@ -82,7 +82,7 @@ object PriorityDlg: TPriorityDlg
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     ParentFont = False
   end
@@ -207,7 +207,7 @@ object PriorityDlg: TPriorityDlg
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clBlack
     Font.Height = -19
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     ParentColor = False
     ParentFont = False

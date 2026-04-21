@@ -15,7 +15,7 @@ object RecoveryDialog: TRecoveryDialog
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clBlack
   Font.Height = -30
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   PopupMenu = PopupMenu1
   Position = poScreenCenter

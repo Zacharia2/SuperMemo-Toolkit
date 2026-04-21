@@ -15,7 +15,7 @@ object Options: TOptions
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -29
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   Position = poScreenCenter
   OnClose = FormClose
@@ -2150,7 +2150,7 @@ object Options: TOptions
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -17
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     Left = 597
     Top = 13

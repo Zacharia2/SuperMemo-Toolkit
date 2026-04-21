@@ -14,7 +14,7 @@ object WebDlg: TWebDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -18
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   PopupMenu = PopupMenu1
   Position = poDesigned

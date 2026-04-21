@@ -13,7 +13,7 @@ object MsgDialog: TMsgDialog
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -20
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   KeyPreview = True
   StyleElements = []

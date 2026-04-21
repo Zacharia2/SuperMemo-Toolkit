@@ -1,6 +1,6 @@
 object ElWind: TElWind
-  Left = -5000
-  Top = 152
+  Left = 0
+  Top = 0
   HelpContext = 18
   Margins.Left = 5
   Margins.Top = 5
@@ -13,11 +13,11 @@ object ElWind: TElWind
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -32
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   PopupMenu = ElementMenu
   PopupMode = pmAuto
-  Position = poDesigned
+  Position = poScreenCenter
   ShowHint = True
   OnActivate = FormActivate
   OnClose = FormClose
@@ -95,7 +95,7 @@ object ElWind: TElWind
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -20
-      Font.Name = 'Microsoft YaHei'
+      Font.Name = 'Microsoft YaHei UI'
       Font.Style = []
       ParentFont = False
       ReadOnly = True
@@ -124,7 +124,7 @@ object ElWind: TElWind
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWhite
     Font.Height = -29
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = [fsBold]
     ParentBiDiMode = False
     ParentBackground = False
@@ -344,7 +344,7 @@ object ElWind: TElWind
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clBlue
         Font.Height = -20
-        Font.Name = 'Microsoft YaHei'
+        Font.Name = 'Microsoft YaHei UI'
         Font.Style = [fsBold]
         ParentColor = False
         ParentFont = False
@@ -406,7 +406,7 @@ object ElWind: TElWind
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWhite
         Font.Height = -20
-        Font.Name = 'Microsoft YaHei'
+        Font.Name = 'Microsoft YaHei UI'
         Font.Style = [fsBold]
         GlowSize = 3
         ParentColor = False
@@ -448,7 +448,7 @@ object ElWind: TElWind
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -17
-        Font.Name = 'Microsoft YaHei'
+        Font.Name = 'Microsoft YaHei UI'
         Font.Style = []
         ParentColor = False
         ParentFont = False
@@ -475,7 +475,7 @@ object ElWind: TElWind
         Font.Charset = DEFAULT_CHARSET
         Font.Color = clWindowText
         Font.Height = -17
-        Font.Name = 'Microsoft YaHei'
+        Font.Name = 'Microsoft YaHei UI'
         Font.Style = []
         ParentColor = False
         ParentFont = False
@@ -2491,7 +2491,7 @@ object ElWind: TElWind
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -13
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     Left = 112
     Top = 331

@@ -9,7 +9,7 @@ object LayoutDlg: TLayoutDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -11
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   Position = poScreenCenter
   ShowHint = True

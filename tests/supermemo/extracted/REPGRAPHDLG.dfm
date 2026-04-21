@@ -10,7 +10,7 @@ object RepGraphDlg: TRepGraphDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -14
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   OldCreateOrder = False
   Position = poScreenCenter

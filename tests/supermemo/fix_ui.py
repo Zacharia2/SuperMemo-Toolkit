@@ -296,11 +296,19 @@ def modify_dfm(directory):
                 set_field(menu, "Images", "AboutBox.VirtualImageList16")
 
     def modify_elwind(obj_tree):
+        form = find_object(obj_tree, "ElWind", "TElWind")
+        if form:
+            # 1. 让窗体启动时自动居中于屏幕（避免初始位置在屏幕外）
+            set_field(form, "Position", "poScreenCenter")
+            # 2. 清除异常的 Left/Top 值（poScreenCenter 会忽略它们，但保持整洁）
+            set_field(form, "Left", "0")
+            set_field(form, "Top", "0")
         learn_panel = find_object(obj_tree, "LearnPanel", "TPanel")
         if learn_panel:
             learn_bar = find_object(learn_panel, "LearnBar", "TToolBar")
             if learn_bar:
                 set_field(learn_bar, "ButtonHeight", "38")
+                # set_field(learn_bar, "Top", "8")
         # 调整按钮宽度0.65倍，保持高度不变
         for btn_name, width in [
             ("Learn", "270"),
@@ -435,7 +443,9 @@ def modify_dfm(directory):
                 "System",
                 "Arial Narrow",
             ]:
-                raw = raw.replace(f"Font.Name = '{x}'", "Font.Name = 'Microsoft YaHei'")
+                raw = raw.replace(
+                    f"Font.Name = '{x}'", "Font.Name = 'Microsoft YaHei UI'"
+                )
 
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(raw)

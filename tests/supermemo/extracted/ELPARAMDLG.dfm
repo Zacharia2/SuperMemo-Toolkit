@@ -15,7 +15,7 @@ object ElParamDlg: TElParamDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clBlack
   Font.Height = -23
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   PopupMenu = PopupMenu1
   Position = poScreenCenter

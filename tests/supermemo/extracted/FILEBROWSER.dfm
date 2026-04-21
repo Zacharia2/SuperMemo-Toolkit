@@ -17,7 +17,7 @@ object FileBrowser: TFileBrowser
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clBlack
   Font.Height = -23
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   PopupMenu = BrowserMenu
   Position = poScreenCenter
@@ -454,7 +454,7 @@ object FileBrowser: TFileBrowser
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clBlack
     Font.Height = -20
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     ParentFont = False
     TabOrder = 3

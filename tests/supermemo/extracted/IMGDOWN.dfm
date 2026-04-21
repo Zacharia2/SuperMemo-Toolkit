@@ -13,7 +13,7 @@ object ImgDown: TImgDown
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -24
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   FormStyle = fsStayOnTop
   PopupMenu = PopupMenu1

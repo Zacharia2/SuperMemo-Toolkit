@@ -14,7 +14,7 @@ object ElDataWind: TElDataWind
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -23
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   Icon.Data = {
     0000010001002020100000000000E80200001600000028000000200000004000
@@ -224,7 +224,7 @@ object ElDataWind: TElDataWind
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -18
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     Images = ElWind.ImageList1
     PopupMenu = PopupMenu1

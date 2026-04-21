@@ -8,7 +8,7 @@ object ConceptMapForm: TConceptMapForm
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -11
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   OldCreateOrder = False
   PopupMenu = PopupMenu1

@@ -10,7 +10,7 @@ object PasswordDlg: TPasswordDlg
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clBlack
   Font.Height = -24
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = [fsBold]
   FormStyle = fsStayOnTop
   Position = poScreenCenter

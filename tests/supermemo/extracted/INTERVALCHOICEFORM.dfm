@@ -13,7 +13,7 @@ object IntervalChoiceForm: TIntervalChoiceForm
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -17
-  Font.Name = 'Microsoft YaHei'
+  Font.Name = 'Microsoft YaHei UI'
   Font.Style = []
   KeyPreview = True
   PopupMenu = PopupMenu1
@@ -147,7 +147,7 @@ object IntervalChoiceForm: TIntervalChoiceForm
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -26
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     ParentBackground = False
     ParentFont = False
@@ -185,7 +185,7 @@ object IntervalChoiceForm: TIntervalChoiceForm
     Font.Charset = DEFAULT_CHARSET
     Font.Color = clWindowText
     Font.Height = -26
-    Font.Name = 'Microsoft YaHei'
+    Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     ParentBackground = False
     ParentFont = False
@@ -238,7 +238,7 @@ object IntervalChoiceForm: TIntervalChoiceForm
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -26
-      Font.Name = 'Microsoft YaHei'
+      Font.Name = 'Microsoft YaHei UI'
       Font.Style = []
       ParentFont = False
       TabOrder = 0
@@ -257,7 +257,7 @@ object IntervalChoiceForm: TIntervalChoiceForm
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -26
-      Font.Name = 'Microsoft YaHei'
+      Font.Name = 'Microsoft YaHei UI'
       Font.Style = []
       ParentFont = False
       TabOrder = 1
@@ -276,7 +276,7 @@ object IntervalChoiceForm: TIntervalChoiceForm
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -26
-      Font.Name = 'Microsoft YaHei'
+      Font.Name = 'Microsoft YaHei UI'
       Font.Style = []
       ParentFont = False
       TabOrder = 2
@@ -295,7 +295,7 @@ object IntervalChoiceForm: TIntervalChoiceForm
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -26
-      Font.Name = 'Microsoft YaHei'
+      Font.Name = 'Microsoft YaHei UI'
       Font.Style = []
       ParentFont = False
       TabOrder = 3
@@ -314,7 +314,7 @@ object IntervalChoiceForm: TIntervalChoiceForm
       Font.Charset = DEFAULT_CHARSET
       Font.Color = clWindowText
       Font.Height = -26
-      Font.Name = 'Microsoft YaHei'
+      Font.Name = 'Microsoft YaHei UI'
       Font.Style = []
       ParentFont = False
       TabOrder = 4
