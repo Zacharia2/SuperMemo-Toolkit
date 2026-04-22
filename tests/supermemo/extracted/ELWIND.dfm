@@ -278,7 +278,7 @@ object ElWind: TElWind
         Left = 224
         Top = 0
         Width = 71
-        Height = 51
+        Height = 45
         Hint = 'Element'#39's priority (expressed as a percentile from the top)'
         Margins.Left = 5
         Margins.Top = 5
@@ -298,7 +298,7 @@ object ElWind: TElWind
         Left = 295
         Top = 0
         Width = 98
-        Height = 51
+        Height = 45
         Hint = 'Element'#39's priority (expressed as a position in the queue)'
         Margins.Left = 5
         Margins.Top = 5
@@ -332,7 +332,7 @@ object ElWind: TElWind
         Left = 433
         Top = 0
         Width = 56
-        Height = 51
+        Height = 24
         Hint = 'Current interval (i.e. the period between reviews)'
         Margins.Left = 5
         Margins.Top = 5
@@ -357,7 +357,7 @@ object ElWind: TElWind
         Left = 489
         Top = 0
         Width = 89
-        Height = 51
+        Height = 39
         Hint = 
           'Number of repetitions and the number of memory lapses (if non-ze' +
           'ro)'
@@ -393,7 +393,7 @@ object ElWind: TElWind
         Left = 618
         Top = 0
         Width = 138
-        Height = 51
+        Height = 30
         Hint = 'Date of the next expected review'
         Margins.Left = 5
         Margins.Top = 5
@@ -433,7 +433,7 @@ object ElWind: TElWind
         Left = 796
         Top = 0
         Width = 44
-        Height = 51
+        Height = 21
         Hint = 
           'Retrievability: estimated current chance of recalling the presen' +
           'ted item'
@@ -460,7 +460,7 @@ object ElWind: TElWind
         Left = 840
         Top = 0
         Width = 40
-        Height = 51
+        Height = 21
         Hint = 
           'Stability: predicted duration of memory as the interval that wil' +
           'l make recall drop to 90%'

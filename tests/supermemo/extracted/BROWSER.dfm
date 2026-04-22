@@ -518,8 +518,6 @@ object Browser: TBrowser
     OnKeyUp = ScrollBar1KeyUp
     OnMouseLeave = ScrollBar1MouseLeave
     OnScroll = ScrollBar1Scroll
-    ExplicitTop = 105
-    ExplicitHeight = 1640
   end
   object PopupMenu1: TPopupMenu
     HelpContext = 14
