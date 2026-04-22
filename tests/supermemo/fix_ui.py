@@ -7,6 +7,11 @@ from tests.supermemo.dfm_parser import (
     parseObject,
     LineReader,
 )
+from tests.supermemo.fix_codepage import (
+    extract_manifest,
+    insert_active_codepage,
+    update_manifest,
+)
 from tests.supermemo.imghex import hex_addnew, hex_imagelist1
 from tests.supermemo.patch_font import patch_delphi_menu_font
 
@@ -514,9 +519,14 @@ def modify_dfm(directory):
 
 if __name__ == "__main__":
     root = r"D:\Dropbox\10-TODO\Develop\repo\SuperMemo-Toolkit"
+
     extract_folder = rf"{root}\tests\supermemo\extracted"
+    manifest = os.path.join(extract_folder, "MANIFEST.manifest")
+
     script_path = rf"{root}\tests\supermemo\ResourceHacker\update_resources.rh"
+
     rh_exe = rf"{root}\tests\supermemo\ResourceHacker\ResourceHacker.exe"
+    mt_exe = rf"{root}\tests\supermemo\mt_10\x64\mt.exe"
 
     ori_exe = r"C:\Users\Snowy\Downloads\SuperMemo\sm20.exe"
     mod_exe = r"C:\Users\Snowy\Downloads\SuperMemo\sm20m.exe"
@@ -527,4 +537,7 @@ if __name__ == "__main__":
     gen_script(ori_exe, mod_exe, extract_folder, script_path)
     run_script(rh_exe, script_path)
     patch_delphi_menu_font(file_path=mod_exe)
+    extract_manifest(mt_exe, ori_exe, manifest)
+    insert_active_codepage(manifest)
+    update_manifest(mt_exe, mod_exe, manifest)
     subprocess.run([mod_exe])

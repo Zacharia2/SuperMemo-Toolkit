@@ -4,6 +4,7 @@ insert_active_codepage.py
 向 Windows 清单文件的 <asmv3:windowsSettings> 中插入 UTF-8 活动代码页声明。
 """
 
+import subprocess
 from lxml import etree
 
 # 命名空间定义
@@ -48,7 +49,7 @@ def insert_active_codepage(xml_path: str):
     # 写回文件，保留 XML 声明和 standalone 属性
     with open(xml_path, "wb") as f:
         # 自定义声明
-        declaration = b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        declaration = b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
         f.write(declaration)
 
         # 写入树内容，不输出声明，保持格式（pretty_print 可选）
@@ -57,58 +58,51 @@ def insert_active_codepage(xml_path: str):
     print(f"文件已保存至: {xml_path}")
 
 
-if __name__ == "__main__":
-    pass
-    # 手动修改
-    # <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
-    # # 步骤1: 提取清单为 .rc 文件
-    # cmd_extract = [
-    #     rhexe_path,
-    #     "-open",
-    #     ori_exe,
-    #     "-save",
-    #     os.path.join(extract_folder, "MANIFEST.rc"),
-    #     "-action",
-    #     "extract",
-    #     "-mask",
-    #     "MANIFEST,1,",
-    # ]
+def extract_manifest(mt_exe_path: str, exe_path: str, output_manifest_path: str):
+    """从可执行文件中提取嵌入的清单"""
+    # 资源ID: .exe 为 1, .dll 为 2
 
-    # # 步骤2: 编译 .rc 文件为 .res 文件
-    # cmd_compile = [
-    #     rhexe_path,
-    #     "-open",
-    #     os.path.join(extract_folder, "MANIFEST.rc"),
-    #     "-save",
-    #     os.path.join(extract_folder, "MANIFEST.res"),
-    #     "-action",
-    #     "compile",
-    #     "-log",
-    #     "CON",
-    # ]
+    cmd = [
+        mt_exe_path,
+        f"-inputresource:{exe_path};#1",
+        f"-out:{output_manifest_path}",
+    ]
 
-    # # 步骤3: 用编译好的 .res 文件替换原 exe 中的清单
-    # cmd_replace = [
-    #     rhexe_path,
-    #     "-open",
-    #     ori_exe,
-    #     "-save",
-    #     mod_exe,
-    #     "-action",
-    #     "addoverwrite",
-    #     "-resource",
-    #     os.path.join(extract_folder, "MANIFEST.res"),
-    #     "-mask",
-    #     "MANIFEST,1,1003",
-    # ]
-    # subprocess.run(cmd_extract, capture_output=True, text=True, check=False)
-    # if os.path.exists(os.path.join(extract_folder, "MANIFEST.rc")):
-    #     os.remove(os.path.join(extract_folder, "MANIFEST.rc"))
-    # os.rename(
-    #     os.path.join(extract_folder, "MANIFEST.txt"),
-    #     os.path.join(extract_folder, "MANIFEST.rc"),
-    # )
-    # insert_active_codepage(os.path.join(extract_folder, "MANIFEST1_1.txt"))
-    # subprocess.run(cmd_compile, capture_output=True, text=True, check=False)
-    # subprocess.run(cmd_replace, capture_output=True, text=True, check=False)
-    # print(" ".join(cmd_replace))
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            print(f"提取失败 (错误码 {result.returncode}): {result.stderr}")
+            return False
+        print(f"清单已提取到: {output_manifest_path}")
+        return True
+    except FileNotFoundError:
+        print("错误: 找不到 mt.exe，请确认路径或将其加入 PATH")
+        return False
+    except Exception as e:
+        print(f"未知错误: {e}")
+        return False
+
+
+def update_manifest(mt_exe_path: str, exe_path: str, new_manifest_path: str):
+    """用新的清单文件替换可执行文件中嵌入的清单"""
+
+    cmd = [
+        mt_exe_path,
+        "-manifest",
+        new_manifest_path,
+        f"-outputresource:{exe_path};#1",
+    ]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            print(f"更新失败 (错误码 {result.returncode}): {result.stderr}")
+            return False
+        print(f"清单已成功更新到: {exe_path}")
+        return True
+    except FileNotFoundError:
+        print("错误: 找不到 mt.exe，请确认路径或将其加入 PATH")
+        return False
+    except Exception as e:
+        print(f"未知错误: {e}")
+        return False
