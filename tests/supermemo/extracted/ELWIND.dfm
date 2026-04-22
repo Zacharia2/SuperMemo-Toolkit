@@ -2538,6 +2538,7 @@ object ElWind: TElWind
         Hint = 'Extract selection, memorize it, and append AI explanation'
         ShortCut = 41048
         OnClick = MIExplainExtractClick
+        Visible = False
       end
       object MIScheduleExtract: TMenuItem
         Caption = 'Schedule extract'
@@ -2589,14 +2590,17 @@ object ElWind: TElWind
       end
       object N23: TMenuItem
         Caption = '-'
+        Visible = False
       end
       object MIAIExplain: TMenuItem
         Caption = 'AI Explain'
         Hint = 'Explain selection with AI'
         OnClick = MIAIExplainClick
+        Visible = False
       end
       object N50: TMenuItem
         Caption = '-'
+        Visible = False
       end
       object MIDeletePriorText: TMenuItem
         Caption = 'Delete before cursor'

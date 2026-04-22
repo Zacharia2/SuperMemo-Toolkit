@@ -167,40 +167,16 @@ def modify_dfm(directory):
     filenames = [
         os.path.join(directory, aFile)
         for aFile in [
-            "ANALYSISDLG.dfm",  # AboutBox.VirtualImageList32改成16
+            "ANALYSISDLG.dfm",
             "BRIMP.dfm",
-            # BrImp: TBrImp>>ToolBar: TToolBar>>ButtonHeight=45，Images = AboutBox.VirtualImageList32
-            # BrImp: TBrImp>>ToolBar: TToolBar>>SourcesPanel: TPanel>>增加DoubleBuffered = True
-            # BrImp: TBrImp>>HeaderPanel: TPanel>>TitleEdit: TEdit>>Width = 1900
-            # BrImp: TBrImp>>PopUpMenu: TPopupMenu>>Images=16
             "BROWSER.dfm",
-            # Browser: TBrowser>>Speedbar: TToolBar>>ButtonHeight = 45,Images = AboutBox.VirtualImageList32
-            # Browser: TBrowser>>PopupMenu1: TPopupMenu>>Images = AboutBox.VirtualImageList16
             "CONTENTS.dfm",
-            # Contents: TContents>>BottomBar: TToolBar>>AlignWithMargins = True 改为 AllowTextButtons = True, Images = AboutBox.VirtualImageList16
-            # Contents: TContents>>ToolBar: TToolBar>>ButtonHeight = 32,Images = AboutBox.VirtualImageList16
-            # Contents: TContents>>PopupMenu1: TPopupMenu>>Images = AboutBox.VirtualImageList16
-            # Contents: TContents>>ProcessMenu: TPopupMen>>Images = AboutBox.VirtualImageList16
             "ELWIND.dfm",
-            # ElWind: TElWind>>LearnPanel: TPanel>>LearnBar: TToolBar>>ButtonHeight = 38
-            # ElWind: TElWind>>Learn: TBitBtn>>Width = 320
-            # ElWind: TElWind>>AddNew: TBitBtn>>Width = 222
-            # ElWind: TElWind>>CancelShowAnswer: TBitBtn>>Width = 164
-            # ElWind: TElWind>>NavPanel: TPanel>>ConceptEdit: TEdit>>增加Font.Height = -24
-            # ElWind: TElWind>>NavPanel: TPanel>>NavBar: TToolBar>>Images = AboutBox.VirtualImageList32
-            # ElWind: TElWind>>ElementMenu: TPopupMenu>>Images = AboutBox.VirtualImageList16
-            # ElWind: TElWind>>ComponentMenu: TPopupMenu>>Images = AboutBox.VirtualImageList16
             "INPUTDLG.dfm",
-            # AboutBox.VirtualImageList64改成32
             "PLANDLG.dfm",
-            # PlanDlg: TPlanDlg>>ToolBar1: TToolBar>>Images = AboutBox.VirtualImageList32
-            # PlanDlg: TPlanDlg>>PopupMenu1: TPopupMenu>>Images = AboutBox.VirtualImageList16
             "REGISTRYFORM.dfm",
-            # RegistryForm: TRegistryForm>>ToolBar: TToolBar>>BorderWidth = 0, ButtonHeight = 38,Images = AboutBox.VirtualImageList32
             "SMMAIN.dfm",
-            # SMMain: TSMMain>>TheMainMenu: TMainMenu>>Images = AboutBox.VirtualImageList16
             "TASKMANAGER.dfm",
-            # AboutBox.VirtualImageList64改成32
             # "MSGDIALOG.dfm",不需要修改保持图标不变
         ]
     ]
@@ -359,6 +335,19 @@ def modify_dfm(directory):
                 [x.strip() for x in hex_addnew.strip().split("\n") if x.strip() != ""],
                 "DATA",
             )
+        component_menu = find_object(obj_tree, "ComponentMenu", "TPopupMenu")
+        if component_menu:
+            mi_reading = find_object(obj_tree, "MIReading", "TMenuItem")
+            if mi_reading:
+                for item_name in [
+                    "MIExplainExtract",
+                    "N23",
+                    "MIAIExplain",
+                    "N50",
+                ]:
+                    item = find_object(component_menu, item_name, "TMenuItem")
+                    if item:
+                        set_field(item, "Visible", "False")
 
     def modify_inputdlg(obj_tree):
         for obj in find_all_objects(obj_tree):
