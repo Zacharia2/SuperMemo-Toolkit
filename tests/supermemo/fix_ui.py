@@ -177,6 +177,7 @@ def modify_dfm(directory):
             "REGISTRYFORM.dfm",
             "SMMAIN.dfm",
             "TASKMANAGER.dfm",
+            "SLEEPGRAPH.DFM",
             # "MSGDIALOG.dfm",不需要修改保持图标不变
         ]
     ]
@@ -408,6 +409,11 @@ def modify_dfm(directory):
                             "VirtualImageList64", "VirtualImageList32"
                         )
 
+    def modify_sleepgraph(obj_tree):
+        sleep_graph = find_object(obj_tree, "SleepGraph", "TSleepGraph")
+        if sleep_graph:
+            set_field(sleep_graph, "Position", "poScreenCenter")
+
     def replace_dfm(resources_dir):
         # 1. 替换AboutBox.VirtualImageList64为32。
         # 2. 字体替换
@@ -500,7 +506,8 @@ def modify_dfm(directory):
             modify_smmain(root_obj)
         elif base_name == "TASKMANAGER.DFM":
             modify_taskmanager(root_obj)
-
+        elif base_name == "SLEEPGRAPH.DFM":
+            modify_sleepgraph(root_obj)
         # 写回文件
         with open(aFilename, "w", encoding="utf-8") as outputFile:
             outputFile.write(root_obj.toString())

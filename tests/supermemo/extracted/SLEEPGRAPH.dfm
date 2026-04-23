@@ -18,6 +18,7 @@ object SleepGraph: TSleepGraph
   OnShow = FormShow
   PixelsPerInch = 96
   TextHeight = 12
+  Position = poScreenCenter
   object PaintBox1: TPaintBox
     Left = 0
     Top = 0
