@@ -97,7 +97,7 @@ object Browser: TBrowser
     AutoSize = True
     ButtonHeight = 45
     ButtonWidth = 107
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList24
     ParentShowHint = False
     ShowHint = True
     TabOrder = 1

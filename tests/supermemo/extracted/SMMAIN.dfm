@@ -118,7 +118,7 @@ object SMMain: TSMMain
     Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     GradientEndColor = 11982554
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList24
     List = True
     ParentDoubleBuffered = False
     ParentFont = False
@@ -681,7 +681,7 @@ object SMMain: TSMMain
     Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     GradientEndColor = 11982554
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList24
     List = True
     ParentDoubleBuffered = False
     ParentFont = False
@@ -837,7 +837,7 @@ object SMMain: TSMMain
     Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     GradientEndColor = 11982554
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList24
     List = True
     ParentDoubleBuffered = False
     ParentFont = False
@@ -1219,7 +1219,7 @@ object SMMain: TSMMain
     Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     GradientEndColor = 11982554
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList24
     List = True
     ParentDoubleBuffered = False
     ParentFont = False
@@ -1638,7 +1638,7 @@ object SMMain: TSMMain
     Font.Name = 'Microsoft YaHei UI'
     Font.Style = []
     GradientEndColor = 11982554
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList24
     List = True
     ParentDoubleBuffered = False
     ParentFont = False

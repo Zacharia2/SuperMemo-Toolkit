@@ -162,11 +162,11 @@ object ElWind: TElWind
       Margins.Bottom = 5
       Align = alNone
       AutoSize = True
-      ButtonHeight = 38
+      ButtonHeight = 32
       ButtonWidth = 51
       Caption = 'LearnBar'
       Flat = False
-      Images = AboutBox.VirtualImageList32
+      Images = AboutBox.VirtualImageList24
       List = True
       AllowTextButtons = True
       TabOrder = 0
@@ -1078,7 +1078,7 @@ object ElWind: TElWind
       ButtonHeight = 70
       ButtonWidth = 340
       HideClippedButtons = True
-      Images = AboutBox.VirtualImageList32
+      Images = AboutBox.VirtualImageList24
       List = True
       PopupMenu = ElementMenu
       ShowCaptions = True

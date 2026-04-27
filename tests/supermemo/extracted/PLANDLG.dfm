@@ -270,7 +270,7 @@ object PlanDlg: TPlanDlg
     AutoSize = True
     ButtonHeight = 87
     ButtonWidth = 71
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList24
     ShowCaptions = True
     TabOrder = 0
     Wrapable = False

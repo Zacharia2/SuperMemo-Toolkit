@@ -62,7 +62,7 @@ object TaskManager: TTaskManager
     ButtonHeight = 87
     ButtonWidth = 75
     Caption = 'ToolBar1'
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList24
     ShowCaptions = True
     TabOrder = 1
     Wrapable = False

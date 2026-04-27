@@ -61,7 +61,7 @@ object InputDlg: TInputDlg
     AutoSize = True
     ButtonHeight = 70
     ButtonWidth = 144
-    Images = AboutBox.VirtualImageList32
+    Images = AboutBox.VirtualImageList24
     List = True
     ParentShowHint = False
     ShowCaptions = True

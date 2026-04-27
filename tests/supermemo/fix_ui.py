@@ -226,13 +226,9 @@ def modify_dfm(directory):
 
     # ---------- 针对每个文件的修改逻辑 ----------
     def modify_analysisdlg(obj_tree):
-        for obj in find_all_objects(obj_tree):
-            for field in obj.fields:
-                if field.name == "Images" and isinstance(field.value, str):
-                    if "VirtualImageList32" in field.value:
-                        field.value = field.value.replace(
-                            "VirtualImageList32", "VirtualImageList16"
-                        )
+        topopupmenu1 = find_object(obj_tree, "PopupMenu1", "TPopupMenu")
+        if topopupmenu1:
+            set_field(topopupmenu1, "Images", "AboutBox.VirtualImageList16")
 
     def modify_brimp(obj_tree):
         toolbar = find_object(obj_tree, "ToolBar", "TToolBar")
@@ -255,7 +251,7 @@ def modify_dfm(directory):
         speedbar = find_object(obj_tree, "Speedbar", "TToolBar")
         if speedbar:
             set_field(speedbar, "ButtonHeight", "45")
-            set_field(speedbar, "Images", "AboutBox.VirtualImageList32")
+            set_field(speedbar, "Images", "AboutBox.VirtualImageList24")
         popup_menu = find_object(obj_tree, "PopupMenu1", "TPopupMenu")
         if popup_menu:
             set_field(popup_menu, "Images", "AboutBox.VirtualImageList16")
@@ -267,11 +263,14 @@ def modify_dfm(directory):
                 f for f in bottom_bar.fields if f.name != "AlignWithMargins"
             ]
             set_field(bottom_bar, "AllowTextButtons", "True")
-            set_field(bottom_bar, "Images", "AboutBox.VirtualImageList16")
+            set_field(bottom_bar, "Images", "AboutBox.VirtualImageList24")
+            learnbutton = find_object(bottom_bar, "Learn", "TToolButton")
+            if learnbutton:
+                set_field(learnbutton, "ImageName", "'L-Plate'")
         tool_bar = find_object(obj_tree, "ToolBar", "TToolBar")
         if tool_bar:
             set_field(tool_bar, "ButtonHeight", "32")
-            set_field(tool_bar, "Images", "AboutBox.VirtualImageList16")
+            set_field(tool_bar, "Images", "AboutBox.VirtualImageList24")
         for menu_name in ["PopupMenu1", "ProcessMenu"]:
             menu = find_object(obj_tree, menu_name, "TPopupMenu")
             if menu:
@@ -289,7 +288,10 @@ def modify_dfm(directory):
         if learn_panel:
             learn_bar = find_object(learn_panel, "LearnBar", "TToolBar")
             if learn_bar:
-                set_field(learn_bar, "ButtonHeight", "38")
+                # TTabControl的高度总是为50px，那就保持，只修改上面的按钮即可。
+                # 上面的按钮高度总是保持在32px，目前调整是最优的选择。调不动了。
+                set_field(learn_bar, "ButtonHeight", "32")
+                set_field(learn_bar, "Images", "AboutBox.VirtualImageList24")
                 # set_field(learn_bar, "Top", "8")
         # 调整按钮宽度0.65倍，保持高度不变
         for btn_name, width in [
@@ -309,7 +311,7 @@ def modify_dfm(directory):
                 set_field(concept_edit, "Font.Height", "-24")
             nav_bar = find_object(nav_panel, "NavBar", "TToolBar")
             if nav_bar:
-                set_field(nav_bar, "Images", "AboutBox.VirtualImageList32")  # 保持32
+                set_field(nav_bar, "Images", "AboutBox.VirtualImageList24")
         for menu_name in ["ElementMenu", "ComponentMenu"]:
             menu = find_object(obj_tree, menu_name, "TPopupMenu")
             if menu:
@@ -351,18 +353,14 @@ def modify_dfm(directory):
                         set_field(item, "Visible", "False")
 
     def modify_inputdlg(obj_tree):
-        for obj in find_all_objects(obj_tree):
-            for field in obj.fields:
-                if field.name == "Images" and isinstance(field.value, str):
-                    if "VirtualImageList64" in field.value:
-                        field.value = field.value.replace(
-                            "VirtualImageList64", "VirtualImageList32"
-                        )
+        toolbar1 = find_object(obj_tree, "ToolBar1", "TToolBar")
+        if toolbar1:
+            set_field(toolbar1, "Images", "AboutBox.VirtualImageList24")
 
     def modify_plandlg(obj_tree):
         toolbar = find_object(obj_tree, "ToolBar1", "TToolBar")
         if toolbar:
-            set_field(toolbar, "Images", "AboutBox.VirtualImageList32")  # 保持
+            set_field(toolbar, "Images", "AboutBox.VirtualImageList24")
         popup = find_object(obj_tree, "PopupMenu1", "TPopupMenu")
         if popup:
             set_field(popup, "Images", "AboutBox.VirtualImageList16")
@@ -399,15 +397,16 @@ def modify_dfm(directory):
         main_menu = find_object(obj_tree, "TheMainMenu", "TMainMenu")
         if main_menu:
             set_field(main_menu, "Images", "AboutBox.VirtualImageList16")
+        toolbars = ["FormatBar", "Reading", "Compose", "ToolsBar", "AlarmBar"]
+        for tb_name in toolbars:
+            toolbar = find_object(obj_tree, tb_name, "TToolBar")
+            if toolbar:
+                set_field(toolbar, "Images", "AboutBox.VirtualImageList24")
 
     def modify_taskmanager(obj_tree):
-        for obj in find_all_objects(obj_tree):
-            for field in obj.fields:
-                if field.name == "Images" and isinstance(field.value, str):
-                    if "VirtualImageList64" in field.value:
-                        field.value = field.value.replace(
-                            "VirtualImageList64", "VirtualImageList32"
-                        )
+        toolbar1 = find_object(obj_tree, "ToolBar1", "TToolBar")
+        if toolbar1:
+            set_field(toolbar1, "Images", "AboutBox.VirtualImageList24")
 
     def modify_sleepgraph(obj_tree):
         sleep_graph = find_object(obj_tree, "SleepGraph", "TSleepGraph")
@@ -430,7 +429,6 @@ def modify_dfm(directory):
             file_path = os.path.join(resources_dir, filename)
             with open(file_path, "r", encoding="utf-8") as f:
                 raw = f.read()
-            # raw = raw.replace("AboutBox.VirtualImageList64", "AboutBox.VirtualImageList32")
             raw = raw.replace("Times New Roman", "SimSun")
             raw = raw.replace(
                 "Font.Charset = ANSI_CHARSET", "Font.Charset = DEFAULT_CHARSET"
@@ -528,7 +526,7 @@ if __name__ == "__main__":
     mod_exe = r"C:\Users\Snowy\Downloads\SuperMemo\sm20m.exe"
 
     # kill_process_by_path(mod_exe)
-    extract_dfm(ori_exe, extract_folder, rh_exe)
+    # extract_dfm(ori_exe, extract_folder, rh_exe)
     modify_dfm(extract_folder)
     gen_script(ori_exe, mod_exe, extract_folder, script_path)
     run_script(rh_exe, script_path)

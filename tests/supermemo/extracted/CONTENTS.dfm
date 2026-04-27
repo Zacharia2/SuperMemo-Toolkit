@@ -49,7 +49,7 @@ object Contents: TContents
     Caption = 'BottomBar'
     Customizable = True
     EdgeInner = esLowered
-    Images = AboutBox.VirtualImageList16
+    Images = AboutBox.VirtualImageList24
     List = True
     ShowCaptions = True
     TabOrder = 0
@@ -66,7 +66,7 @@ object Contents: TContents
       Margins.Right = 5
       Margins.Bottom = 5
       Caption = '&Learn'
-      ImageName = 'icon_034'
+      ImageName = 'L-Plate'
       Style = tbsTextButton
       OnClick = LearnClick
     end
@@ -278,7 +278,7 @@ object Contents: TContents
     ButtonHeight = 32
     ButtonWidth = 107
     Caption = 'ToolBar'
-    Images = AboutBox.VirtualImageList16
+    Images = AboutBox.VirtualImageList24
     TabOrder = 1
     Wrapable = False
     object ToolButton2: TToolButton
