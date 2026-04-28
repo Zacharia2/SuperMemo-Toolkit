@@ -1,3 +1,4 @@
+import copy
 import os
 
 import ebooklib
@@ -38,48 +39,158 @@ def modify_img_url(doc, folder_name):
     return doc.replace("\n", "").replace("\r", "")
 
 
-def split_section(html, doc_id):
+def split_anchor_point(html: str, anchor_point: str, anchor_points: list) -> str:
+    # 开始位置分为两种情况，一种是锚点是body的第一个元素，另一种是锚点在body第一个元素之后。
+    # 结束位置分为两种情况，一种是下一个锚点在这个锚点之后，另一种是当前锚点是body的最后一个元素。
+    # 文档是h1-h6标签分层的。他是有树形层次关系的。但是目录的指向位置是锚点，锚点在视觉上就是一个切分位置。
+    # 在文档中是线性顺序的。所以可以根据锚点作为切分点切分文档。
+    if not html and not html.strip():
+        return " "
+
     soup = BeautifulSoup(html, "html.parser")
-    m_element = soup.find(id=doc_id)
-    tag_name = m_element.name
-    # 获取带有id属性的元素，提取这一节内容，把它自己（分割标记）也放进去。
-    content = str(m_element)
-    if m_element is not None:
-        for sibling in m_element.find_next_siblings():
-            if isinstance(sibling, Tag):
-                # sibling是Tag对象，检查Tag对象的name属性
-                if sibling.name == tag_name:
-                    break
-                else:
-                    content += str(sibling)
+    cur = soup.find(id=anchor_point)
+    if not cur:
+        return ""
+
+    try:
+        idx = anchor_points.index(anchor_point)
+    except ValueError:
+        return ""
+
+    next_anchor = anchor_points[idx + 1] if idx + 1 < len(anchor_points) else None
+    # next_elem = soup.find(id=next_anchor) if next_anchor else None
+
+    # 深拷贝，避免修改原文档
+    soup_copy = copy.deepcopy(soup)
+    cur_copy = soup_copy.find(id=anchor_point)
+    next_copy = soup_copy.find(id=next_anchor) if next_anchor else None
+
+    # 确定起始节点
+    if idx == 0:
+        if soup_copy.body and soup_copy.body.contents:
+            start_node = soup_copy.body.contents[0]
+        else:
+            start_node = next(soup_copy.descendants, None)
+    else:
+        start_node = cur_copy
+
+    if not start_node:
+        return " "
+
+    # 收集从 start_node 到 next_copy 之前的所有节点（按文档顺序）
+    nodes_to_move = []
+    collecting = False
+    for node in soup_copy.descendants:
+        if node is start_node:
+            collecting = True
+        if collecting:
+            if next_copy and node is next_copy:
+                break
+            nodes_to_move.append(node)
+
+    if not nodes_to_move:
+        return " "
+
+    # 过滤出顶级节点，避免重复
+    top_nodes = []
+    for node in nodes_to_move:
+        ancestors = list(node.parents)
+        if any(anc in nodes_to_move for anc in ancestors):
+            continue
+        top_nodes.append(node)
+
+    # 递归修剪函数，删除包含 next_copy 的子树
+    def trim_node(node, target):
+        """从 node 中删除 target 及其后面的兄弟节点，若 target 在后代中则递归修剪"""
+        if node is target:
+            node.decompose()
+            return True
+        # 只有 Tag 才有 children，NavigableString 无子节点
+        if not isinstance(node, Tag):
+            return False
+        for child in list(node.children):
+            if child is target:
+                # 删除 target 及其所有后续兄弟
+                while child:
+                    nxt = child.next_sibling
+                    child.decompose()
+                    child = nxt
+                return True
             else:
-                # sibling是字符串，添加到content中
-                content += str(sibling)
-    return content
+                if trim_node(child, target):
+                    return True
+        return False
+
+    if next_copy:
+        for tn in top_nodes:
+            trim_node(tn, next_copy)
+
+    # 创建新容器，移动修剪后的顶级节点
+    new_soup = BeautifulSoup('<div class="extracted-section"></div>', "html.parser")
+    container = new_soup.div
+    for node in top_nodes:
+        container.append(node)  # 直接移动节点
+
+    return str(new_soup)
 
 
-def get_content(book: epub.EpubBook, href: str):
-    # TODO: 目录的指向位置全部指向锚点，就会导致内容缺少的可能性发生。
-    # 解决方法？编辑epub目录，修改指向位置为文件而非锚点即可。
-    # 自动方法？暂时想不出来。
-    # 还有一点就是，有些函数和变量的名字命名太菜了，有些认不出函数的语义了。
-    if href.find("#") != -1:
-        doc_id = href.split("#")[-1]
-        doc_href = href.split("#")[0]
+def get_content(book: epub.EpubBook, href: str, anchor_points: dict = {}):
+    # 锚点类型必须提供锚点列表，文件类型不需要提供。
+    # TODO: 目录的指向位置全部指向锚点，就会导致内容缺少的可能性发生。解决方法？编辑epub目录，修改指向位置为文件而非锚点即可。
+    if "#" in href and len(anchor_points) > 0:
+        # 锚点类型
+        doc_href, anchor_point = href.split("#")
         doc = book.get_item_with_href(doc_href)
-        # 分割文本
-        section = split_section(doc.content.decode("utf-8"), doc_id) if doc else " "
+        anchor_points = anchor_points.get(doc_href)
+        html = doc.content.decode("utf-8") if doc else " "
+        # 根据锚点取出锚点区间的内容。区间 [文档开始或锚点开始含自己，下一个锚点不含自己或文档结束]
+        section = split_anchor_point(html, anchor_point, anchor_points)
         return escape_sequence(section)
     else:
-        # 没有锚点，是一个文件。
-        doc = book.get_item_with_href(href)
+        # 文件类型
+        doc = book.get_item_with_href(href.split("#")[0] if "#" in href else href)
         content = doc.content.decode("utf-8") if doc else " "
     return escape_sequence(content)
+
+
+def get_anchor_point_list(chapters):
+    def recursion(chapters):
+        anchor_points = []
+        for chapter in chapters:
+            if isinstance(chapter, epub.Link):
+                doc_href, anchor_point = (
+                    chapter.href.split("#")
+                    if "#" in chapter.href
+                    else (chapter.href, "")
+                )
+                anchor_points.append((doc_href, anchor_point))
+            elif isinstance(chapter, tuple):
+                section, elements = chapter
+                doc_href, anchor_point = (
+                    section.href.split("#")
+                    if "#" in section.href
+                    else (section.href, "")
+                )
+                anchor_points.append((doc_href, anchor_point))
+                if len(elements) > 0:
+                    anchor_points.extend(recursion(elements))
+        return [(x, y) for x, y in anchor_points if str(y).strip() != ""]
+
+    anchor_point_list = recursion(chapters)
+    anchor_point_dict = {}
+    for href, anchor_point in anchor_point_list:
+        if href in anchor_point_dict:
+            anchor_point_dict[href].append(anchor_point)
+        else:
+            anchor_point_dict[href] = [anchor_point]
+
+    return anchor_point_dict
 
 
 def get_docs_by_toc(book, chapters, folder_name):
     global id_counts
     el_list = []
+    anchor_points = get_anchor_point_list(chapters)
     for chapter in chapters:
         # 把这一层处理好，再去处理下一层。这一层和下一层的逻辑一致。
         # 循环chapter
@@ -95,7 +206,11 @@ def get_docs_by_toc(book, chapters, folder_name):
                 text(title)
             with tag("Content"):
                 with tag("Question"):
-                    text(modify_img_url(get_content(book, href), folder_name))
+                    text(
+                        modify_img_url(
+                            get_content(book, href, anchor_points), folder_name
+                        )
+                    )
             id_counts += 1
             el_list.append(doc.getvalue())
         elif isinstance(chapter, tuple):
@@ -113,7 +228,11 @@ def get_docs_by_toc(book, chapters, folder_name):
                 text(title)
             with tag("Content"):
                 with tag("Question"):
-                    text(modify_img_url(get_content(book, href), folder_name))
+                    text(
+                        modify_img_url(
+                            get_content(book, href, anchor_points), folder_name
+                        )
+                    )
             if len(sm_element) > 0:
                 # 当元组的第二个元素有子元素的时候。此集合名，循环的集合元素
                 # 这里生成多个SuperMemoElement
@@ -305,3 +424,8 @@ def start_with_topic(epub_file, save_folder, limit_num):
     write_img_file(book, folder)
 
     print("转换完成，已存储至：", save_folder)
+
+
+start_with_toc(
+    r"D:\Dropbox\21-Sandox\图书专题\东尼·博赞.epub", r"C:\Users\Snowy\Desktop"
+)
