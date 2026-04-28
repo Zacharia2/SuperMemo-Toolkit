@@ -40,6 +40,10 @@ def modify_img_url(doc, folder_name):
 
 
 def split_anchor_point(html: str, anchor_point: str, anchor_points: list) -> str:
+    """
+    按锚点线性切分 HTML，返回从「文档开始或当前锚点（含）」到「下一个锚点（不含）或文档结束」的独立 HTML 片段。
+    """
+    # 保留了文章的完整性。虽然这种方式会第一个切分对象或整个子元素对象和他的父目录（完整文档）产生重复内容。
     # 开始位置分为两种情况，一种是锚点是body的第一个元素，另一种是锚点在body第一个元素之后。
     # 结束位置分为两种情况，一种是下一个锚点在这个锚点之后，另一种是当前锚点是body的最后一个元素。
     # 文档是h1-h6标签分层的。他是有树形层次关系的。但是目录的指向位置是锚点，锚点在视觉上就是一个切分位置。
@@ -426,6 +430,5 @@ def start_with_topic(epub_file, save_folder, limit_num):
     print("转换完成，已存储至：", save_folder)
 
 
-start_with_toc(
-    r"D:\Dropbox\21-Sandox\图书专题\东尼·博赞.epub", r"C:\Users\Snowy\Desktop"
-)
+if __name__ == "__main__":
+    start_with_toc(r"C:\Users\Snowy\Desktop\学会提问.epub", r"C:\Users\Snowy\Desktop")

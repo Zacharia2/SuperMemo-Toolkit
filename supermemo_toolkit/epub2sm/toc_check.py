@@ -63,6 +63,6 @@ def contrast_diff_toc(toc, book):
     diff_list = list(doc_of_href_set.difference(toc_of_set))
     return diff_list
 
-
-# contrast_diff("D:\\Dropbox\\00-TMP\\魔鬼沟通学 - 阮琦.epub")
-# contrast_diff("C:/Users/Snowy/Desktop/心理学与生活.epub")
+if __name__ == "__main__":
+    contrast_diff(r"D:\Dropbox\00-TMP\魔鬼沟通学 - 阮琦.epub")
+    contrast_diff(r"C:\Users\Snowy\Desktop\心理学与生活.epub")
