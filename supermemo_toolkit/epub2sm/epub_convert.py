@@ -140,7 +140,7 @@ def split_anchor_point(html: str, anchor_point: str, anchor_points: list) -> str
 
 def get_content(book: epub.EpubBook, href: str, anchor_points: dict = {}):
     # 锚点类型必须提供锚点列表，文件类型不需要提供。
-    # TODO: 目录的指向位置全部指向锚点，就会导致内容缺少的可能性发生。解决方法？编辑epub目录，修改指向位置为文件而非锚点即可。
+    # 备用方案：编辑epub目录或者修改epub自己分割好并映射好目录和内容。
     if "#" in href and len(anchor_points) > 0:
         # 锚点类型
         doc_href, anchor_point = href.split("#")
