@@ -10,8 +10,8 @@ from supermemo_toolkit.epub2sm import format_ascii
 from supermemo_toolkit.latex2img import formula_to_png
 from supermemo_toolkit.pathpix import im_sort_out
 from supermemo_toolkit.pathpix.gui import run_pathpix_ui
-from supermemo_toolkit.sa_sync.sm2anki import qa_to_anki
-from supermemo_toolkit.title_complete import tcomp as title_complete
+from supermemo_toolkit.ansm_conv.sm2anki import qa_to_anki
+from supermemo_toolkit.title_xref import complete_title
 from supermemo_toolkit.utilscripts import config as smtk_config
 from edge_tts.voices import list_voices
 
@@ -233,14 +233,14 @@ def sm2anki(qafile, deckname):
 @click.argument("htmtoc")
 @click.option("--node", type=str, help="设置NodeAsText文件路径")
 @click.option("--xml", type=str, help="设置XMl文件路径")
-def tcomp(htmtoc: str, node: str, xml: str):
+def comptitle(htmtoc: str, node: str, xml: str):
     """修补导出的NodeAsText、XMl中的标题"""
     if not node and not xml:
         print("需要输入待修复的文件路径(NodeAsText OR XMl)")
     elif node and not xml:
-        title_complete.node_tcomp(nodefile=node, tocfile=htmtoc)
+        complete_title.comp_node_title(nodefile=node, tocfile=htmtoc)
     elif xml and not node:
-        title_complete.xml_tcomp(xmlfile=xml, tocfile=htmtoc)
+        complete_title.comp_xml_title(xmlfile=xml, tocfile=htmtoc)
 
 
 @main.command()

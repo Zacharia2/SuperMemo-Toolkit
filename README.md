@@ -137,7 +137,7 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
   - 使用自定义牌组 `smtk sm2anki "docs/TEQA.htm" --deckname  "your_deskName"`
     - 自定义牌组 your_deskName
 
-## 6. tcomp
+## 6. comptitle
 
 修补导出`Source code`或者`XML`文件标题乱码或缺失。
 
@@ -148,9 +148,9 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
    1. 使用 `知识树右键菜单>>Export>>Source code`
    2. 使用 `知识树右键菜单>>Export>>XML`
 4. 使用 HTM-TOC 修补导出的 Source code 或者 XML 文件。
-   1. `smtk tcomp htmtocfile --node nodefile`
+   1. `smtk comptitle <htmtocfile> --node <nodefile>`
       1. 为避免`Source code`乱码，程序采用下划线代替空格并包裹数字
-   2. `smtk tcomp htmtocfile --xml xmlfile`
+   2. `smtk comptitle <htmtocfile> --xml <xmlfile>`
 
 ## 7. autoTTS
 

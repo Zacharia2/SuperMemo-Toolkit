@@ -109,7 +109,7 @@ def parse_toc_htm(file: str):
     return titles[1:]
 
 
-def node_tcomp(nodefile: str, tocfile: str):
+def comp_node_title(nodefile: str, tocfile: str):
     titles = parse_toc_htm(tocfile)
     with open(
         nodefile,
@@ -174,7 +174,7 @@ def node_tcomp(nodefile: str, tocfile: str):
     print("Node处理完成。")
 
 
-def xml_tcomp(xmlfile: str, tocfile: str):
+def comp_xml_title(xmlfile: str, tocfile: str):
     with open(xmlfile, mode="r", encoding="utf-8") as fs:
         xml = fs.read()
     soup = BeautifulSoup(xml, "xml")
@@ -195,12 +195,13 @@ def xml_tcomp(xmlfile: str, tocfile: str):
     print("XML处理完成。")
 
 
-# [Warning] 这一切的前提是 全部按照前序排列。
-# infile = "C:/Users/Snowy/Desktop/NodeAsText.txt"
-# inhtm = "C:/Users/Snowy/Desktop/reading-and-review (document contents).htm"
-# inxfile = "C:/Users/Snowy/Desktop/reading-and-review (阅读复习).xml"
-# node_tcomp(infile, inhtm)
-# xml_tcomp(inxfile, inhtm)
-# with open(infile, mode="r", encoding="utf-8") as fs:
-#     nodeText = fs.read()
-#     pass
+if __name__ == "__main__":
+    # [Warning] 这一切的前提是 全部按照前序排列。
+    infile = "C:/Users/Snowy/Desktop/NodeAsText.txt"
+    inhtm = "C:/Users/Snowy/Desktop/reading-and-review (document contents).htm"
+    inxfile = "C:/Users/Snowy/Desktop/reading-and-review (阅读复习).xml"
+    comp_node_title(infile, inhtm)
+    comp_xml_title(inxfile, inhtm)
+    with open(infile, mode="r", encoding="utf-8") as fs:
+        nodeText = fs.read()
+        pass
