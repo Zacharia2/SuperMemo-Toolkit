@@ -6,7 +6,7 @@ import warnings
 from tkinter import messagebox
 from pywinauto.application import Application
 from pywinauto.findwindows import ElementNotFoundError
-from supermemo_toolkit.autotts.get_doc import get_supermemo_html_doc_by_win32
+from supermemo_toolkit.autotts.text_registry import get_supermemo_html_doc_by_win32
 from supermemo_toolkit.autotts.switcher import AudioSwitcher
 from supermemo_toolkit.autotts.ui import WinGUI
 

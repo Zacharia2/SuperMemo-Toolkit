@@ -10,6 +10,9 @@ import win32com.client
 import logging
 import win32process
 import win32api
+import os
+import struct
+from collections import namedtuple
 from pywinauto.application import Application
 
 logging.basicConfig(level=logging.INFO)
@@ -182,9 +185,116 @@ def get_supermemo_html_doc_by_win32(app=None):
             pythoncom.CoUninitialize()
 
 
-if __name__ == "__main__":
-    result = get_supermemo_html_doc_by_win32()
-    if result:
-        print(result)
+# 字节序：小端，格式字符串对应字段顺序
+# https://github.com/supermemo/SuperMemoAssistant/blob/develop/src/Core/SuperMemoAssistant.Core/SuperMemo/SuperMemo17/Files/RegMemElem17.cs
+# 01000000 0300 00000000 01000000 19000000 01000000 00000000 00000000
+# 01000000 03 00 00000000 01000000 19000000 01000000 00000000 00000000
+# 元素id和membersindex的桥梁呢？只能从ElementInfo.dat获得了
+# lst 行号1522 (members index)，内容是元素id
+# prt 行号1522 (members index)，内容是 members的行号
+# members 行号6461 (Pos)，内容是 member(UseCount=1, LinkType=2, RtxId=0, RtxOffset=6832362, RtxLength=10625, XX=2613, SlotId=1846, Empty=0, Reserved=0)
+member_fmt = struct.Struct("<IHIIIIII")
+c_member = namedtuple(
+    "member",
+    [
+        "UseCount",  # uint32, offset 0 没问题
+        "LinkType",  # uint16, offset 4 没问题
+        "unknown1",  # uint32, offset 6
+        "RtxOffset",  # uint32, offset 10
+        "RtxLength",  # uint32, offset 14
+        "LstRelated",  # uint32, offset 18
+        "SlotId",  # uint32, offset 22 没问题
+        "unknown2",  # uint32, offset 26
+    ],
+)
+
+
+def parse_text_registry_member(data: bytes) -> c_member:
+    if len(data) != 30:
+        raise ValueError(f"数据长度必须是 30 字节，实际为 {len(data)} 字节")
+    unpacked = member_fmt.unpack(data)
+    return c_member(*unpacked)
+
+
+def get_element_path_by_slot(slot: int, system_dir: str, extension: str = "HTM") -> str:
+    base = [10, 300, 9000, 270000, 8100000]
+    limit = [10, 310, 9310, 279310, 8379310]
+
+    # 确定目录级数 i（满足 slot <= limit[i] 的最小 i）
+    i = 0
+    while i < len(limit) and slot > limit[i]:
+        i += 1
+
+    if i == 0:
+        dirs = []  # 无子目录
     else:
-        print("未能获取到内容")
+        rem = slot - limit[i - 1]  # 减去上一级的累计上限
+        dirs = []
+        for j in range(i, 0, -1):  # 从高位到低位生成目录数字
+            b = base[j - 1]
+            digit = (rem - 1) // b + 1
+            rem -= b * (digit - 1)
+            dirs.append(str(digit))
+
+    path_parts = [system_dir, "elements"] + dirs + [f"{slot}.{extension}"]
+    return "\\".join(path_parts)
+
+
+def get_slot(element_id: int, system_dir: str) -> int:
+    ptr_file = os.path.join(system_dir, "registry", "Text.ptr")
+    mem_file = os.path.join(system_dir, "registry", "Text.mem")
+
+    # 检查两个文件是否都存在
+    if not (os.path.exists(ptr_file) and os.path.exists(mem_file)):
+        return 0
+
+    with open(ptr_file, "rb") as f:
+        ptr_data = f.read()
+    with open(mem_file, "rb") as f:
+        mem_data = f.read()
+
+    # 验证数据长度
+    if len(ptr_data) % 4 != 0 or len(mem_data) % 30 != 0:
+        return 0
+
+    num_members = len(ptr_data) // 4
+
+    # 一次性解包所有指针（1-based 元组）
+    ptrs = (None, *struct.unpack(f"<{num_members}I", ptr_data))
+
+    # 构建 members 列表，索引0占位，使后续使用1-based索引方便
+    members = (
+        None,
+        *[c_member(*fields) for fields in member_fmt.iter_unpack(mem_data)],
+    )
+
+    # 检查 element_id 是否在有效范围内
+    if not (1 <= element_id <= num_members):
+        return 0
+
+    mem_index = ptrs[element_id]  # 获取内存索引（1-based）
+    # 检查内存索引是否有效
+    if not (1 <= mem_index < len(members)):
+        return 0
+    a = members[mem_index].SlotId
+    return a
+
+
+def get_element_path(element_id: int, system_dir: str) -> str:
+    slot = get_slot(element_id, system_dir)
+    print(f"Element ID {element_id} 对应的 Slot ID 是 {slot}")
+    return get_element_path_by_slot(slot, system_dir)
+
+
+if __name__ == "__main__":
+    system = r"D:\SuperMemo\systems\Reading-And-Review"
+    ptr_file = os.path.join(system, "registry", "Text.ptr")
+    mem_file = os.path.join(system, "registry", "Text.mem")
+
+    # print(get_element_path_by_slot(593, system))
+    # print(get_element_path(1105, system))
+    # result = get_supermemo_html_doc_by_win32()
+    # if result:
+    #     print(result)
+    # else:
+    #     print("未能获取到内容")
