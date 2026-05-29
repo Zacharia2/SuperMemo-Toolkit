@@ -6,7 +6,10 @@ import warnings
 from tkinter import messagebox
 from pywinauto.application import Application
 from pywinauto.findwindows import ElementNotFoundError
-from supermemo_toolkit.autotts.text_registry import get_supermemo_html_doc_by_win32
+from supermemo_toolkit.autotts.text_registry import (
+    get_supermemo_html,
+    get_supermemo_ie_document,
+)
 from supermemo_toolkit.autotts.switcher import AudioSwitcher
 from supermemo_toolkit.autotts.ui import WinGUI
 
@@ -51,7 +54,7 @@ class AutoTTS:
 
     def get_content(self):
         """切换页面就触发获取文本。"""
-        return get_supermemo_html_doc_by_win32(self.app)
+        return get_supermemo_html(get_supermemo_ie_document(self.app))
 
     def focusInArea(self) -> bool:
         focus_hwnd = win32gui.WindowFromPoint(win32gui.GetCursorPos())
