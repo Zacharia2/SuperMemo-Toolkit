@@ -19,29 +19,15 @@ sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM)
 smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
 
 
-@click.group()
+@click.group(no_args_is_help=True)
 @click.version_option()
 def main():
     """SuperMemo 增强工具(CLI命令行)。\n\n包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS 卡片朗读等。"""
-    # 修复：确保标准输出句柄有效（防止被关闭或重定向）
-    if sys.stdout.closed:
-        sys.stdout = open(sys.stdout.fileno(), "w", encoding="utf-8")
-    if sys.stdout is not sys.__stdout__:
-        sys.stdout = sys.__stdout__
-
-    if sys.stderr.closed:
-        sys.stderr = open(sys.stderr.fileno(), "w", encoding="utf-8")
-    if sys.stderr is not sys.__stderr__:
-        sys.stderr = sys.__stderr__
 
 
 @click.group()
 def config():
     """配置SMTK集合(systems)路径"""
-    with click.Context(config) as ctx:
-        # 没有子命令的时候才输出帮助
-        if ctx.invoked_subcommand:
-            click.echo(config.get_help(ctx))
 
 
 # 将config命令添加到main命令组中
@@ -206,8 +192,8 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
         run_pathpix_ui()
     else:
         # 如果没有提供任何选项，打印帮助信息
-        with click.Context(pathpix) as ctx:
-            click.echo(pathpix.get_help(ctx))
+        ctx = click.get_current_context()
+        click.echo(ctx.get_help())
 
 
 @main.command()
