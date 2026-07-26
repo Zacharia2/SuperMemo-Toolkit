@@ -150,7 +150,7 @@ def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep):
         epub_convert.start_with_seq(epub_path, target_folder)
     elif topic:
         if not limit:
-            epub_convert.start_with_topic(epub_path, target_folder)
+            epub_convert.start_with_topic(epub_path, target_folder, None)
         else:
             epub_convert.start_with_topic(epub_path, target_folder, limit)
     elif prep:

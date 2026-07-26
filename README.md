@@ -12,7 +12,7 @@ pipx：“python 系统”下的 whl 格式软件包安装管理器。pipx 安�
 
 ### 1.1 安装&更新：
 
-1. 安装 Python，版本 ≥ 3.10 且 <=3.13
+1. 安装 Python，版本 ≥ 3.10
 2. 安装 pipx 应用安装管理器（使用 pip 安装）：
    1. `python3 -m pip install --user pipx`
    2. `python3 -m pipx ensurepath`
@@ -112,6 +112,7 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
 - 按单个 Topic 生成，按长度分片并插入 HR 标签 `smtk e2sm --topic --limit 1500 <epub_file> <out_folder>`
   - 在单个 TopicEpub 中按照限制字数（例如 1500 字）在段后插入 hr 标签
   - 使用 SuperMemo 的 split article 进行分割得到图书分片。
+- 预处理epub：`smtk e2sm --prep <epub_file> <out_folder>`，转换为纯ASCII字符集（可选）用于修复SM20导入中文epub功能乱码。
 
 ## 4. latex2img
 
