@@ -1,4 +1,5 @@
 import html
+
 from supermemo_toolkit.utilscripts.ankinet import invoke
 
 

@@ -1,7 +1,8 @@
 import re
+
 import ebooklib
-from ebooklib import epub
 from bs4 import BeautifulSoup
+from ebooklib import epub
 
 
 def in_toc(book, doc):

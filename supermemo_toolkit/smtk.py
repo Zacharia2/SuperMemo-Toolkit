@@ -1,19 +1,19 @@
+import asyncio
 import os
 import sys
 
 import click
+from edge_tts.voices import list_voices
 from tabulate import tabulate
-import asyncio
+
+from supermemo_toolkit.ansm_conv.sm2anki import qa_to_anki
 from supermemo_toolkit.autotts.autotts import run_auto_tts
-from supermemo_toolkit.epub2sm import epub_convert
-from supermemo_toolkit.epub2sm import format_ascii
+from supermemo_toolkit.epub2sm import epub_convert, format_ascii
 from supermemo_toolkit.latex2img import formula_to_png
 from supermemo_toolkit.pathpix import im_sort_out
 from supermemo_toolkit.pathpix.gui import run_pathpix_ui
-from supermemo_toolkit.ansm_conv.sm2anki import qa_to_anki
 from supermemo_toolkit.title_xref import complete_title
 from supermemo_toolkit.utilscripts import config as smtk_config
-from edge_tts.voices import list_voices
 
 sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM)
 smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")

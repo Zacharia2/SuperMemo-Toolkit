@@ -1,10 +1,11 @@
+import queue
 import threading
 import time
-import queue
+
 import edge_tts
-import sounddevice as sd
-import numpy as np
 import miniaudio
+import numpy as np
+import sounddevice as sd
 
 from supermemo_toolkit.autotts.threader import ThreadController
 from supermemo_toolkit.utilscripts.config import RATE, VOICE, VOLUME, get_config

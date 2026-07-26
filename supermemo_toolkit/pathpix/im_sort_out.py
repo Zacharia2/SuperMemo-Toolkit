@@ -1,4 +1,3 @@
-from datetime import datetime
 import hashlib
 import logging
 import os
@@ -6,13 +5,14 @@ import re
 import shutil
 import time
 import uuid
+from datetime import datetime
 from urllib.parse import unquote, urlparse
 
 import chardet
 import magic
 import requests
-from PIL import Image
 from bs4 import BeautifulSoup
+from PIL import Image
 from tqdm import tqdm
 
 from supermemo_toolkit.utilscripts import config
@@ -110,10 +110,7 @@ def is_in_elements_directory(fs_path, directory):
 def checkUrlValidity(url: str) -> bool:
     try:
         response = requests.get(url, stream=True, allow_redirects=True)
-        if response.status_code == 200:
-            return True
-        else:
-            return False
+        return response.status_code == 200
     except requests.exceptions.ConnectionError as e:
         print("网络连接异常: ", e)
         return False

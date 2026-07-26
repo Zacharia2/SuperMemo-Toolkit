@@ -1,16 +1,18 @@
-import sys
-import pyperclip
-import win32gui
 import logging
+import sys
 import warnings
 from tkinter import messagebox
+
+import pyperclip
+import win32gui
 from pywinauto.application import Application
 from pywinauto.findwindows import ElementNotFoundError
+
+from supermemo_toolkit.autotts.switcher import AudioSwitcher
 from supermemo_toolkit.autotts.text_registry import (
     get_supermemo_html,
     get_supermemo_ie_document,
 )
-from supermemo_toolkit.autotts.switcher import AudioSwitcher
 from supermemo_toolkit.autotts.ui import WinGUI
 
 
@@ -28,7 +30,7 @@ class AutoTTS:
                     messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
                 else:
                     messagebox.showerror("错误", e)
-                exit()
+                sys.exit()
 
         self.switcher = AudioSwitcher()
         self.hisWindowText = ""
@@ -59,9 +61,7 @@ class AutoTTS:
     def focusInArea(self) -> bool:
         focus_hwnd = win32gui.WindowFromPoint(win32gui.GetCursorPos())
         focusClassName = win32gui.GetClassName(focus_hwnd)
-        if focusClassName not in self.targetClassName:
-            return False
-        return True
+        return focusClassName in self.targetClassName
 
     @staticmethod
     def format_title(text: str) -> str:

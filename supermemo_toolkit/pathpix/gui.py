@@ -1,8 +1,9 @@
 import os
 from tkinter import END, Listbox, Tk, filedialog, messagebox
 from tkinter.ttk import Button, Entry, Frame
-from supermemo_toolkit.utilscripts import config
+
 from supermemo_toolkit.pathpix import im_sort_out as pathpix
+from supermemo_toolkit.utilscripts import config
 
 """
 author: st

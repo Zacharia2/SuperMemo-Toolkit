@@ -3,18 +3,19 @@
 最小化实现，无额外依赖（仅需 pywin32）
 """
 
-import win32gui
-import win32con
-import pythoncom
-import win32com.client
 import logging
-import win32process
-import win32api
 import os
 import struct
 from collections import namedtuple
-from pywinauto.application import Application
 from enum import IntEnum
+
+import pythoncom
+import win32api
+import win32com.client
+import win32con
+import win32gui
+import win32process
+from pywinauto.application import Application
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -238,8 +239,8 @@ def get_supermemo_html_path(ie_document):
         return None
     url = ie_document.url
     if url.startswith("file://"):
-        from urllib.parse import urlparse
         import urllib.request
+        from urllib.parse import urlparse
 
         return urllib.request.url2pathname(urlparse(url).path)
     return url  # 非 file 协议时返回原始 URL

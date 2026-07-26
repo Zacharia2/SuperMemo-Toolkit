@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
-
 import os
 from io import BytesIO
-from PIL import Image
+
 import matplotlib.font_manager as mfm
 from matplotlib import mathtext
+from PIL import Image
 
 """
 author: Python与数据挖掘 (知乎) 

@@ -1,6 +1,8 @@
-from bs4 import BeautifulSoup
-import re
 import copy
+import re
+
+from bs4 import BeautifulSoup
+
 # ParentTitle、ElementInfo Title
 # Parent（ID）、ID
 

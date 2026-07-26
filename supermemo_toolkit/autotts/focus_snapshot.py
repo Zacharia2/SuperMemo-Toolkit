@@ -49,10 +49,9 @@ class FocusSnapshot:
 
 # 使用示例
 if __name__ == "__main__":
-    import time
-
     # 假设我们打开记事本并等待一下
     import subprocess
+    import time
 
     subprocess.Popen("notepad.exe")
     time.sleep(1)

@@ -2,21 +2,18 @@ import copy
 import os
 
 import ebooklib
-from bs4 import BeautifulSoup, Doctype, Tag, NavigableString
+from bs4 import BeautifulSoup, Doctype, NavigableString, Tag
 from ebooklib import epub
-
-from supermemo_toolkit.epub2sm import toc_check
-from supermemo_toolkit.epub2sm import toc_orgnize
-from supermemo_toolkit.utilscripts.ulils import (
-    makeNameSafe,
-    trans_pinyin,
-    mkdir,
-    get_id_func,
-    escape_sequence,
-)
-
 from yattag import Doc
 
+from supermemo_toolkit.epub2sm import toc_check, toc_orgnize
+from supermemo_toolkit.utilscripts.ulils import (
+    escape_sequence,
+    get_id_func,
+    makeNameSafe,
+    mkdir,
+    trans_pinyin,
+)
 
 get_id = get_id_func()
 id_counts = 0
@@ -208,13 +205,12 @@ def get_docs_by_toc(book, chapters, folder_name):
                 text("Topic")
             with tag("Title"):
                 text(title)
-            with tag("Content"):
-                with tag("Question"):
-                    text(
-                        modify_img_url(
-                            get_content(book, href, anchor_points), folder_name
-                        )
+            with tag("Content"), tag("Question"):
+                text(
+                    modify_img_url(
+                        get_content(book, href, anchor_points), folder_name
                     )
+                )
             id_counts += 1
             el_list.append(doc.getvalue())
         elif isinstance(chapter, tuple):
@@ -230,13 +226,12 @@ def get_docs_by_toc(book, chapters, folder_name):
                 text("Topic")
             with tag("Title"):
                 text(title)
-            with tag("Content"):
-                with tag("Question"):
-                    text(
-                        modify_img_url(
-                            get_content(book, href, anchor_points), folder_name
-                        )
+            with tag("Content"), tag("Question"):
+                text(
+                    modify_img_url(
+                        get_content(book, href, anchor_points), folder_name
                     )
+                )
             if len(sm_element) > 0:
                 # 当元组的第二个元素有子元素的时候。此集合名，循环的集合元素
                 # 这里生成多个SuperMemoElement
@@ -261,9 +256,8 @@ def get_docs_by_doclist(book, folder_name):
             text(get_id())
         with tag("Type"):
             text("Topic")
-        with tag("Content"):
-            with tag("Question"):
-                text(content)
+        with tag("Content"), tag("Question"):
+            text(content)
         id_counts += 1
         el_list.append(doc.getvalue())
     return el_list
@@ -418,9 +412,8 @@ def start_with_topic(epub_file, save_folder, limit_num):
             line("ID", 1)
             line("Title", book.title)
             line("Type", "Topic")
-            with tag("Content"):
-                with tag("Question"):
-                    text(topic_doc)
+            with tag("Content"), tag("Question"):
+                text(topic_doc)
     file = os.path.join(save_folder, book_f_name + ".xml")
     folder = os.path.join(save_folder, book_f_name)
     with open(file, "w", encoding="utf-8") as f:

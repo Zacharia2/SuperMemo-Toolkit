@@ -2,7 +2,6 @@ import configparser
 import json
 import os
 
-
 PROGRAM, SYSTEMS, SINGLE, VOICE, RATE, VOLUME = (
     "program",
     "systems",
