@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['supermemo_toolkit\\smtk.py'],
+    ['supermemo_toolkit/smtk.py'],
     pathex=[],
     binaries=[],
     datas=[],

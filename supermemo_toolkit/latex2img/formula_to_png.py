@@ -1,6 +1,11 @@
 import os
 from io import BytesIO
 
+import matplotlib
+
+matplotlib.use("Agg")  # 强制使用纯计算后端，不弹窗
+matplotlib.set_loglevel("warning")  # 只显示警告和错误
+
 import matplotlib.font_manager as mfm
 from matplotlib import mathtext
 from PIL import Image
@@ -24,9 +29,9 @@ def latex2img(text, size=32, color=(0.1, 0.1, 0.1), out=None, **kwds):
                     weight      - 笔画轻重，可选项包括：normal（默认）、light和bold
     """
 
-    assert (
-        out is None or os.path.splitext(out)[1].lower() == ".png"
-    ), "仅支持后缀名为.png的文件名"
+    assert out is None or os.path.splitext(out)[1].lower() == ".png", (
+        "仅支持后缀名为.png的文件名"
+    )
 
     for key in kwds:
         if key not in ["dpi", "family", "weight"]:
@@ -50,13 +55,13 @@ def latex2img(text, size=32, color=(0.1, 0.1, 0.1), out=None, **kwds):
     a = Image.eval(r, lambda x: x / 3)
     a = Image.eval(g, lambda x: x / 3, a)
     a = Image.eval(b, lambda x: x / 3, a)
-    a = a.convert('L')
+    a = a.convert("L")
     # 设置颜色
     r = Image.eval(r, lambda x: int(x * color[0]))
     g = Image.eval(g, lambda x: int(x * color[1]))
     b = Image.eval(b, lambda x: int(x * color[2]))
     # 合并通道
-    im = Image.merge('RGBA', (r, g, b, a))
+    im = Image.merge("RGBA", (r, g, b, a))
 
     if out is None:
         return im

@@ -1,5 +1,8 @@
 import asyncio
+import cmd
+import ctypes
 import os
+import shlex
 import sys
 
 import click
@@ -236,5 +239,62 @@ def autotts(onlyat):
     run_auto_tts(onlyat)
 
 
+class Shell(cmd.Cmd):
+    prompt = ">"
+    os.chdir(os.path.dirname(sys.executable))
+    intro = f"\nSuperMemo 增强工具(交互模式)。输入 smtk 查看帮助。\ncwd: {os.path.dirname(sys.executable).lower()}\n"
+
+    def do_smtk(self, arg: str):
+        if arg.strip() != "":
+            try:
+                args_list = shlex.split(arg)
+            except ValueError as e:
+                print(f"参数解析错误: {e}")
+                return
+            sys.argv = ["smtk"] + args_list
+        else:
+            sys.argv = ["smtk"]
+        try:
+            main(standalone_mode=False)
+        except click.exceptions.NoArgsIsHelpError as info:
+            print(info)
+        except SystemExit:
+            pass
+        except Exception as e:  # noqa: BLE001
+            print(f"执行出错: {e}")
+
+    def default(self, arg: str):
+        print(f"未知命令: {arg}. 请输入 'smtk' 查看可用命令.")
+
+    def do_exit(self, arg):
+        """退出程序"""
+        return True
+
+    def emptyline(self):
+        """直接按回车时，什么都不做"""
+
+
+def is_launched_from_gui():
+    """检查是否从 GUI (如双击) 启动"""
+    if os.name != "nt":
+        return False
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    # 创建一个长度为1的数组，API会返回实际连接的总进程数
+    process_array = (ctypes.c_uint * 1)()
+    num_processes = kernel32.GetConsoleProcessList(process_array, 1)
+
+    # 如果返回的进程数 <= 2，大概率是从GUI启动的
+    return num_processes <= 2
+
+
 if __name__ == "__main__":
-    main()
+    if is_launched_from_gui():
+        Shell().cmdloop()
+    else:
+        try:
+            main()
+        except click.exceptions.NoArgsIsHelpError:
+            pass
+        except SystemExit:
+            pass

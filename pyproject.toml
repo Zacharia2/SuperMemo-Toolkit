@@ -1,6 +1,6 @@
 [project]
 name = "supermemo-toolkit"
-version = "0.1.27"
+version = "0.1.28"
 description = "SuperMemo 增强工具(CLI命令行)。包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、卡片朗读等。"
 readme = "README.md"
 keywords = ["supermemo", "cli-app", "tooltik"]
@@ -27,6 +27,7 @@ dependencies = [
     "pyperclip>=1.11.0",
     "pypinyin>=0.55.0",
     "pyquery>=2.0.1",
+    "pyreadline3>=3.5.6",
     "python-magic>=0.4.27; sys_platform != \"win32\"",
     "python-magic-bin>=0.4.14; sys_platform == \"win32\"",
     "pywinauto>=0.6.9",
@@ -37,7 +38,9 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = []
+dev = [
+    "pyinstaller>=6.21.0",
+]
 
 [project.urls]
 homepage = "https://github.com/Zacharia2/SuperMemo-Toolkit"
