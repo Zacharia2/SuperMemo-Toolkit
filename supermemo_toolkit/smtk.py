@@ -20,10 +20,11 @@ from supermemo_toolkit.utilscripts import config as smtk_config
 
 sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM)
 smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
+__version__ = "0.1.28"
 
 
 @click.group(no_args_is_help=True)
-@click.version_option()
+@click.version_option(version=__version__)
 def main():
     """SuperMemo 增强工具(CLI命令行)。\n\n包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS 卡片朗读等。"""
 
@@ -242,7 +243,7 @@ def autotts(onlyat):
 class Shell(cmd.Cmd):
     prompt = ">"
     os.chdir(os.path.dirname(sys.executable))
-    intro = f"\nSuperMemo 增强工具(交互模式)。输入 smtk 查看帮助。\ncwd: {os.path.dirname(sys.executable).lower()}\n"
+    intro = f"\nSuperMemo 增强工具(交互模式), Ver:{__version__}。 输入 smtk 查看帮助。\ncwd: {os.path.dirname(sys.executable).lower()}\n"
 
     def do_smtk(self, arg: str):
         if arg.strip() != "":
