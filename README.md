@@ -12,7 +12,13 @@ SuperMemo 增强工具(CLI 命令行)。包含图链整理、EPUB 图书转换�
 
 ### 1.1 安装&更新：
 
-1. 安装 uv ：`PowerShell -ExecutionPolicy ByPass -Command "irm https://astral.sh/uv/install.ps1 | iex"`
+1. 安装 uv 工具
+   1. 将 uv 安装到用户家目录下的 `.uv` 文件夹中，打开 PowerShell 执行下列命令：
+      1. `PowerShell -ExecutionPolicy ByPass -Command {$env:UV_INSTALL_DIR="$HOME\.uv"; [Environment]::SetEnvironmentVariable("UV_CACHE_DIR", "$HOME\.uv\cache", "User"); [Environment]::SetEnvironmentVariable("UV_PYTHON_BIN_DIR", "$HOME\.uv\python\shims", "User"); [Environment]::SetEnvironmentVariable("UV_PYTHON_INSTALL_DIR", "$HOME\.uv\python\versions", "User"); [Environment]::SetEnvironmentVariable("UV_TOOL_BIN_DIR", "$HOME\.uv\tools\shims", "User"); [Environment]::SetEnvironmentVariable("UV_TOOL_DIR", "$HOME\.uv\tools\versions", "User"); $p=[Environment]::GetEnvironmentVariable("Path","User"); if($p -notlike "*%UV_PYTHON_BIN_DIR%*" -or $p -notlike "*%UV_TOOL_BIN_DIR%*"){$p="$p;%UV_PYTHON_BIN_DIR%;%UV_TOOL_BIN_DIR%"; [Environment]::SetEnvironmentVariable("Path",$p,"User")}; irm https://astral.sh/uv/install.ps1 | iex}`
+   2. 自动配置终端环境,将 uv 安装命令行工具的目录添加到系统的 PATH 环境变量中（不用执行，已经在安装时配置好）
+      1. `uv tool update-shell`
+      2. `uv python update-shell`
+   3. 卸载uv，直接删除用户目录下.uv文件夹即可删除干净。
 2. 下载`supermemo_toolkit-py3-none-any.whl`
 3. 执行`uv tool install supermemo_toolkit-py3-none-any.whl`等待安装成功。
    1. 关于更新
