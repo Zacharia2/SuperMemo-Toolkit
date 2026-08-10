@@ -6,50 +6,34 @@ SuperMemo 增强工具(CLI 命令行)。包含图链整理、EPUB 图书转换�
 
 ## 1. Install
 
-pipx：“python 系统”下的 whl 格式软件包安装管理器。pipx 安装应用请务必联网。
+`uv tool`：“python 系统”下的 whl 格式软件包安装管理器（仅需要安装uv，安装软件包更简单）。`uv tool` 安装应用请务必联网。
 
-推荐的安装方式是 pipx，pipx 可以理解为 Android 系统的应用程序管理器，而 whl 类比为安卓的 apk 应用。pipx 就是用来安装和管理 whl 格式的 python 软件包。其次，你可以下载源代码的方式，本地构建一个软件开发环境运行，这样做的任务复杂度带来的试错成本略高，需要安装 py、uv，然后使用 uv 安装依赖，配置好后才可以开始使用。
+推荐的安装方式是 `uv tool`，`uv tool` 可以理解为 Android 系统的应用程序管理器，而 whl 类比为安卓的 apk 应用。`uv tool` 就是用来安装和管理 whl 格式的 python 软件包。
 
 ### 1.1 安装&更新：
 
-1. 安装 Python，版本 ≥ 3.10
-2. 安装 pipx 应用安装管理器（使用 pip 安装）：
-   1. `python3 -m pip install --user pipx`
-   2. `python3 -m pipx ensurepath`
-3. 下载`supermemo_toolkit-py3-none-any.whl`
-4. 执行`pipx install supermemo_toolkit-py3-none-any.whl`等待安装成功。
+1. 安装 uv ：`PowerShell -ExecutionPolicy ByPass -Command "irm https://astral.sh/uv/install.ps1 | iex"`
+2. 下载`supermemo_toolkit-py3-none-any.whl`
+3. 执行`uv tool install supermemo_toolkit-py3-none-any.whl`等待安装成功。
    1. 关于更新
-      1. 同样使用 pipx 应用安装管理器
-      2. 执行`pipx install --force save-path/your-app.whl`
-      3. 显示成功后即可更新成功。
-5. 安装成功后，可以执行`smtk`命令验证是否安装成功。（可能需要重启终端）
-6. 设置 smtk config。
+      1. 执行`uv tool install --force save-path/your-app.whl`
+      2. 显示成功后即可更新成功。
+4. 安装成功后，可以执行`smtk`命令验证是否安装成功。（可能需要重启终端）
+5. 设置 smtk config。
    1. 设置 sm 程序所在路径，软件需要查找和读取 sm 自动存储的 systems 集合
    2. 用法：`smtk config set program 'sm.exe所在路径'`
    3. 例子：`smtk config set program 'D:\SuperMemo'`，比如我的`sm.exe`在`D:\SuperMemo`路径下。
-7. 然后就可以正常使用了，请继续阅读下列功能使用说明。
+6. 然后就可以正常使用了，请继续阅读下列功能使用说明。
 
 ### 1.2 遇到的问题
 
-遇到的问题 1：若出现 ERROR: No matching distribution found for XXX，一般是网络问题，切换 PYPI 源即可，可以使用下列方式切换 PYPI 源。
+遇到的问题 1：网络问题，临时指定 PYPI 源。
 
 ```bash
-# 切换阿里源
-pip config set global.index-url http://mirrors.aliyun.com/pypi/simple/
-pip config set install.trusted-host mirrors.aliyun.com
-# 换回默认源
-pip config unset global.index-url
+uv tool install --force save-path/your-app.whl --default-index https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
-遇到的问题 2：执行`python3 -m pip`报错：No module named 'pip'，可以通过下列方式解决。
-
-```bash
-python -m ensurepip
-
-python -m pip install --upgrade pip
-```
-
-遇到的问题 3：supermemo 只支持五种图片格式："image/jpeg"、"image/jpg"、"image/png"、"image/gif"、"image/bmp"，PathPix 功能只支持网络图片转换为受支持的五类图片，本地暂时不支持。E2SM 功能只对书籍图片进行复制，暂时不支持图片转换为受支持的五类图片格式。
+遇到的问题 2：supermemo 只支持五种图片格式："image/jpeg"、"image/jpg"、"image/png"、"image/gif"、"image/bmp"，PathPix 功能只支持网络图片转换为受支持的五类图片，本地暂时不支持。E2SM 功能只对书籍图片进行复制，暂时不支持图片转换为受支持的五类图片格式。
 
 ## 2. PathPix
 
@@ -68,7 +52,7 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
    2. 或者 shift+鼠标右键->在此处打开 PowerShell 窗口。
 2. 设置 SuperMemo 路径
    1. `smtk config set program “SM软件路径”`
-   2. 路径范例：`C:\\Users\\Snowy\\Desktop\\sm18`，注意是 sm18.exe 程序的根路径，就是 sm18.exe 所在的目录。不要这样写：`C:\\Users\\Snowy\\Desktop\\sm18\\sm18.exe`
+   2. 路径范例：`C:\Users\Snowy\Desktop\sm18`，注意是 sm18.exe 程序的根路径，就是 sm18.exe 所在的目录。不要这样写：`C:\Users\Snowy\Desktop\sm18\sm18.exe`
 3. 使用`smtk clist`列出集合。若未列出集合一般是软件路径未设置正确、或者没有使用 SuperMemo 默认存放集合的 System 路径位置。
 4. 使用`smtk pathpix <集合名字>`整理集合图片
    1. 比如`smtk pathpix "ALL IN ONE" ` 就可以让程序按照策略进行整理了。
@@ -199,6 +183,7 @@ AutoTTS 卡片朗读 文本转语音
 ## 关于开发
 
 - 构建whl：`uv build`
+- 安装whl：`uv tool install save-path/your-app.whl`
 - 构建exe：`uv run pyinstaller smtk.spec`
 
 ## LICENSE
