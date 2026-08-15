@@ -1,34 +1,39 @@
 name: Build Windows Executable
 
 on:
-  release:
-    types: [published]
+    release:
+        types: [published]
 
 jobs:
-  build:
-    runs-on: windows-latest
-    permissions:
-      contents: write
+    build:
+        runs-on: windows-latest
+        permissions:
+            contents: write
 
-    steps:
-      - uses: actions/checkout@v4
+        steps:
+            - uses: actions/checkout@v7.0.1
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          version: "latest"
+            - name: astral-sh/setup-uv
+              uses: astral-sh/setup-uv@v10.0.1
+              with:
+                  version: "latest"
 
-      - name: Install Python and dependencies
-        run: |
-          uv python install 3.10
-          uv sync --frozen
+            - name: Install Python and dependencies
+              run: |
+                  uv python install 3.10
+                  uv sync --frozen
 
-      - name: Build with PyInstaller
-        run: uv run pyinstaller smtk.spec
+            - name: Build Wheel
+              run: uv build --wheel
 
-      - name: Upload to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            - name: Build Executable
+              run: uv run pyinstaller smtk.spec
+
+            - name: Upload to Release
+              uses: softprops/action-gh-release@v3.0.2
+              with:
+                  files: |
+                      dist/*.exe
+                      dist/*.whl
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
