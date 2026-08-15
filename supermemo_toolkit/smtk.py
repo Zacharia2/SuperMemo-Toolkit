@@ -291,6 +291,11 @@ def is_launched_from_gui():
 
 if __name__ == "__main__":
     if is_launched_from_gui():
+        try:
+            import pyi_splash
+            pyi_splash.close()  # 关闭闪屏
+        except ImportError:
+            pass  # 在开发环境中，没有 pyi_splash 模块，直接跳过
         Shell().cmdloop()
     else:
         try:

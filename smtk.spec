@@ -16,11 +16,25 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
+splash = Splash(
+    'Icon.png',
+    binaries=a.binaries,
+    datas=a.datas,
+    text_pos=(10, 35),
+    text_size=12,
+    text_color='white',
+    max_img_size=(400, 400),
+    minify_script=True,
+    always_on_top=True,
+)
+
 exe = EXE(
     pyz,
     a.scripts,
     a.binaries,
     a.datas,
+    splash,
+    splash.binaries,
     [],
     name='smtk',
     debug=False,
