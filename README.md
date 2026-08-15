@@ -6,38 +6,21 @@ SuperMemo 增强工具(CLI 命令行)。包含图链整理、EPUB 图书转换�
 
 ## 1. Install
 
-`uv tool`：“python 系统”下的 whl 格式软件包安装管理器（仅需要安装uv，安装软件包更简单）。`uv tool` 安装应用请务必联网。
-
-推荐的安装方式是 `uv tool`，`uv tool` 可以理解为 Android 系统的应用程序管理器，而 whl 类比为安卓的 apk 应用。`uv tool` 就是用来安装和管理 whl 格式的 python 软件包。
-
 ### 1.1 安装&更新：
 
-1. 安装 uv 工具
-   1. 将 uv 安装到用户家目录下的 `.uv` 文件夹中，打开 PowerShell 执行下列命令：
-      1. `PowerShell -ExecutionPolicy ByPass -Command {$env:UV_INSTALL_DIR="$HOME\.uv"; [Environment]::SetEnvironmentVariable("UV_CACHE_DIR", "$HOME\.uv\cache", "User"); [Environment]::SetEnvironmentVariable("UV_PYTHON_BIN_DIR", "$HOME\.uv\python\shims", "User"); [Environment]::SetEnvironmentVariable("UV_PYTHON_INSTALL_DIR", "$HOME\.uv\python\versions", "User"); [Environment]::SetEnvironmentVariable("UV_TOOL_BIN_DIR", "$HOME\.uv\tools\shims", "User"); [Environment]::SetEnvironmentVariable("UV_TOOL_DIR", "$HOME\.uv\tools\versions", "User"); $p=[Environment]::GetEnvironmentVariable("Path","User"); if($p -notlike "*%UV_PYTHON_BIN_DIR%*" -or $p -notlike "*%UV_TOOL_BIN_DIR%*"){$p="$p;%UV_PYTHON_BIN_DIR%;%UV_TOOL_BIN_DIR%"; [Environment]::SetEnvironmentVariable("Path",$p,"User")}; irm https://astral.sh/uv/install.ps1 | iex}`
-   2. 自动配置终端环境,将 uv 安装命令行工具的目录添加到系统的 PATH 环境变量中（不用执行，已经在安装时配置好）
-      1. `uv tool update-shell`
-      2. `uv python update-shell`
-   3. 卸载uv，直接删除用户目录下.uv文件夹即可删除干净。
-2. 下载`supermemo_toolkit-py3-none-any.whl`
-3. 执行`uv tool install supermemo_toolkit-py3-none-any.whl`等待安装成功。
-   1. 关于更新
-      1. 执行`uv tool install --force save-path/your-app.whl`
-      2. 显示成功后即可更新成功。
-4. 安装成功后，可以执行`smtk`命令验证是否安装成功。（可能需要重启终端）
-5. 设置 smtk config。
+1. 下载`smtk.exe`
+2. 双击打开`smtk.exe`交互式终端程序（v0.1.28）。关于更新：直接下载新版EXE替换旧版EXE即可。
+   1. 旧版本（≤v0.1.27）用法：安装whl包，打开终端执行命令
+      1. WIN R 打开 CMD 或者 PowerShell，输入命令：`smtk`。
+      2. 或者 shift+鼠标右键->在此处打开 PowerShell 窗口。
+      3. 或者使用`Win + R`启动运行窗口直接输入命令
+3. 配置 smtk：
    1. 设置 sm 程序所在路径，软件需要查找和读取 sm 自动存储的 systems 集合
    2. 用法：`smtk config set program 'sm.exe所在路径'`
    3. 例子：`smtk config set program 'D:\SuperMemo'`，比如我的`sm.exe`在`D:\SuperMemo`路径下。
-6. 然后就可以正常使用了，请继续阅读下列功能使用说明。
+4. 然后就可以正常使用了，请继续阅读下列功能使用说明。
 
 ### 1.2 遇到的问题
-
-遇到的问题 1：网络问题，临时指定 PYPI 源。
-
-```bash
-uv tool install --force save-path/your-app.whl --default-index https://pypi.tuna.tsinghua.edu.cn/simple
-```
 
 遇到的问题 2：supermemo 只支持五种图片格式："image/jpeg"、"image/jpg"、"image/png"、"image/gif"、"image/bmp"，PathPix 功能只支持网络图片转换为受支持的五类图片，本地暂时不支持。E2SM 功能只对书籍图片进行复制，暂时不支持图片转换为受支持的五类图片格式。
 
@@ -53,14 +36,11 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
 
 ### 2.1 整理图片
 
-1. 打开终端
-   1. WIN R 打开 CMD 或者 PowerShell，输入命令：`smtk`。
-   2. 或者 shift+鼠标右键->在此处打开 PowerShell 窗口。
-2. 设置 SuperMemo 路径
+1. 配置 SuperMemo 路径
    1. `smtk config set program “SM软件路径”`
    2. 路径范例：`C:\Users\Snowy\Desktop\sm18`，注意是 sm18.exe 程序的根路径，就是 sm18.exe 所在的目录。不要这样写：`C:\Users\Snowy\Desktop\sm18\sm18.exe`
-3. 使用`smtk clist`列出集合。若未列出集合一般是软件路径未设置正确、或者没有使用 SuperMemo 默认存放集合的 System 路径位置。
-4. 使用`smtk pathpix <集合名字>`整理集合图片
+2. 使用`smtk clist`列出集合。若未列出集合一般是软件路径未设置正确、或者没有使用 SuperMemo 默认存放集合的 System 路径位置。
+3. 使用`smtk pathpix <集合名字>`整理集合图片
    1. 比如`smtk pathpix "ALL IN ONE" ` 就可以让程序按照策略进行整理了。
    2. 也可以使用`smtk pathpix --least-col`整理最后一次使用的集合。
 
@@ -153,7 +133,7 @@ AutoTTS 卡片朗读 文本转语音
 
 1. 如何使用
    1. 首先必须打开 supermemo 软件，否则 autotts 结束运行。
-   2. 第二步使用`Win + R`执行`smtk autotts`。
+   2. 第二步执行`smtk autotts`。
    3. 启动后会在屏幕上中部，显示软件悬浮条。
    4. **左键**点击`E`按钮开始监听卡片翻页，翻页自动切换
       1. **右键**点击`E`按钮停止当前播放。
