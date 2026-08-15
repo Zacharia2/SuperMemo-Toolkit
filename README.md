@@ -85,10 +85,10 @@ pathpix管理的图片文件，可以导入图像注册表中。由图像注册�
 
 ![](./docs/Snipaste_2025-02-12_11-49-52.png)
 
-1. 从 epub 图书生成 xml 格式的 sm-book 图书。
-2. 预处理epub，转换为纯ASCII字符集。`smtk e2sm --prep <epub_file> <out_folder>`
+1. 从 EPUB 格式图书转化为可导入 SuperMemo 软件的 XML 格式图书。配合 Calibre 的 EPUB 编辑器优化 EPUB 目录，转化后导入视觉效果更佳。
+2. 预处理 EPUB，转换为纯 ASCII 字符集。`smtk e2sm --prep <epub_file> <out_folder>`
 
-生成的图书会包含 XML 格式图书 和 书籍图片文件夹 两个内容。需要生成的**书籍图片文件夹**放到 SM 集合的`your_collection/elements/local_pic`文件夹下，如果你不需要的图片显示的话，可以不用放。一般情况下集合默认全路径为：`Root_SuperMemo/systems/your_collection`。
+转换后的图书会包含 XML 格式图书 和 书籍图片文件夹 两个内容。需要生成的**书籍图片文件夹**放到 SM 集合的`your_collection/elements/local_pic`文件夹下，如果你不需要的图片显示的话，可以不用放。一般情况下集合默认全路径为：`Root_SuperMemo/systems/your_collection`。
 
 通过目录项自动补全及链接与目标文件的一致性校验，并结合锚点的合理分割以避免信息遗失，实现内容完整性的双重保障。
 
@@ -166,7 +166,7 @@ AutoTTS 卡片朗读 文本转语音
 
 功能列表：翻页自动播放（启动监听 LE、停止监听 LE、重启监听）、停止播放 RE、重复播放 A、复制播放、解析播放
 
-![](./docs/Snipaste_2025-12-06_21-55-56.png)
+![](./docs/Snipaste_2026-08-15_23-13-08.png)
 
 1. 如何使用
    1. 首先必须打开 supermemo 软件，否则 autotts 结束运行。
