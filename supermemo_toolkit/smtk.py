@@ -18,31 +18,34 @@ from supermemo_toolkit.pathpix.gui import run_pathpix_ui
 from supermemo_toolkit.title_xref import complete_title
 from supermemo_toolkit.utilscripts import config as smtk_config
 
-sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM)
+sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM).lower()
 smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
 __version__ = "0.1.28"
 
 
-@click.group(no_args_is_help=True)
+@click.group(
+    no_args_is_help=True,
+    context_settings={"help_option_names": []},
+    help=f"SuperMemo 增强工具(CLI命令行)。 Ver:{__version__}\n包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS 卡片朗读等。",
+)
 @click.version_option(version=__version__)
 def main():
-    """SuperMemo 增强工具(CLI命令行)。\n\n包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS 卡片朗读等。"""
+    pass
 
 
 @click.group()
 def config():
-    """配置SMTK集合(systems)路径"""
+    """设置 smtk 配置文件"""
 
 
-# 将config命令添加到main命令组中
 main.add_command(config)
 
 
-@config.command()
+@config.command(name="set")
 @click.argument("key")
 @click.argument("value")
-def set(key: str, value: str):
-    """设置配置文件，例如：Key Value"""
+def config_set(key: str, value: str):
+    """设置配置文件, 例如: Key Value"""
     conf_dict = smtk_config.read_config(smtk_config_file_path)
     conf_list = [
         smtk_config.PROGRAM,
@@ -61,11 +64,12 @@ def set(key: str, value: str):
             click.echo(tabulate(table_data, headers))
 
 
-@config.command()
+@config.command(name="unset")
 @click.argument("key")
-def unset(key: str):
+def config_unset(key: str):
     """取消某个配置"""
     conf_dict = smtk_config.read_config(smtk_config_file_path)
+    if key in conf_dict:
     del conf_dict[key]
     smtk_config.dump_config(smtk_config_file_path, conf_dict)
 
@@ -87,10 +91,10 @@ async def _print_voices() -> None:
     click.echo(tabulate(table, headers))
 
 
-@config.command()
+@config.command(name="list")
 @click.option("--voices", is_flag=True, help="打印所有可用语音模型")
 @click.option("--recommend", is_flag=True, help="打印推荐可用语音模型")
-def list(voices, recommend):
+def config_list(voices, recommend):
     """列出当前所有配置"""
     if recommend:
         headers = ["Name", "Gender", "ContentCategories", "VoicePersonalities"]
@@ -104,8 +108,10 @@ def list(voices, recommend):
             for voice_model in smtk_config.VOICE_MODEL_LIST
         ]
         click.echo(tabulate(table_data, headers))
+        return
     elif voices:
         asyncio.run(_print_voices())
+        return
     else:
         conf_dict = smtk_config.read_config(smtk_config_file_path)
         for key, value in conf_dict.items():
@@ -133,25 +139,29 @@ def clist():
 @click.option("--limit", type=int, help="topic分片长度")
 @click.option("--prep", is_flag=True, help="预处理epub，转换为纯ASCII字符集（可选）")
 def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep):
-    """转换EPUB书籍格式为SuperMemo XML集合格式、预处理EPUB为纯ASCII字符集"""
+    """转换 EPUB 格式图书为 XML 格式图书、预处理 EPUB 为纯 ASCII 字符集"""
     if toc:
         epub_convert.start_with_toc(epub_path, target_folder)
+        return
     elif seq:
         epub_convert.start_with_seq(epub_path, target_folder)
+        return
     elif topic:
         if not limit:
             epub_convert.start_with_topic(epub_path, target_folder, None)
         else:
             epub_convert.start_with_topic(epub_path, target_folder, limit)
+        return
     elif prep:
         format_ascii.epub_format_to_ascii(epub_path, target_folder)
+        return
 
 
 @main.command()
 @click.argument("formula_text")
 @click.argument("outpath")
 def imtex(formula_text, outpath):
-    """转换 LaTeX 公式到PNG图片."""
+    """转换 LaTeX 公式到 png 图片."""
     formula_to_png.latex2img(
         text=formula_text,
         size=48,
@@ -168,12 +178,12 @@ def imtex(formula_text, outpath):
     type=click.Path(
         exists=True, file_okay=True, dir_okay=False, readable=True, path_type=str
     ),
-    help="整理单个HTML文件（全路径，component menu(Alt+F12) >> FIle >> Copy path）",
+    help="整理单个HTML文件(component menu(Alt+F12) >> FIle >> Copy path)",
 )
 @click.option("--gui", is_flag=True, help="运行图形窗口")
-@click.option("--least-col", is_flag=True, help="整理最后使用的集合（最后关闭的集合）")
+@click.option("--least-col", is_flag=True, help="整理最后使用的集合 (最后关闭的集合) ")
 def pathpix(col_name, clean, fullpath, least_col, gui):
-    """整理集合图片, 相对路径化本地图片、本地化网络图片"""
+    """整理集合图片: 本地图片->相对路径化、网络图片->本地化"""
     if sm_location == "null":
         click.secho("Please set program location! config::program is null!", fg="red")
         return
@@ -184,20 +194,25 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
             sm_location, sm_system1
         )
         im_sort_out.start(least_used_col)
+        return
     elif col_name:
         elements_path = smtk_config.get_collection_primaryStorage(sm_location, col_name)
         if clean:
             im_sort_out.organize_unused_im(elements_path)
         else:
             im_sort_out.start(elements_path)
+        return
     elif fullpath:
         im_sort_out.single_file(fullpath)
+        return
     elif gui:
         run_pathpix_ui()
+        return
     else:
         # 如果没有提供任何选项，打印帮助信息
         ctx = click.get_current_context()
         click.echo(ctx.get_help())
+        return
 
 
 @main.command()
@@ -205,10 +220,10 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
 @click.option(
     "--deckname",
     type=str,
-    help="设置目标牌组名，SM19 Cards（默认）",
+    help="设置目标牌组名, SuperMemo Cards (默认)",
 )
 def sm2anki(qafile, deckname):
-    """发送问答卡(Item)到Anki"""
+    """发送问答卡 (Item) 到 Anki"""
     # print(deckname)
     if deckname:
         ms2a = qa_to_anki(qafile)
@@ -224,19 +239,22 @@ def sm2anki(qafile, deckname):
 @click.option("--node", type=str, help="设置NodeAsText文件路径")
 @click.option("--xml", type=str, help="设置XMl文件路径")
 def comptitle(htmtoc: str, node: str, xml: str):
-    """修补导出的NodeAsText、XMl中的标题"""
+    """修补导出的 NodeAsText 、XMl 中的标题"""
     if not node and not xml:
         print("需要输入待修复的文件路径(NodeAsText OR XMl)")
+        return
     elif node and not xml:
         complete_title.comp_node_title(nodefile=node, tocfile=htmtoc)
+        return
     elif xml and not node:
         complete_title.comp_xml_title(xmlfile=xml, tocfile=htmtoc)
+        return
 
 
 @main.command()
 @click.option("--onlyat", is_flag=True, help="仅使用拷贝发音功能")
 def autotts(onlyat):
-    """运行 AutoTTS卡片朗读 文本转语音"""
+    """运行 AutoTTS 卡片朗读 文本转语音"""
     run_auto_tts(onlyat)
 
 
@@ -293,6 +311,7 @@ if __name__ == "__main__":
     if is_launched_from_gui():
         try:
             import pyi_splash
+
             pyi_splash.close()  # 关闭闪屏
         except ImportError:
             pass  # 在开发环境中，没有 pyi_splash 模块，直接跳过
