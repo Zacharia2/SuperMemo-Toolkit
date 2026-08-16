@@ -70,8 +70,8 @@ def config_unset(key: str):
     """取消某个配置"""
     conf_dict = smtk_config.read_config(smtk_config_file_path)
     if key in conf_dict:
-    del conf_dict[key]
-    smtk_config.dump_config(smtk_config_file_path, conf_dict)
+        del conf_dict[key]
+        smtk_config.dump_config(smtk_config_file_path, conf_dict)
 
 
 async def _print_voices() -> None:
@@ -116,18 +116,41 @@ def config_list(voices, recommend):
         conf_dict = smtk_config.read_config(smtk_config_file_path)
         for key, value in conf_dict.items():
             click.echo(f"{key}\t:\t{value}")
+        return
 
 
-@main.command()
-def clist():
+# TODO
+@click.group()
+def kno():
+    """管理 SuperMemo KNO 知识集合"""
+
+
+main.add_command(kno)
+
+
+@kno.command(name="list")
+def kno_list():
     """列出所有集合"""
     if sm_location == "null":
         click.secho("Please set program location! config::program is null!", fg="red")
         return
-    click.secho("smtk is working on: " + sm_location, fg="green")
+    click.secho(f"smtk is working on: {sm_location}", fg="green")
     col_list = smtk_config.get_collections_primaryStorage(sm_location)
     for col_name in col_list:
-        click.echo("集合名称：" + col_name)
+        click.echo(f"集合名称: [{col_name}] [systems]")
+        # click.echo(f"集合名称: [{col_name}] [discrete]")
+
+
+@kno.command(name="add")
+def kno_add():
+    """添加集合"""
+    click.echo("添加集合功能尚未实现。")
+
+
+@kno.command(name="remove")
+def kno_remove():
+    """删除集合"""
+    click.echo("删除集合功能尚未实现。")
 
 
 @main.command()
@@ -138,19 +161,35 @@ def clist():
 @click.option("--topic", is_flag=True, help="转换为一篇Topic文章")
 @click.option("--limit", type=int, help="topic分片长度")
 @click.option("--prep", is_flag=True, help="预处理epub，转换为纯ASCII字符集（可选）")
-def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep):
+@click.option(
+    "--kno-name", type=str, default=None, help="将转换好后的图片文件夹放到目标KNO集合中"
+)
+def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep, kno_name):
     """转换 EPUB 格式图书为 XML 格式图书、预处理 EPUB 为纯 ASCII 字符集"""
     if toc:
         epub_convert.start_with_toc(epub_path, target_folder)
+        # TODO
+        if kno_name:
+            click.echo(
+                f"将转换好的图片文件夹放到目标KNO集合: {kno_name} (功能尚未实现)"
+            )
         return
     elif seq:
         epub_convert.start_with_seq(epub_path, target_folder)
+        if kno_name:
+            click.echo(
+                f"将转换好的图片文件夹放到目标KNO集合: {kno_name} (功能尚未实现)"
+            )
         return
     elif topic:
         if not limit:
             epub_convert.start_with_topic(epub_path, target_folder, None)
         else:
             epub_convert.start_with_topic(epub_path, target_folder, limit)
+        if kno_name:
+            click.echo(
+                f"将转换好的图片文件夹放到目标KNO集合: {kno_name} (功能尚未实现)"
+            )
         return
     elif prep:
         format_ascii.epub_format_to_ascii(epub_path, target_folder)
@@ -213,6 +252,16 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
         ctx = click.get_current_context()
         click.echo(ctx.get_help())
         return
+
+
+# TODO
+@main.command()
+@click.argument("form_kno")
+@click.argument("to_kno")
+def transfer(form_kno, to_kno):
+    """转移知识树分支或合并集合后, 在两个集合之间, 转移 pathpix 管理的图片"""
+    if transfer:
+        click.echo(f"转移图片从 {form_kno} 到 {to_kno} (功能尚未实现)")
 
 
 @main.command()
