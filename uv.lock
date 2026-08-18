@@ -2032,18 +2032,6 @@ wheels = [
 ]
 
 [[package]]
-name = "python-xlib"
-version = "0.33"
-source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
-dependencies = [
-    { name = "six" },
-]
-sdist = { url = "https://mirrors.aliyun.com/pypi/packages/86/f5/8c0653e5bb54e0cbdfe27bf32d41f27bc4e12faa8742778c17f2a71be2c0/python-xlib-0.33.tar.gz", hash = "sha256:55af7906a2c75ce6cb280a584776080602444f75815a7aff4d287bb2d7018b32" }
-wheels = [
-    { url = "https://mirrors.aliyun.com/pypi/packages/fc/b8/ff33610932e0ee81ae7f1269c890f697d56ff74b9f5b2ee5d9b7fa2c5355/python_xlib-0.33-py2.py3-none-any.whl", hash = "sha256:c3534038d42e0df2f1392a1b30a15a4ff5fdc2b86cfa94f072bf11b10a164398" },
-]
-
-[[package]]
 name = "pywin32"
 version = "312"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
@@ -2082,9 +2070,8 @@ name = "pywinauto"
 version = "0.6.9"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
 dependencies = [
-    { name = "comtypes", marker = "sys_platform == 'win32'" },
-    { name = "python-xlib", marker = "sys_platform == 'linux'" },
-    { name = "pywin32", marker = "sys_platform == 'win32'" },
+    { name = "comtypes" },
+    { name = "pywin32" },
     { name = "six" },
 ]
 sdist = { url = "https://mirrors.aliyun.com/pypi/packages/2c/85/cc65e3b64e7473cc86c07f0b5c415d509402c03ef19dadc39c583835eb5f/pywinauto-0.6.9.tar.gz", hash = "sha256:94d710bfa796df245250f952ffa65d97233d9807bcd42e052b71b81af469b6de" }
@@ -2171,10 +2158,10 @@ dependencies = [
     { name = "pyperclip" },
     { name = "pypinyin" },
     { name = "pyquery" },
-    { name = "pyreadline3" },
+    { name = "pyreadline3", marker = "sys_platform == 'win32'" },
     { name = "python-magic", marker = "sys_platform != 'win32'" },
     { name = "python-magic-bin", marker = "sys_platform == 'win32'" },
-    { name = "pywinauto" },
+    { name = "pywinauto", marker = "sys_platform == 'win32'" },
     { name = "requests" },
     { name = "sounddevice" },
     { name = "tqdm" },
@@ -2201,10 +2188,10 @@ requires-dist = [
     { name = "pyperclip", specifier = ">=1.11.0" },
     { name = "pypinyin", specifier = ">=0.55.0" },
     { name = "pyquery", specifier = ">=2.0.1" },
-    { name = "pyreadline3", specifier = ">=3.5.6" },
+    { name = "pyreadline3", marker = "sys_platform == 'win32'", specifier = ">=3.5.6" },
     { name = "python-magic", marker = "sys_platform != 'win32'", specifier = ">=0.4.27" },
     { name = "python-magic-bin", marker = "sys_platform == 'win32'", specifier = ">=0.4.14" },
-    { name = "pywinauto", specifier = ">=0.6.9" },
+    { name = "pywinauto", marker = "sys_platform == 'win32'", specifier = ">=0.6.9" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "sounddevice", specifier = ">=0.5.5" },
     { name = "tqdm", specifier = ">=4.69.1" },

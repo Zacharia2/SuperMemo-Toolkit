@@ -22,6 +22,8 @@ SuperMemo 增强工具(CLI 命令行)。包含图链整理、EPUB 图书转换�
 
 遇到的问题 2：supermemo 只支持五种图片格式："image/jpeg"、"image/jpg"、"image/png"、"image/gif"、"image/bmp"，PathPix 功能只支持网络图片转换为受支持的五类图片，本地暂时不支持。E2SM 功能只对书籍图片进行复制，暂时不支持图片转换为受支持的五类图片格式。
 
+支持的平台及相关功能？Windows平台全功能支持，非Windows平台仅sm2anki、autoTTS功能不支持
+
 ### 1.3 其他安装方式
 
 `uv tool`、`pipx`：“Python（Android） 系统”下的 whl（apk） 格式软件包在线“安装管理器”。安装应用请务必联网。
@@ -52,7 +54,7 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
 1. 配置 SuperMemo 路径
    1. `smtk config set program “SM软件路径”`
    2. 路径范例：`C:\Users\Snowy\Desktop\sm18`，注意是 sm18.exe 程序的根路径，就是 sm18.exe 所在的目录。不要这样写：`C:\Users\Snowy\Desktop\sm18\sm18.exe`
-2. 使用`smtk clist`列出集合。若未列出集合一般是软件路径未设置正确、或者没有使用 SuperMemo 默认存放集合的 System 路径位置。
+2. 使用`smtk kno list`列出集合。若未列出集合一般是软件路径未设置正确、或者没有使用 SuperMemo 默认存放集合的 System 路径位置。
 3. 使用`smtk pathpix <集合名字>`整理集合图片
    1. 比如`smtk pathpix "ALL IN ONE" ` 就可以让程序按照策略进行整理了。
    2. 也可以使用`smtk pathpix --least-col`整理最后一次使用的集合。
