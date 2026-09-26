@@ -33,6 +33,7 @@ dependencies = [
     "pywinauto>=0.6.9; sys_platform == 'win32'",
     "requests>=2.34.2",
     "sounddevice>=0.5.5",
+    "svglib>=2.2.0",
     "tqdm>=4.69.1",
     "yattag>=1.16.1",
 ]

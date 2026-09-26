@@ -1,9 +1,13 @@
 import copy
+import io
 import os
 
 import ebooklib
 from bs4 import BeautifulSoup, Doctype, NavigableString, Tag
 from ebooklib import epub
+from PIL import Image
+from reportlab.graphics import renderPM
+from svglib.svglib import svg2rlg
 from yattag import Doc
 
 from supermemo_toolkit.epub2sm import toc_check, toc_orgnize
@@ -19,19 +23,57 @@ get_id = get_id_func()
 id_counts = 0
 
 
-def modify_img_url(doc, folder_name):
+def modify_img_url(book, doc, folder_name):
     soup = BeautifulSoup(doc, "html.parser")
     # 删除DOCTYPE定义
     for item in soup.contents:
         if isinstance(item, Doctype):
             item.extract()
             break
+
     # 处理图片
-    imgs = soup.find_all("img")
-    for img in imgs:
+    doc_imgs = soup.find_all("img")
+
+    not_support = [
+        (os.path.basename(image.file_name).lower(), image.file_name)
+        for image in book.get_items()
+        if image.media_type == "image/svg+xml" or image.media_type == "image/webp"
+    ]
+    not_support_1 = [f[0] for f in not_support]
+
+    for doc_img in doc_imgs:
+        # 处理svg和webp图片，转换为png格式
+        doc_img_name = os.path.basename(doc_img.attrs["src"]).lower()
+        if len(not_support) != 0 and doc_img_name in not_support_1:
+            image_file_name = not_support[not_support_1.index(doc_img_name)][1]
+            image = book.get_item_with_href(image_file_name)
+            if image.media_type == "image/svg+xml":
+                output_buffer = io.BytesIO()
+                renderPM.drawToPIL(svg2rlg(io.BytesIO(image.content))).save(
+                    output_buffer, format="PNG"
+                )
+                image.content = output_buffer.getvalue()
+                name, _ = os.path.splitext(image.file_name)
+                image.file_name = name + ".png"
+                image.media_type = "image/png"
+            if image.media_type == "image/webp":
+                output_buffer = io.BytesIO()
+                Image.open(io.BytesIO(image.content)).convert("RGBA").save(
+                    output_buffer, format="PNG"
+                )
+                image.content = output_buffer.getvalue()
+                name, _ = os.path.splitext(image.file_name)
+                image.file_name = name + ".png"
+                image.media_type = "image/png"
+
+        # 正常及修改后的图片。
+        doc_img_name = os.path.basename(doc_img.attrs["src"])
+        name, _ = os.path.splitext(doc_img_name)
+        doc_img_name = name + ".png"
         # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
-        img_name = os.path.basename(img.attrs["src"])
-        img.attrs["src"] = f"file:///[PrimaryStorage]local_pic/{folder_name}/{img_name}"
+        doc_img.attrs["src"] = (
+            f"file:///[PrimaryStorage]local_pic/{folder_name}/{doc_img_name}"
+        )
     doc = str(soup.encode(encoding="ascii"), "utf-8")
     return doc.replace("\n", "").replace("\r", "")
 
@@ -208,7 +250,7 @@ def get_docs_by_toc(book, chapters, folder_name):
             with tag("Content"), tag("Question"):
                 text(
                     modify_img_url(
-                        get_content(book, href, anchor_points), folder_name
+                        book, get_content(book, href, anchor_points), folder_name
                     )
                 )
             id_counts += 1
@@ -229,7 +271,7 @@ def get_docs_by_toc(book, chapters, folder_name):
             with tag("Content"), tag("Question"):
                 text(
                     modify_img_url(
-                        get_content(book, href, anchor_points), folder_name
+                        book, get_content(book, href, anchor_points), folder_name
                     )
                 )
             if len(sm_element) > 0:
@@ -250,7 +292,7 @@ def get_docs_by_doclist(book, folder_name):
     doc_list = book.get_items_of_type(ebooklib.ITEM_DOCUMENT)
     for doc in doc_list:
         href = doc.file_name
-        content = modify_img_url(get_content(book, href), folder_name)
+        content = modify_img_url(book, get_content(book, href), folder_name)
         doc, tag, text = Doc().tagtext()
         with tag("ID"):
             text(get_id())
@@ -280,14 +322,14 @@ def merge_epub_to_topic(book, folder_name):
         html_body = soup.find("body")
         for child in html_body.children:
             epub_topic += str(child)
-    doc = modify_img_url(epub_topic, folder_name)
+    doc = modify_img_url(book, epub_topic, folder_name)
     return doc
 
 
 def write_img_file(ebook: epub.EpubBook, book_img_folder: str) -> None:
     """写出img文件到SuperMemo-XML-Book文件旁边的文件夹中。"""
     for image in ebook.get_items_of_type(ebooklib.ITEM_IMAGE):
-        # 可以得到image.file_name 和 image.content二进制数据、image.media_type
+        # 可以得到image.file_name 和 image.content 二进制数据、image.media_type
         # os.path.abspath(".")
         if not os.path.exists(book_img_folder):
             mkdir(book_img_folder)

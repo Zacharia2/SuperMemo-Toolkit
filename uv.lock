@@ -652,6 +652,19 @@ wheels = [
 ]
 
 [[package]]
+name = "cssselect2"
+version = "0.10.1"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
+dependencies = [
+    { name = "tinycss2" },
+    { name = "webencodings" },
+]
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/06/00/2456b6b664c7a770989cbe3c352aac4eb962c938486f03a2e1255ae963c6/cssselect2-0.10.1.tar.gz", hash = "sha256:83b0d820ef589dabaf693289b647c2f5b410f76d285f56deba911ffa75a7b9d1" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/bd/59/6b1daa3b94de8970e2a2787ba73616c2d0675d2f948ef4cad8bef7f21bc6/cssselect2-0.10.1-py3-none-any.whl", hash = "sha256:25cc4494d55985d6a6da359be48da6ce98c28dcbafa2314c383ace3fc32ec868" },
+]
+
+[[package]]
 name = "cycler"
 version = "0.12.1"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
@@ -2080,6 +2093,19 @@ wheels = [
 ]
 
 [[package]]
+name = "reportlab"
+version = "5.0.1"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
+dependencies = [
+    { name = "charset-normalizer" },
+    { name = "pillow" },
+]
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/4a/51/dbe28534ae12c852f61be91f039f343305fd1f34f1c66b8de75afae7a525/reportlab-5.0.1.tar.gz", hash = "sha256:ebd13154be1c8515e665de70bd2d303ae9ddc3ef47e44afd5116441ca0283a26" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/db/cb/dacbc268cb68d0428ea2cbd85266195a9ab3e677449589ddae59bd7542ac/reportlab-5.0.1-py3-none-any.whl", hash = "sha256:1c36e6bb0e71780c72331eba60da7f602e8d4389a8723825af71342e49d791e8" },
+]
+
+[[package]]
 name = "requests"
 version = "2.34.2"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
@@ -2164,6 +2190,7 @@ dependencies = [
     { name = "pywinauto", marker = "sys_platform == 'win32'" },
     { name = "requests" },
     { name = "sounddevice" },
+    { name = "svglib" },
     { name = "tqdm" },
     { name = "yattag" },
 ]
@@ -2194,6 +2221,7 @@ requires-dist = [
     { name = "pywinauto", marker = "sys_platform == 'win32'", specifier = ">=0.6.9" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "sounddevice", specifier = ">=0.5.5" },
+    { name = "svglib", specifier = ">=2.2.0" },
     { name = "tqdm", specifier = ">=4.69.1" },
     { name = "yattag", specifier = ">=1.16.1" },
 ]
@@ -2202,12 +2230,40 @@ requires-dist = [
 dev = [{ name = "pyinstaller", specifier = ">=6.21.0" }]
 
 [[package]]
+name = "svglib"
+version = "2.2.0"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
+dependencies = [
+    { name = "cssselect2" },
+    { name = "lxml" },
+    { name = "pillow" },
+    { name = "reportlab" },
+    { name = "tinycss2" },
+]
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/ca/92/3556caee194b318d7daff8d7bf4a1e16d3fca548f322b6b9bae3bc353897/svglib-2.2.0.tar.gz", hash = "sha256:bde5c5f9b0e091f1e210b8aafdda07a49bd8ebf21c0e90d67383a665c83597ac" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/76/c6/6c1d8b1899be627dada5650a24d8f3cb86a7cd2dd24c59edd1de0cc273e5/svglib-2.2.0-py3-none-any.whl", hash = "sha256:b0f07af5f1c8c77fa4e5788825af9aa4e21e005127997f02031b11edadca96f9" },
+]
+
+[[package]]
 name = "tabulate"
 version = "0.10.0"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
 sdist = { url = "https://mirrors.aliyun.com/pypi/packages/46/58/8c37dea7bbf769b20d58e7ace7e5edfe65b849442b00ffcdd56be88697c6/tabulate-0.10.0.tar.gz", hash = "sha256:e2cfde8f79420f6deeffdeda9aaec3b6bc5abce947655d17ac662b126e48a60d" }
 wheels = [
     { url = "https://mirrors.aliyun.com/pypi/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl", hash = "sha256:f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3" },
+]
+
+[[package]]
+name = "tinycss2"
+version = "1.5.1"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
+dependencies = [
+    { name = "webencodings" },
+]
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/a3/ae/2ca4913e5c0f09781d75482874c3a95db9105462a92ddd303c7d285d3df2/tinycss2-1.5.1.tar.gz", hash = "sha256:d339d2b616ba90ccce58da8495a78f46e55d4d25f9fd71dfd526f07e7d53f957" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/60/45/c7b5c3168458db837e8ceab06dc77824e18202679d0463f0e8f002143a97/tinycss2-1.5.1-py3-none-any.whl", hash = "sha256:3415ba0f5839c062696996998176c4a3751d18b7edaaeeb658c9ce21ec150661" },
 ]
 
 [[package]]
@@ -2238,6 +2294,15 @@ source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
 sdist = { url = "https://mirrors.aliyun.com/pypi/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c" }
 wheels = [
     { url = "https://mirrors.aliyun.com/pypi/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897" },
+]
+
+[[package]]
+name = "webencodings"
+version = "0.6.1"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/d5/a0/8fd707bcb776a7be556bad06a2ea5fb9bd519df78ef8e26f70ccf0f38bff/webencodings-0.6.1.tar.gz", hash = "sha256:565f9ad031c702dae404e27a099e3e09186a3ab1b9520f06d215502b651fd910" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/77/c6/040cbc72480d789a5f40d63fb484d3106554c4dfa2d2b70ad5022057750f/webencodings-0.6.1-py3-none-any.whl", hash = "sha256:7fab6269c8bf237c657876b52058ccb182e861518d1c695c1a9aaa8c1c105d5b" },
 ]
 
 [[package]]

@@ -20,7 +20,7 @@ SuperMemo 增强工具(CLI 命令行)。包含图链整理、EPUB 图书转换�
 
 支持的supermemo版本？SuperMemo 15.5 到 SuperMemo最新版，几乎所有功能应该没有版本限制。仅autotts功能有版本功能限制：暂时不支持WV组件。
 
-遇到的问题 2：supermemo 只支持五种图片格式："image/jpeg"、"image/jpg"、"image/png"、"image/gif"、"image/bmp"，PathPix 功能只支持网络图片转换为受支持的五类图片，本地暂时不支持。E2SM 功能只对书籍图片进行复制，暂时不支持图片转换为受支持的五类图片格式。
+遇到的问题 2：supermemo 只支持五种图片格式："image/jpeg"、"image/jpg"、"image/png"、"image/gif"、"image/bmp"，PathPix 功能只支持网络图片转换为受支持的五类图片，本地暂时不支持。E2SM 功能对书籍图片进行复制，添加"image/svg+xml"、"image/webp"两种图片格式转换为png图片。
 
 支持的平台及相关功能？Windows平台全功能支持，非Windows平台仅sm2anki、autoTTS功能不支持
 
