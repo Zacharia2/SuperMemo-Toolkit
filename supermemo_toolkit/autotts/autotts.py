@@ -8,11 +8,11 @@ import win32gui
 from pywinauto.application import Application
 from pywinauto.findwindows import ElementNotFoundError
 
-from supermemo_toolkit.autotts.switcher import AudioSwitcher
-from supermemo_toolkit.autotts.text_registry import (
+from supermemo_toolkit.autotts.htmtext import (
     get_supermemo_html,
     get_supermemo_ie_document,
 )
+from supermemo_toolkit.autotts.switcher import AudioSwitcher
 from supermemo_toolkit.autotts.ui import WinGUI
 
 
