@@ -85,8 +85,9 @@ class TextRegistry:
     mPath = None  # members_filespace_path
     mLinkType = None  # members_link_type
 
+    eTitle = None
     eType = None
-    rtxText = None
+    eText = None
 
     def __init__(self, system_dir: str):
         self.__system_dir: str = system_dir
@@ -97,7 +98,7 @@ class TextRegistry:
         self.__rtx_file: str = os.path.join(system_dir, "registry", "Text.rtx")
 
     def __parse_elinfo(self) -> list:
-        """解析 ElementInfo.dat，返回记录列表（包含 element_id, element_type, componPos）"""
+        """解析 ElementInfo.dat，返回记录列表（包含 element_id, element_type, title_text_id, compon_pos）"""
         # ElementInfo.dat，行号下标就是元素id，删除和添加元素不会行号下标都不会变。
         results = []
         index = 0
@@ -112,15 +113,17 @@ class TextRegistry:
                     break
                 unpacked = RECORD_STRUC.unpack(data[: RECORD_STRUC.size])
                 element_type = ElementType(unpacked[0])  # 0: Topic, 1: Item, 4: Concept
-                componPos = unpacked[3]
-                # 转换为有符号整数（componPos 可为 -1）
-                if componPos >= 2**31:
-                    componPos -= 2**32
+                title_text_id = unpacked[2]
+                compon_pos = unpacked[3]
+                # 转换为有符号整数（compon_pos 可为 -1）
+                if compon_pos >= 2**31:
+                    compon_pos -= 2**32
                 results.append(
                     {
                         "element_id": index + 1,
                         "element_type": element_type,
-                        "componPos": componPos,
+                        "title_text_id": title_text_id,
+                        "compon_pos": compon_pos,
                     }
                 )
                 index += 1
@@ -201,7 +204,7 @@ class TextRegistry:
 
     def __get_member_position(self, compon_pos: int, compon_id: int):
         """
-        根据 componPos（组件组起始偏移）从 compon.dat 中解析组件组，
+        根据compon_pos（组件组起始偏移）从 compon.dat 中解析组件组，
         找到类型为 0x0D1C 的 HTML 组件，并返回其 registryId。
         若失败或找不到，则返回 None。
         """
@@ -221,7 +224,7 @@ class TextRegistry:
                     return None
 
                 # https://github.com/supermemo/SuperMemoAssistant/blob/develop/src/Core/SuperMemoAssistant.Core/SuperMemo/SuperMemo17/Files/InfComponentsElem17.cs
-                # 已知 componPos 偏移，直接打开 compon.dat 文件，定位到 componPos 偏移。
+                # 已知 compon_pos 偏移，直接打开 compon.dat 文件，定位到 compon_pos 偏移。
                 # 验证组件组头 31D4，读取 length、compCount 等字段。
                 # 循环读取组件，对每个组件：
                 # 读取 2 字节类型头。
@@ -343,7 +346,11 @@ class TextRegistry:
             return
 
         self.eType = record["element_type"]
-        self.mPosition = self.__get_member_position(record["componPos"], compon_id)
+        __titleMember = self.__get_member_by_position(record["title_text_id"])
+        self.eTitle = self.__get_rtx_text(
+            __titleMember.RtxOffset, __titleMember.RtxLength
+        )
+        self.mPosition = self.__get_member_position(record["compon_pos"], compon_id)
         if self.mPosition is None:
             return
 
@@ -360,13 +367,13 @@ class TextRegistry:
             return
 
         self.mPath = self.__compute_element_path(self.mSlot)
-        self.rtxText = self.__get_rtx_text(__Member.RtxOffset, __Member.RtxLength)
+        self.eText = self.__get_rtx_text(__Member.RtxOffset, __Member.RtxLength)
 
 
 if __name__ == "__main__":
     # 测试代码
     text_registry = TextRegistry(r"D:\SuperMemo\systems\Reading-And-Review")
-    text_registry.refresh(element_id=567)
+    text_registry.refresh(element_id=2310)
     pass
 
     # max_records = 50
@@ -375,7 +382,7 @@ if __name__ == "__main__":
     # line.append(f"共加载 {len(records)} 条 ElementInfo 记录，测试前 {max_records} 条\n")
     # line.append("ID\tregistryId")
     # for record in records:
-    #     member_position = text_registry.__get_member_position(record["componPos"])
+    #     member_position = text_registry.__get_member_position(record["compon_pos"])
     #     if member_position is not None:
     #         line.append(f"{record['element_id']}\t{member_position!s}")
     #     else:
