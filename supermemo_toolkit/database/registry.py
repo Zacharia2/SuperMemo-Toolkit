@@ -98,10 +98,9 @@ class TextRegistry:
         self.__rtx_file: str = os.path.join(system_dir, "registry", "Text.rtx")
 
     def __parse_elinfo(self) -> list:
-        """解析 ElementInfo.dat，返回记录列表（包含 element_id, element_type, title_text_id, compon_pos）"""
+        """解析 ElementInfo.dat，返回记录列表（包含 element_type, title_text_id, compon_pos）"""
         # ElementInfo.dat，行号下标就是元素id，删除和添加元素不会行号下标都不会变。
-        results = []
-        index = 0
+        results = [None]  # 1-based 列表，index 0 占位
 
         RECORD_SIZE = 118
         RECORD_STRUC = struct.Struct("< B B I I 108x")
@@ -120,13 +119,11 @@ class TextRegistry:
                     compon_pos -= 2**32
                 results.append(
                     {
-                        "element_id": index + 1,
                         "element_type": element_type,
                         "title_text_id": title_text_id,
                         "compon_pos": compon_pos,
                     }
                 )
-                index += 1
         return results
 
     def __get_member_id(self, member_position: int) -> int:
@@ -341,7 +338,7 @@ class TextRegistry:
 
     def refresh(self, element_id: int, compon_id: int = 1):
         records = self.__parse_elinfo()
-        record = next((r for r in records if r["element_id"] == element_id), None)
+        record = records[element_id] if 0 < element_id < len(records) else None
         if record is None:
             return
 
