@@ -40,6 +40,7 @@ COMPONENT_TYPES = {
     "ShapeEllipse": {"TYPE": 6917, "LEN": 28},
     "ShapeRect": {"TYPE": 6918, "LEN": 28},
     "ShapeRoundedRect": {"TYPE": 6919, "LEN": 28},
+    "TYPE_SIZE": {"TYPE": 1000, "LEN": 2},
 }
 
 
@@ -78,12 +79,12 @@ class TextRegistry:
     # 设计为函数式的，实时读取文件并计算状态。暂时仅限正在显示的当前元素。
     # 一般情况下，若为topic就选第零个组件，若为item就选第零和第一个组件。
 
-    mIndex = None  # members_current_index
-    mUse = None  # number_of_users_of_the_member
-    mPosition = None  # members_physical_position
-    mSlot = None  # filespace_slot_used_by_the_member
+    _mIndex = None  # members_current_index
+    _mUse = None  # number_of_users_of_the_member
+    _mPosition = None  # members_physical_position
+    _mSlot = None  # filespace_slot_used_by_the_member
     mPath = None  # members_filespace_path
-    mLinkType = None  # members_link_type
+    _mLinkType = None  # members_link_type
 
     eTitle = None
     eType = None
@@ -230,36 +231,50 @@ class TextRegistry:
                 # 如果循环结束仍未找到，返回空。
 
                 # 2. 组件
+                count = struct.unpack("<B", header_data[8:9])[0]
                 # 在组件组中，定位到第一个组件，跳过偏移两字节，切片[9,~),从第10个元素下标为9开始切。
                 skip_offset = struct.unpack("<H", header_data[9:])[0]
                 first_comp_offset = compon_pos + 11 + skip_offset
                 f.seek(first_comp_offset)
 
-                # 读取组件类型
-                type_data = f.read(2)
-                if len(type_data) < 2:
-                    return None
-                comp_type = struct.unpack("<H", type_data)[0]
-
-                # HTM和WV一模一样
-                # 根据组件类型解析组件数据，提取 registryId
-                # 类型头 7181 原二进制 0x1C0D, 解包小端后：0x0D1C, 解包函数struct.unpack('<H', data)
-                # 组件类型0d1c, 跟上29个固定长度字节，其中 [19，23) 的四个字节是 Pos
-                # HTM：0d1c (00 6800 cf00 e225 5d24 ff 0000000000 01 0000 [5b070000] 00000000000000)
-                # WV： 101c (00 5700 7800 7b25 6c25 ff 0000000000 01 0000 [6f070000] 00000000000000)
-                if (
-                    comp_type == COMPONENT_TYPES["HTM"]["TYPE"]
-                    or comp_type == COMPONENT_TYPES["WebView"]["TYPE"]
-                ):
-                    f.seek(first_comp_offset + len(type_data) + 18)  # 类型之后 + 偏移18
-                    member_position_data = f.read(4)
-                    if len(member_position_data) == 4:
-                        member_position = struct.unpack("<i", member_position_data)[0]
-                        return member_position
-                    else:
+                compones = {}
+                for i in range(1, count + 1):
+                    # 读取组件类型
+                    comp_start_offset = f.tell()
+                    type_data = f.read(COMPONENT_TYPES["TYPE_SIZE"]["LEN"])
+                    if len(type_data) < COMPONENT_TYPES["TYPE_SIZE"]["LEN"]:
                         return None
+                    comp_type = struct.unpack("<H", type_data)[0]
 
-                return None
+                    # HTM和WV一模一样
+                    # 根据组件类型解析组件数据，提取 registryId
+                    # 类型头 7181 原二进制 0x1C0D, 解包小端后：0x0D1C, 解包函数struct.unpack('<H', data)
+                    # 组件类型0d1c, 跟上29个固定长度字节，其中 [19，23) 的四个字节是 Pos
+                    # HTM：0d1c (00 6800 cf00 e225 5d24 ff 0000000000 01 0000 [5b070000] 00000000000000)
+                    # WV： 101c (00 5700 7800 7b25 6c25 ff 0000000000 01 0000 [6f070000] 00000000000000)
+                    if (
+                        comp_type == COMPONENT_TYPES["HTM"]["TYPE"]
+                        or comp_type == COMPONENT_TYPES["WebView"]["TYPE"]
+                    ):
+                        # 类型之后 + 偏移18
+                        f.seek(comp_start_offset + len(type_data) + 18)
+                        compones[i] = struct.unpack("<I", f.read(4))[0]
+                    f.seek(
+                        comp_start_offset
+                        + len(type_data)
+                        + COMPONENT_TYPES.get(
+                            next(
+                                (
+                                    k
+                                    for k, v in COMPONENT_TYPES.items()
+                                    if v["TYPE"] == comp_type
+                                ),
+                                None,
+                            )
+                        )["LEN"]
+                    )
+
+                return compones.get(compon_id)
         except OSError:
             return None
 
@@ -347,23 +362,23 @@ class TextRegistry:
         self.eTitle = self.__get_rtx_text(
             __titleMember.RtxOffset, __titleMember.RtxLength
         )
-        self.mPosition = self.__get_member_position(record["compon_pos"], compon_id)
-        if self.mPosition is None:
+        self._mPosition = self.__get_member_position(record["compon_pos"], compon_id)
+        if self._mPosition is None:
             return
 
-        __Member = self.__get_member_by_position(self.mPosition)
+        __Member = self.__get_member_by_position(self._mPosition)
         if __Member is None:
             return
 
-        self.mIndex = self.__get_member_id(self.mPosition)
-        self.mLinkType = __Member.LinkType
-        self.mUse = __Member.UseCount
+        self._mIndex = self.__get_member_id(self._mPosition)
+        self._mLinkType = __Member.LinkType
+        self._mUse = __Member.UseCount
 
-        self.mSlot = __Member.SlotId
-        if self.mSlot is None:
+        self._mSlot = __Member.SlotId
+        if self._mSlot is None:
             return
 
-        self.mPath = self.__compute_element_path(self.mSlot)
+        self.mPath = self.__compute_element_path(self._mSlot)
         self.eText = self.__get_rtx_text(__Member.RtxOffset, __Member.RtxLength)
 
 
