@@ -40,7 +40,6 @@ COMPONENT_TYPES = {
     "ShapeEllipse": {"TYPE": 6917, "LEN": 28},
     "ShapeRect": {"TYPE": 6918, "LEN": 28},
     "ShapeRoundedRect": {"TYPE": 6919, "LEN": 28},
-    "TYPE_SIZE": {"TYPE": 1000, "LEN": 2},
 }
 
 
@@ -79,23 +78,16 @@ class TextRegistry:
     # 设计为函数式的，实时读取文件并计算状态。暂时仅限正在显示的当前元素。
     # 一般情况下，若为topic就选第零个组件，若为item就选第零和第一个组件。
 
-    _mIndex = None  # members_current_index
-    _mUse = None  # number_of_users_of_the_member
-    _mPosition = None  # members_physical_position
-    _mSlot = None  # filespace_slot_used_by_the_member
-    mPath = None  # members_filespace_path
-    _mLinkType = None  # members_link_type
-
     eTitle = None
     eType = None
-    eText = None
+    eComponents = None
 
     def __init__(self, system_dir: str):
         self.__system_dir: str = system_dir
+
         self.__elinfo_path: str = os.path.join(system_dir, "info", "ElementInfo.dat")
         self.__compon_path: str = os.path.join(system_dir, "info", "compon.dat")
         self.__mem_file: str = os.path.join(system_dir, "registry", "Text.mem")
-        self.__ptr_file: str = os.path.join(system_dir, "registry", "Text.ptr")
         self.__rtx_file: str = os.path.join(system_dir, "registry", "Text.rtx")
 
     def __parse_elinfo(self) -> list:
@@ -126,26 +118,6 @@ class TextRegistry:
                     }
                 )
         return results
-
-    def __get_member_id(self, member_position: int) -> int:
-
-        if not (os.path.exists(self.__ptr_file)):
-            return 0
-        with open(self.__ptr_file, "rb") as f:
-            ptr_data = f.read()
-
-        # 验证数据长度
-        if len(ptr_data) % 4 != 0:
-            return 0
-
-        # 一次性解包所有指针（1-based 元组）
-        # member_position = ptrs[member_id]  # 获取内存索引（1-based）
-        ptrs = (None, *struct.unpack(f"<{len(ptr_data) // 4}I", ptr_data))
-        try:
-            member_id = ptrs.index(member_position)
-        except ValueError:
-            return 0
-        return member_id
 
     def __get_member_by_position(self, member_position: int):
 
@@ -200,10 +172,10 @@ class TextRegistry:
         path_parts = [self.__system_dir, "elements"] + dirs + [f"{slot}.{extension}"]
         return "\\".join(path_parts)
 
-    def __get_member_position(self, compon_pos: int, compon_id: int):
+    def __get_member_component_group_positions(self, compon_pos: int):
         """
-        根据compon_pos（组件组起始偏移）从 compon.dat 中解析组件组，
-        找到类型为 0x0D1C 的 HTML 组件，并返回其 registryId。
+        根据 compon_pos （组件组起始偏移）从 compon.dat 中解析组件组，
+        找到类型为 HTM、WV、Text 的组件，并返回其 registryId。
         若失败或找不到，则返回 None。
         """
 
@@ -237,12 +209,13 @@ class TextRegistry:
                 first_comp_offset = compon_pos + 11 + skip_offset
                 f.seek(first_comp_offset)
 
-                compones = {}
+                components = {}
                 for i in range(1, count + 1):
                     # 读取组件类型
                     comp_start_offset = f.tell()
-                    type_data = f.read(COMPONENT_TYPES["TYPE_SIZE"]["LEN"])
-                    if len(type_data) < COMPONENT_TYPES["TYPE_SIZE"]["LEN"]:
+                    TYPE_SIZE = 2  # 组件类型字段长度为 2 字节，所有组件都一样。
+                    type_data = f.read(TYPE_SIZE)
+                    if len(type_data) < TYPE_SIZE:
                         return None
                     comp_type = struct.unpack("<H", type_data)[0]
 
@@ -255,10 +228,12 @@ class TextRegistry:
                     if (
                         comp_type == COMPONENT_TYPES["HTM"]["TYPE"]
                         or comp_type == COMPONENT_TYPES["WebView"]["TYPE"]
+                        or comp_type == COMPONENT_TYPES["Text"]["TYPE"]
                     ):
-                        # 类型之后 + 偏移18
-                        f.seek(comp_start_offset + len(type_data) + 18)
-                        compones[i] = struct.unpack("<I", f.read(4))[0]
+                        # registryId 在组件数据中的偏移量，所有组件都一样。
+                        POS_OFFSET = 18
+                        f.seek(comp_start_offset + len(type_data) + POS_OFFSET)
+                        components[i] = struct.unpack("<I", f.read(4))[0]
                     f.seek(
                         comp_start_offset
                         + len(type_data)
@@ -274,52 +249,9 @@ class TextRegistry:
                         )["LEN"]
                     )
 
-                return compones.get(compon_id)
+                return components
         except OSError:
             return None
-
-    def __get_slot_by_member_id(self, member_id: int) -> int:
-
-        # 检查两个文件是否都存在
-        if not (os.path.exists(self.__ptr_file) and os.path.exists(self.__mem_file)):
-            return 0
-
-        with open(self.__ptr_file, "rb") as f:
-            ptr_data = f.read()
-        with open(self.__mem_file, "rb") as f:
-            mem_data = f.read()
-
-        # 验证数据长度
-        if len(ptr_data) % 4 != 0 or len(mem_data) % 30 != 0:
-            return 0
-
-        # 一次性解包所有指针（1-based 元组）
-        num_members = len(ptr_data) // 4
-        ptrs = (None, *struct.unpack(f"<{num_members}I", ptr_data))
-
-        # 构建 members 列表（1-based 元组）
-        members = (
-            None,
-            *[
-                Member(
-                    fields[0],
-                    LinkType(fields[1]),
-                    *fields[2:],
-                )
-                for fields in member_fmt.iter_unpack(mem_data)
-            ],
-        )
-
-        # 检查 element_id 是否在有效范围内
-        if not (1 <= member_id <= num_members):
-            return 0
-
-        member_position = ptrs[member_id]  # 获取内存索引（1-based）
-        # 检查内存索引是否有效
-        if not (1 <= member_position < len(members)):
-            return 0
-        slot = members[member_position].SlotId
-        return slot
 
     def __get_rtx_text(self, offset: int, length: int) -> str:
         # Text.rtx (原始文本存储) 根据元素id可推断出知识树的文本标题。
@@ -351,57 +283,62 @@ class TextRegistry:
                 text_content = raw_text.decode("utf-8", errors="replace")
         return text_content
 
-    def refresh(self, element_id: int, compon_id: int = 1):
+    def refresh(self, element_id: int):
         records = self.__parse_elinfo()
         record = records[element_id] if 0 < element_id < len(records) else None
         if record is None:
             return
 
+        # 解析元素类型和标题
         self.eType = record["element_type"]
-        __titleMember = self.__get_member_by_position(record["title_text_id"])
-        self.eTitle = self.__get_rtx_text(
-            __titleMember.RtxOffset, __titleMember.RtxLength
+        tMember = self.__get_member_by_position(record["title_text_id"])
+        self.eTitle = self.__get_rtx_text(tMember.RtxOffset, tMember.RtxLength)
+
+        # 解析组件组，获取组件信息
+        self.eComponents = {}
+        Component = namedtuple(
+            "Component",
+            ["mPosition", "mLinkType", "mPath", "eText"],
         )
-        self._mPosition = self.__get_member_position(record["compon_pos"], compon_id)
-        if self._mPosition is None:
-            return
+        component_group_positions = self.__get_member_component_group_positions(
+            record["compon_pos"]
+        )
+        for compon_id, position in component_group_positions.items():
+            # mIndex = None  # members_current_index
+            # mUse = None  # number_of_users_of_the_member
+            # mPosition = None  # members_physical_position
+            mSlot = None  # filespace_slot_used_by_the_member
+            mPath = None  # members_filespace_path
+            mLinkType = None  # members_link_type
+            eText = None
 
-        __Member = self.__get_member_by_position(self._mPosition)
-        if __Member is None:
-            return
+            if position is None:
+                continue
 
-        self._mIndex = self.__get_member_id(self._mPosition)
-        self._mLinkType = __Member.LinkType
-        self._mUse = __Member.UseCount
+            Member = self.__get_member_by_position(position)
+            if Member is None:
+                continue
 
-        self._mSlot = __Member.SlotId
-        if self._mSlot is None:
-            return
+            mLinkType = Member.LinkType
+            mSlot = Member.SlotId
+            if mSlot is None:
+                continue
 
-        self.mPath = self.__compute_element_path(self._mSlot)
-        self.eText = self.__get_rtx_text(__Member.RtxOffset, __Member.RtxLength)
+            mPath = self.__compute_element_path(mSlot)
+            eText = self.__get_rtx_text(Member.RtxOffset, Member.RtxLength)
+            self.eComponents[compon_id] = Component(
+                mPosition=position,
+                mLinkType=mLinkType,
+                mPath=mPath,
+                eText=eText,
+            )
 
 
 if __name__ == "__main__":
     # 测试代码
-    text_registry = TextRegistry(r"D:\SuperMemo\systems\Reading-And-Review")
-    text_registry.refresh(element_id=2310)
+    currEl = TextRegistry(r"D:\SuperMemo\systems\Reading-And-Review")
+    currEl.refresh(element_id=2310)
     pass
-
-    # max_records = 50
-    # records = text_registry.__parse_elinfo()
-    # line = []
-    # line.append(f"共加载 {len(records)} 条 ElementInfo 记录，测试前 {max_records} 条\n")
-    # line.append("ID\tregistryId")
-    # for record in records:
-    #     member_position = text_registry.__get_member_position(record["compon_pos"])
-    #     if member_position is not None:
-    #         line.append(f"{record['element_id']}\t{member_position!s}")
-    #     else:
-    #         line.append(f"{record['element_id']}\t{'None'}")
-    # with open("compon_path.txt", "w", encoding="utf-8") as f:
-    #     f.write("\n".join(line))
-    # print("测试完成，结果已写入 compon_path.txt")
 
     # \systems\Reading-And-Review\temp\文件夹下自动生成当前显示的元素：Element#2582-Component#1.htm，
     # 可以直接读取这个或者根据这个文件名读取源文件。至少可以维护一个当前显示元素表了
