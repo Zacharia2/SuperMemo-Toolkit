@@ -592,7 +592,7 @@ def find_im(directory):
 
 
 def organize_unused_im(elements_folder):
-
+    """仅清理web_pic和local_pic文件夹中未被引用的图片，移动到temp文件夹中。"""
     web_pic = os.path.join(elements_folder, "web_pic")
     local_pic = os.path.join(elements_folder, "local_pic")
     temp_dir = os.path.normpath(os.path.join(elements_folder, "../", "temp"))
@@ -605,7 +605,9 @@ def organize_unused_im(elements_folder):
         return
 
     print("PathPix::", "清理web_pic, local_pic文件夹中未被使用的图片")
-    # 判断mtime时间戳过滤掉大部分，只处理被修改的。
+    # 增量清理，必须知道图片被多少链接引用的数量。
+    # {图片短路径: [{link1: htm1}, {link2: htm2}, {link3: htm2}]}
+    # image_ref_record: dict[str : list[dict[str, str]]] = {}
     # 'local_pic\\FengTangChengShiXinFa\\96-i.jpg'
     all_referenced_images = set()
     htm_paths_and_mtimes = collect_documents(elements_folder)
@@ -636,11 +638,12 @@ def organize_unused_im(elements_folder):
             for image in filtered_im_list:
                 parse_result = urlparse(image.attrs["src"])
                 file_path = unquote(parse_result.path)
-                all_referenced_images.add(
-                    os.path.normpath(file_path)
-                    .replace("[PrimaryStorage]", "")
-                    .removeprefix(os.path.normpath("/"))
-                )
+                if "web_pic" in file_path or "local_pic" in file_path:
+                    all_referenced_images.add(
+                        os.path.normpath(file_path)
+                        .replace("[PrimaryStorage]", "")
+                        .removeprefix(os.path.normpath("/"))
+                    )
         except UnicodeDecodeError as e:
             print(htm_path + "\n\t" + e)
 
@@ -715,7 +718,8 @@ def start(elements_folder):
     print("图片位置：", [web_pic_folder, local_pic_folder])
     print("临时文件：", collection_temp_folder)
 
-    # 读取旧列表
+    # 读取旧列表,transfer_images、pathpix、organize_unused_im，他们diff的区别在于每个人执行的时间不同。
+    # 所以似乎不能混用同一个历史记录？？？
     previous_scan_conf_path = os.path.join(
         config_dir, f"previous_scan_{makeNameSafe(elements_folder).lower()}.json"
     )
@@ -738,6 +742,8 @@ def start(elements_folder):
 
 
 def transfer_images(src_kno, dst_kno):
+    """仅转移web_pic和local_pic文件夹中缺失的图片，从src_kno移动到dst_kno。"""
+
     src_elements_root = r"D:\SuperMemo\systems\Reading-And-Review\elements"
 
     dst_elements_root = r"D:\SuperMemo\systems\Reading-And-Review\elements"
@@ -780,7 +786,7 @@ def transfer_images(src_kno, dst_kno):
                 # 示例：'local_pic\\FengTangChengShiXinFa\\96-i.jpg'
                 # 仅收集elements下的图片路径，其他的忽略。
                 # 目前仅收集相对路径化的图片路径。
-                if "[PrimaryStorage]" in file_path or "[SecondaryStorage]" in file_path:
+                if "local_pic" in file_path or "web_pic" in file_path:
                     all_referenced_local_images.add(
                         os.path.normpath(file_path)
                         .replace("[PrimaryStorage]", "")
