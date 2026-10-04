@@ -572,15 +572,15 @@ def organize_unused_im(elements_folder):
         print("PathPix:: 未处理过此集合, web_pic 和 local_pic 文件夹不存在。")
         return
 
-        print("PathPix::", "清理web_pic, local_pic文件夹中未被使用的图片")
-        # 判断mtime时间戳过滤掉大部分，只处理被修改的。
+    print("PathPix::", "清理web_pic, local_pic文件夹中未被使用的图片")
+    # 判断mtime时间戳过滤掉大部分，只处理被修改的。
     # 'local_pic\\FengTangChengShiXinFa\\96-i.jpg'
     all_referenced_images = set()
     htm_paths_and_mtimes = collect_documents(elements_folder)
     for htm_path, _ in tqdm(htm_paths_and_mtimes, desc="收集被引用的图片"):
-            try:
+        try:
             with open(htm_path, "rb") as f:
-                    raw_data = f.read()
+                raw_data = f.read()
                 best = from_bytes(raw_data).best()
                 if best:
                     encoding = best.encoding
@@ -589,18 +589,18 @@ def organize_unused_im(elements_folder):
                     print(f"{htm_path}, 无法检测编码")
                     continue
 
-                content = raw_data.decode(encoding=encoding, errors="xmlcharrefreplace")
-                soup = BeautifulSoup(content, "html.parser")
-                img_tags = soup.find_all("img")
+            content = raw_data.decode(encoding=encoding, errors="xmlcharrefreplace")
+            soup = BeautifulSoup(content, "html.parser")
+            img_tags = soup.find_all("img")
 
-                filtered_im_list = list(
-                    filter(
+            filtered_im_list = list(
+                filter(
                     lambda im_node: (
                         "src" in im_node.attrs and im_node.attrs["src"] != ""
                     ),
-                        img_tags,
-                    )
+                    img_tags,
                 )
+            )
             for image in filtered_im_list:
                 parse_result = urlparse(image.attrs["src"])
                 file_path = unquote(parse_result.path)
@@ -609,7 +609,7 @@ def organize_unused_im(elements_folder):
                     .replace("[PrimaryStorage]", "")
                     .removeprefix(os.path.normpath("/"))
                 )
-            except UnicodeDecodeError as e:
+        except UnicodeDecodeError as e:
             print(htm_path + "\n\t" + e)
 
     # 对比所有图片文件夹中的图片，找出未被引用的图片。
@@ -625,8 +625,8 @@ def organize_unused_im(elements_folder):
         if image_path not in all_referenced_images:
             unused_pic_list.append(image)
 
-        # 移动到temp文件夹
-        if len(unused_pic_list) > 0:
+    # 移动到temp文件夹
+    if len(unused_pic_list) > 0:
         for image in unused_pic_list:
             image_path = image.removeprefix(
                 os.path.normpath(elements_folder.removesuffix(os.path.normpath("/")))
@@ -634,22 +634,22 @@ def organize_unused_im(elements_folder):
             )
             # 'D:\\SuperMemo\\systems\\Reading-And-Review\\temp\\unused_im\\local_pic_XueHuiTiWen(YuanShuDi12Ban)_00001.jpeg'
             dst = os.path.join(unused_pic, makeNameSafe(image_path))
-                try:
+            try:
                 print("处理: ", image_path)
-                    mkdir(unused_pic)
-                    # 将一个文件或文件夹从 src 移动到 dst 如果 dst 已存在且为文件夹，则 src 将会被移动到 dst内。
+                mkdir(unused_pic)
+                # 将一个文件或文件夹从 src 移动到 dst 如果 dst 已存在且为文件夹，则 src 将会被移动到 dst内。
                 shutil.move(image, dst)
-                except Exception as e:
+            except Exception as e:
                 print(f"移动至unused_pic时发生错误: {e!s}")
-        else:
-            print("\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
+    else:
+        print("\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
 
-        # 删除空白图书图片文件夹。
-        # 查找localpic下的所有空白文件夹并删除
-        for entry in os.scandir(local_pic):
-            # not os.listdir(entry.path)即为空文件夹。
-            if entry.is_dir() and not os.listdir(entry.path):
-                os.rmdir(entry.path)
+    # 删除空白图书图片文件夹。
+    # 查找localpic下的所有空白文件夹并删除
+    for entry in os.scandir(local_pic):
+        # not os.listdir(entry.path)即为空文件夹。
+        if entry.is_dir() and not os.listdir(entry.path):
+            os.rmdir(entry.path)
 
 
 def single_file(fullpath: str):
@@ -731,6 +731,84 @@ def start(elements_folder):
     # 保存生成字典
     config.dump_config(conf_old_dict_filter_path, gen_dict_filter)
 
+
+def transfer_images(src_kno, dst_kno):
+    src_elements_root = r"D:\SuperMemo\systems\Reading-And-Review\elements"
+
+    dst_elements_root = r"D:\SuperMemo\systems\Reading-And-Review\elements"
+    dst_web_pic = os.path.join(dst_elements_root, "web_pic")
+    dst_local_pic = os.path.join(dst_elements_root, "local_pic")
+
+    print("PathPix::", "收集dst_kno缺失的图片，从src_kno移动到目的位置。")
+
+    # 收集所有被引用的图片路径。
+    all_referenced_local_images = set()
+    for htm_path, _ in tqdm(
+        collect_documents(dst_elements_root), desc="收集被引用的图片"
+    ):
+        try:
+            with open(htm_path, "rb") as f:
+                raw_data = f.read()
+                best = from_bytes(raw_data).best()
+                if best:
+                    encoding = best.encoding
+                else:
+                    encoding = None
+                    print(f"{htm_path}, 无法检测编码")
+                    continue
+
+            content = raw_data.decode(encoding=encoding, errors="xmlcharrefreplace")
+            soup = BeautifulSoup(content, "html.parser")
+            img_tags = soup.find_all("img")
+
+            filtered_im_list = list(
+                filter(
+                    lambda im_node: (
+                        "src" in im_node.attrs and im_node.attrs["src"] != ""
+                    ),
+                    img_tags,
+                )
+            )
+            for im in filtered_im_list:
+                parse_result = urlparse(im.attrs["src"])
+                file_path = unquote(parse_result.path)
+                # 示例：'local_pic\\FengTangChengShiXinFa\\96-i.jpg'
+                # 仅收集elements下的图片路径，其他的忽略。
+                # 目前仅收集相对路径化的图片路径。
+                if "[PrimaryStorage]" in file_path or "[SecondaryStorage]" in file_path:
+                    all_referenced_local_images.add(
+                        os.path.normpath(file_path)
+                        .replace("[PrimaryStorage]", "")
+                        .replace("[SecondaryStorage]", "")
+                        .removeprefix(os.path.normpath("/"))
+                    )
+        except UnicodeDecodeError as e:
+            print(htm_path + "\n\t" + e)
+
+    # 收集所有存在的图片路径。
+    # 'local_pic\\FengTangChengShiXinFa\\96-i.jpg'
+    all_local_images = [
+        # 相对路径化，以elements为根文件夹的路径。
+        image.removeprefix(
+            os.path.normpath(dst_elements_root.removesuffix(os.path.normpath("/")))
+            + os.path.normpath("/")
+        )
+        for image in find_im(dst_web_pic) + find_im(dst_local_pic)
+    ]
+
+    # 检查缺失的图片路径，并从src_kno移动到dst_kno。
+    # 相对elements为根文件夹的路径。'local_pic\\FengTangChengShiXinFa\\96-i.jpg'
+    missing_images = set(all_referenced_local_images) - set(all_local_images)
+    for relative_missing_image in missing_images:
+        src_image_path = os.path.join(src_elements_root, relative_missing_image)
+        dst_image_path = os.path.join(dst_elements_root, relative_missing_image)
+        if os.path.exists(src_image_path):
+            mkdir(os.path.dirname(dst_image_path))
+            shutil.move(src_image_path, dst_image_path)
+            print(f"已移动缺失图片: {relative_missing_image}")
+
+
+# transfer_images("", "")
 
 # 区分文件和文件夹路径。文件就使用path，文件夹就使用folder
 

@@ -256,12 +256,11 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
 
 # TODO
 @main.command()
-@click.argument("form_kno")
-@click.argument("to_kno")
-def transfer(form_kno, to_kno):
+@click.argument("src_kno")
+@click.argument("dst_kno")
+def transfer(src_kno, dst_kno):
     """转移知识树分支或合并集合后, 在两个集合之间, 转移 pathpix 管理的图片"""
-    if transfer:
-        click.echo(f"转移图片从 {form_kno} 到 {to_kno} (功能尚未实现)")
+    click.echo(f"转移图片从 {src_kno} 到 {dst_kno} (功能尚未实现)")
 
 
 @main.command()
