@@ -741,12 +741,9 @@ def start(elements_folder):
     config.dump_config(previous_scan_conf_path, now_scan)
 
 
-def transfer_images(src_kno, dst_kno):
+def transfer_images(src_elements_root: str, dst_elements_root: str):
     """仅转移web_pic和local_pic文件夹中缺失的图片，从src_kno移动到dst_kno。"""
 
-    src_elements_root = r"D:\SuperMemo\systems\Reading-And-Review\elements"
-
-    dst_elements_root = r"D:\SuperMemo\systems\Reading-And-Review\elements"
     dst_web_pic = os.path.join(dst_elements_root, "web_pic")
     dst_local_pic = os.path.join(dst_elements_root, "local_pic")
 

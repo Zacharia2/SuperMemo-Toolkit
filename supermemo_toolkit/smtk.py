@@ -119,7 +119,6 @@ def config_list(voices, recommend):
         return
 
 
-# TODO
 @click.group()
 def kno():
     """管理 SuperMemo KNO 知识集合"""
@@ -207,7 +206,7 @@ def kno_remove(kno_name):
     smtk_config.dump_config(smtk_config_file_path, conf_dict)
 
 
-def get_elements_path(col_name: str, kno: bool):
+def get_elements_path(col_name: str, kno=False):
     if kno:
         conf_dict = smtk_config.read_config(smtk_config_file_path)
         if smtk_config.KNOS in conf_dict and len(conf_dict[smtk_config.KNOS]) > 0:
@@ -359,13 +358,17 @@ def pathpix(col_name, clean, fullpath, least_col, gui, kno):
         return
 
 
-# TODO
 @main.command()
 @click.argument("src_kno")
 @click.argument("dst_kno")
-def transfer(src_kno, dst_kno):
+@click.option("--kno", is_flag=True, help="离散的 KNO 集合 (非系统集合)")
+def transfer(src_kno, dst_kno, kno):
     """转移知识树分支或合并集合后, 在两个集合之间, 转移 pathpix 管理的图片"""
-    click.echo(f"转移图片从 {src_kno} 到 {dst_kno} (功能尚未实现)")
+    click.echo(f"转移集合中web和local文件夹图片: 从 {src_kno} 到 {dst_kno}")
+    im_sort_out.transfer_images(
+        get_elements_path(src_kno, kno), get_elements_path(dst_kno, kno)
+    )
+    click.echo("图片转移完成")
 
 
 @main.command()
