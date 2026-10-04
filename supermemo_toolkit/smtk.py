@@ -50,7 +50,7 @@ def config_set(key: str, value: str):
     conf_list = [
         smtk_config.PROGRAM,
         smtk_config.SYSTEMS,
-        smtk_config.SINGLE,
+        smtk_config.KNOS,
         smtk_config.VOICE,
         smtk_config.RATE,
         smtk_config.VOLUME,
@@ -135,22 +135,76 @@ def kno_list():
         click.secho("Please set program location! config::program is null!", fg="red")
         return
     click.secho(f"smtk is working on: {sm_location}", fg="green")
+
+    # 打印系统集合
     col_list = smtk_config.get_collections_primaryStorage(sm_location)
     for col_name in col_list:
-        click.echo(f"集合名称: [{col_name}] [systems]")
-        # click.echo(f"集合名称: [{col_name}] [discrete]")
+        click.echo(f"集合名称: [{col_name}](program)")
+
+    # 打印离散集合
+    conf_dict = smtk_config.read_config(smtk_config_file_path)
+    if smtk_config.KNOS in conf_dict and len(conf_dict[smtk_config.KNOS]) > 0:
+        for item in conf_dict[smtk_config.KNOS]:
+            for kno_name in item:
+                click.echo(f"集合名称: [{kno_name}](kno)")
 
 
 @kno.command(name="add")
-def kno_add():
+@click.argument("kno_path")
+def kno_add(kno_path):
     """添加集合"""
-    click.echo("添加集合功能尚未实现。")
+    conf_dict = smtk_config.read_config(smtk_config_file_path)
+    if not os.path.basename(kno_path).lower().endswith(".kno"):
+        click.echo("无效的集合文件路径，请提供有效的集合路径：'path/file.kno'。")
+        return
+    kno_name = os.path.splitext(os.path.basename(kno_path))[0]
+    kno_path = os.path.join(os.path.dirname(os.path.normpath(kno_path)), kno_name)
+
+    if smtk_config.KNOS in conf_dict and len(conf_dict[smtk_config.KNOS]) > 0:
+        for item in conf_dict[smtk_config.KNOS]:
+            if kno_name in item:
+                item[kno_name] = kno_path
+
+                click.echo("集合 KNO:")
+                for item in conf_dict[smtk_config.KNOS]:
+                    for kno_name in item:
+                        click.echo(f"集合名称: [{kno_name}](kno)")
+
+                smtk_config.dump_config(smtk_config_file_path, conf_dict)
+                return
+        conf_dict[smtk_config.KNOS].append({kno_name: kno_path})
+    else:
+        conf_dict[smtk_config.KNOS] = [{kno_name: kno_path}]
+
+    click.echo("集合 KNO:")
+    for item in conf_dict[smtk_config.KNOS]:
+        for kno_name in item:
+            click.echo(f"集合名称: [{kno_name}](kno)")
+
+    smtk_config.dump_config(smtk_config_file_path, conf_dict)
 
 
 @kno.command(name="remove")
-def kno_remove():
+@click.argument("kno_name")
+def kno_remove(kno_name):
     """删除集合"""
-    click.echo("删除集合功能尚未实现。")
+    conf_dict = smtk_config.read_config(smtk_config_file_path)
+    if smtk_config.KNOS in conf_dict and any(
+        kno_name in x for x in conf_dict[smtk_config.KNOS]
+    ):
+        conf_dict[smtk_config.KNOS] = [
+            x for x in conf_dict[smtk_config.KNOS] if kno_name not in x
+        ]
+    else:
+        click.echo(f"集合 {kno_name} 不存在于配置文件中。")
+        return
+
+    click.echo("集合 KNO:")
+    for item in conf_dict[smtk_config.KNOS]:
+        for name in item:
+            click.echo(f"集合名称: [{name}](kno)")
+
+    smtk_config.dump_config(smtk_config_file_path, conf_dict)
 
 
 @main.command()

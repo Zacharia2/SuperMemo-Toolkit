@@ -2,10 +2,10 @@ import configparser
 import json
 import os
 
-PROGRAM, SYSTEMS, SINGLE, VOICE, RATE, VOLUME = (
+PROGRAM, SYSTEMS, KNOS, VOICE, RATE, VOLUME = (
     "program",
     "systems",
-    "single",
+    "knos",
     "voice",
     "rate",
     "volume",
