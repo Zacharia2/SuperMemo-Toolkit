@@ -543,6 +543,38 @@ def relative_and_localize(wait_htm_path_list, elements_folder, collection_temp_f
             print(item)
 
 
+def diff_scanhtm(elements_folder, previous_scan_path):
+    """返回新旧扫描结果的差集、当前扫描结果"""
+    # ([diff] None One)、([diff] One Two)
+    if os.path.exists(previous_scan_path):
+        previous_scan = config.read_config(previous_scan_path)
+    else:
+        previous_scan = {}
+
+    # 构建一个字典 { path: mtime }
+    now_scan = {path: mtime for path, mtime in collect_documents(elements_folder)}
+
+    diff_list = []
+    if len(previous_scan) > 0:
+        for path, mtime in now_scan.items():
+            # 1.说明文件是存在的
+            if path in previous_scan:
+                # 1.说明是修改过的文件。
+                if mtime != previous_scan[path]:
+                    diff_list.append(path)
+
+            # 2.说明文件是新增的
+            else:
+                diff_list.append(path)
+
+            # 3.previous_scan有的，now_scan没有的，是被删除的。不用管。
+    else:
+        # 第一次添加生成字典。所谓的初始化数据库。
+        print("PathPix:: 未检测到历史记录，本次将会全部整理。")
+        diff_list = list(now_scan)
+    return diff_list, now_scan
+
+
 def find_im(directory):
     im_list = []
     stack = [directory]
@@ -684,52 +716,25 @@ def start(elements_folder):
     print("临时文件：", collection_temp_folder)
 
     # 读取旧列表
-    conf_old_dict_filter_path = os.path.join(
-        config_dir, f"old_{makeNameSafe(elements_folder).lower()}_dict_filter.json"
+    previous_scan_conf_path = os.path.join(
+        config_dir, f"previous_scan_{makeNameSafe(elements_folder).lower()}.json"
     )
-    if os.path.exists(conf_old_dict_filter_path):
-        old_dict_filter = config.read_config(conf_old_dict_filter_path)
-    else:
-        old_dict_filter = {}
-
-    # 构建一个字典 { path: mtime }
-    gen_dict_filter = {}
-    htm_path_mdate_list = collect_documents(elements_folder)
-    for path, mtime in htm_path_mdate_list:
-        gen_dict_filter[path] = mtime
-
-    htm_path_filtered_list = []
-    # 判断字典非空，存在默认为True。
-    if old_dict_filter:
-        # 使用生成字典去迭代读取字典。
-        for path, mtime in gen_dict_filter.items():
-            # 说明文件是存在的
-            if path in old_dict_filter:
-                # 应该找出修改的文件。
-                if mtime != old_dict_filter[path]:
-                    htm_path_filtered_list.append(path)
-            # 说明文件是新增的
-            else:
-                htm_path_filtered_list.append(path)
-            # 读取字典有的，生成字典没有的，是被删除的。
-    else:
-        # 第一次添加生成字典。所谓的初始化数据库。
-        print("PathPix:: 未检测到历史记录，本次将会全部整理。")
-        htm_path_filtered_list = list(gen_dict_filter)
-
-    if htm_path_filtered_list:
+    diff_list, now_scan = diff_scanhtm(elements_folder, previous_scan_conf_path)
+    if len(diff_list) > 0:
         relative_and_localize(
-            htm_path_filtered_list,
+            diff_list,
             elements_folder,
             collection_temp_folder,
         )
     else:
         print("\n\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
+
     # 把处理失败的文件剔除掉，下次重新试过一次。
     for htm_path in report_list:
-        del gen_dict_filter[htm_path]
-    # 保存生成字典
-    config.dump_config(conf_old_dict_filter_path, gen_dict_filter)
+        del now_scan[htm_path]
+
+    # 保存now_scan
+    config.dump_config(previous_scan_conf_path, now_scan)
 
 
 def transfer_images(src_kno, dst_kno):
