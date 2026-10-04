@@ -243,7 +243,6 @@ def get_elements_path(col_name: str, kno=False):
 def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep, kno_name, kno):
     """转换 EPUB 格式图书为 XML 格式图书、预处理 EPUB 为纯 ASCII 字符集"""
     if toc:
-        epub_convert.start_with_toc(epub_path, target_folder)
         if kno_name:
             epub_convert.start_with_toc(
                 epub_path,
@@ -253,9 +252,10 @@ def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep, kno_name, kno):
             click.echo(
                 f"已将转换好的图片文件夹放到目标 {kno_name} 集合 local_pic 文件夹下。"
             )
+        else:
+            epub_convert.start_with_toc(epub_path, target_folder)
         return
     elif seq:
-        epub_convert.start_with_seq(epub_path, target_folder)
         if kno_name:
             epub_convert.start_with_seq(
                 epub_path,
@@ -265,10 +265,11 @@ def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep, kno_name, kno):
             click.echo(
                 f"已将转换好的图片文件夹放到目标 {kno_name} 集合 local_pic 文件夹下。"
             )
+        else:
+            epub_convert.start_with_seq(epub_path, target_folder)
         return
     elif topic:
         if not limit:
-            epub_convert.start_with_topic(epub_path, target_folder, None)
             if kno_name:
                 epub_convert.start_with_topic(
                     epub_path,
@@ -281,8 +282,9 @@ def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep, kno_name, kno):
                 click.echo(
                     f"已将转换好的图片文件夹放到目标 {kno_name} 集合 local_pic 文件夹下。"
                 )
+            else:
+                epub_convert.start_with_topic(epub_path, target_folder, None)
         else:
-            epub_convert.start_with_topic(epub_path, target_folder, limit)
             if kno_name:
                 epub_convert.start_with_topic(
                     epub_path,
@@ -293,6 +295,8 @@ def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep, kno_name, kno):
                 click.echo(
                     f"已将转换好的图片文件夹放到目标集合: {kno_name} 指定文件夹下。"
                 )
+            else:
+                epub_convert.start_with_topic(epub_path, target_folder, limit)
         return
     elif prep:
         format_ascii.epub_format_to_ascii(epub_path, target_folder)
