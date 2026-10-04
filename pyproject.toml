@@ -15,7 +15,7 @@ license = { text = "GPL-2.0-only" }
 requires-python = ">=3.10"
 dependencies = [
     "beautifulsoup4>=4.15.0",
-    "chardet>=7.4.3",
+    "charset-normalizer>=3.4.9",
     "click>=8.4.2",
     "ebooklib>=0.20",
     "edge-tts>=7.2.8",
