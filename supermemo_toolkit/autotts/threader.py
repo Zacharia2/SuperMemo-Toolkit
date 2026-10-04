@@ -80,7 +80,7 @@ class ThreadController:
     def stop(self, thread_id: str):
         with self.lock:
             if thread_id not in self.threads:
-                print(f"[Thread] {thread_id}不在线程x信号表中")
+                print(f"[Thread] {thread_id} 不在 [线程x信号]表 中")
                 return False
             # threads[thread_id]空的话就说明异常退出了，只在这删除
             elif self.threads[thread_id] is None:
@@ -90,7 +90,7 @@ class ThreadController:
             _, stop_event = self.threads[thread_id]
             # thread_id存在表中且threads[thread_id]非空
             # 通知线程退出、等待线程退出
-            # 仅本函数把thread_id从线程x信号表中删除
+            # 仅本函数把thread_id从 [线程x信号]表 中删除
             stop_event.set()
             # 每个线程都是不一样的，抛弃也没事。
             # 只要信号到位，不继续产生东西清除，清除已经产生的东西就好
@@ -105,7 +105,7 @@ class ThreadController:
     def is_alive(self, thread_id: str):
         with self.lock:
             if thread_id not in self.threads:
-                print(f"[Thread] {thread_id}不在线程x信号表中")
+                print(f"[Thread] {thread_id} 不在 [线程x信号]表 中")
                 return False
             # threads[thread_id]空的话就说明异常退出了
             elif self.threads[thread_id] is None:
@@ -119,7 +119,7 @@ class ThreadController:
         thread: threading.Thread
         with self.lock:
             if thread_id not in self.threads:
-                print(f"[Thread] {thread_id}不在线程x信号表中")
+                print(f"[Thread] {thread_id} 不在 [线程x信号]表 中")
                 return
             # threads[thread_id]空的话就说明异常退出了
             elif self.threads[thread_id] is None:
