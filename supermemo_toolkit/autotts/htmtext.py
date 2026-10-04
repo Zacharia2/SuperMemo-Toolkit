@@ -179,12 +179,6 @@ def get_supermemo_ie_document(app=None):
             pythoncom.CoUninitialize()
 
 
-# from functools import singledispatch
-# @singledispatch
-# def get_supermemo_html(app=None):
-#     pass
-# 需要具体类型才能用singledispatch
-# @get_supermemo_html.register
 def get_supermemo_html(ie_document) -> str:
     if ie_document is None:
         return ""
@@ -194,49 +188,3 @@ def get_supermemo_html(ie_document) -> str:
     else:
         content = content.strip()
     return content
-
-
-def get_supermemo_html_path(ie_document):
-    # TODO
-    # Element#33-Component#1.htm存在，但是修改他不会修改内容。
-
-    # IE 组件
-    # doc.URLUnencoded = "file:///D:/SuperMemo/systems/Maths/temp/Element#33-Component#1.htm"
-    # doc.url = "file://D:\\SuperMemo\\systems\\Maths\\temp\\Element#33-Component#1.htm"
-    # IHTMLDocument2 提供 url 属性，返回文档的完整 URL（例如 file:///C:/.../doc.html 或 http://...）。
-
-    # WV 组件来说：
-    # // type 为 page 的 url
-    # // http://localhost:19222/json
-    # document.URL = 'file:///D:/supermemo/systems/foreign%20columns/elements/1/12.PDF'
-    # document.URL = 'file:///D:/supermemo/systems/foreign columns/temp/Element#132-Component#2.htm'
-    # [
-    # {
-    #     "description": "",
-    #     "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@2db6d3cb8b2da04832d959ec60c40e1ced3363d1/inspector.html?ws=localhost:19222/devtools/page/B221BA11595FF85E39939AF8C3BBC2C8",
-    #     "id": "B221BA11595FF85E39939AF8C3BBC2C8",
-    #     "title": "Element#132-Component#2.htm",
-    #     "type": "page",
-    #     "url": "file:///D:/supermemo/systems/foreign columns/temp/Element#132-Component#2.htm",
-    #     "webSocketDebuggerUrl": "ws://localhost:19222/devtools/page/B221BA11595FF85E39939AF8C3BBC2C8"
-    # },
-    # {
-    #     "description": "",
-    #     "devtoolsFrontendUrl": "https://aka.ms/docs-landing-page/serve_rev/@2db6d3cb8b2da04832d959ec60c40e1ced3363d1/inspector.html?ws=localhost:19222/devtools/page/BB88AEA6ADAFF6DE1DFF1A8CE07DA2DD",
-    #     "id": "BB88AEA6ADAFF6DE1DFF1A8CE07DA2DD",
-    #     "title": "Element#132-Component#1.htm",
-    #     "type": "page",
-    #     "url": "file:///D:/supermemo/systems/foreign columns/temp/Element#132-Component#1.htm",
-    #     "webSocketDebuggerUrl": "ws://localhost:19222/devtools/page/BB88AEA6ADAFF6DE1DFF1A8CE07DA2DD"
-    # }
-    # ]
-
-    if ie_document is None:
-        return None
-    url = ie_document.url
-    if url.startswith("file://"):
-        import urllib.request
-        from urllib.parse import urlparse
-
-        return urllib.request.url2pathname(urlparse(url).path)
-    return url  # 非 file 协议时返回原始 URL
