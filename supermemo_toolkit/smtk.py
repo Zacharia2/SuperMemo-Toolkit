@@ -207,6 +207,28 @@ def kno_remove(kno_name):
     smtk_config.dump_config(smtk_config_file_path, conf_dict)
 
 
+def get_elements_path(col_name: str, kno: bool):
+    if kno:
+        conf_dict = smtk_config.read_config(smtk_config_file_path)
+        if smtk_config.KNOS in conf_dict and len(conf_dict[smtk_config.KNOS]) > 0:
+            col_path = next(
+                (x[col_name] for x in conf_dict[smtk_config.KNOS] if col_name in x),
+                None,
+            )
+            print(f"离散集合 {col_name} 的路径: {col_path}")
+            if col_path:
+                elements_path = os.path.join(col_path, "elements")
+            else:
+                click.echo(f"离散集合 {col_name} 不存在于配置文件中。")
+                return
+        else:
+            click.echo(f"离散集合 {col_name} 不存在于配置文件中。")
+            return
+    elif not kno:
+        elements_path = smtk_config.get_collection_primaryStorage(sm_location, col_name)
+    return os.path.normpath(elements_path)
+
+
 @main.command()
 @click.argument("epub_path")
 @click.argument("target_folder")
@@ -218,32 +240,60 @@ def kno_remove(kno_name):
 @click.option(
     "--kno-name", type=str, default=None, help="将转换好后的图片文件夹放到目标KNO集合中"
 )
-def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep, kno_name):
+@click.option("--kno", is_flag=True, help="离散的 KNO 集合 (非系统集合)")
+def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep, kno_name, kno):
     """转换 EPUB 格式图书为 XML 格式图书、预处理 EPUB 为纯 ASCII 字符集"""
     if toc:
         epub_convert.start_with_toc(epub_path, target_folder)
-        # TODO
         if kno_name:
+            epub_convert.start_with_toc(
+                epub_path,
+                target_folder,
+                os.path.join(get_elements_path(kno_name, kno), "local_pic"),
+            )
             click.echo(
-                f"将转换好的图片文件夹放到目标KNO集合: {kno_name} (功能尚未实现)"
+                f"已将转换好的图片文件夹放到目标 {kno_name} 集合 local_pic 文件夹下。"
             )
         return
     elif seq:
         epub_convert.start_with_seq(epub_path, target_folder)
         if kno_name:
+            epub_convert.start_with_seq(
+                epub_path,
+                target_folder,
+                os.path.join(get_elements_path(kno_name, kno), "local_pic"),
+            )
             click.echo(
-                f"将转换好的图片文件夹放到目标KNO集合: {kno_name} (功能尚未实现)"
+                f"已将转换好的图片文件夹放到目标 {kno_name} 集合 local_pic 文件夹下。"
             )
         return
     elif topic:
         if not limit:
             epub_convert.start_with_topic(epub_path, target_folder, None)
+            if kno_name:
+                epub_convert.start_with_topic(
+                    epub_path,
+                    target_folder,
+                    None,
+                    os.path.join(
+                        get_elements_path(kno_name, kno), "elements", "local_pic"
+                    ),
+                )
+                click.echo(
+                    f"已将转换好的图片文件夹放到目标 {kno_name} 集合 local_pic 文件夹下。"
+                )
         else:
             epub_convert.start_with_topic(epub_path, target_folder, limit)
-        if kno_name:
-            click.echo(
-                f"将转换好的图片文件夹放到目标KNO集合: {kno_name} (功能尚未实现)"
-            )
+            if kno_name:
+                epub_convert.start_with_topic(
+                    epub_path,
+                    target_folder,
+                    limit,
+                    os.path.join(get_elements_path(kno_name, kno), "local_pic"),
+                )
+                click.echo(
+                    f"已将转换好的图片文件夹放到目标集合: {kno_name} 指定文件夹下。"
+                )
         return
     elif prep:
         format_ascii.epub_format_to_ascii(epub_path, target_folder)
@@ -275,7 +325,8 @@ def imtex(formula_text, outpath):
 )
 @click.option("--gui", is_flag=True, help="运行图形窗口")
 @click.option("--least-col", is_flag=True, help="整理最后使用的集合 (最后关闭的集合) ")
-def pathpix(col_name, clean, fullpath, least_col, gui):
+@click.option("--kno", is_flag=True, help="离散的 KNO 集合 (非系统集合)")
+def pathpix(col_name, clean, fullpath, least_col, gui, kno):
     """整理集合图片: 本地图片->相对路径化、网络图片->本地化"""
     if sm_location == "null":
         click.secho("Please set program location! config::program is null!", fg="red")
@@ -289,7 +340,7 @@ def pathpix(col_name, clean, fullpath, least_col, gui):
         im_sort_out.start(least_used_col)
         return
     elif col_name:
-        elements_path = smtk_config.get_collection_primaryStorage(sm_location, col_name)
+        elements_path = get_elements_path(col_name, kno)
         if clean:
             im_sort_out.organize_unused_im(elements_path)
         else:

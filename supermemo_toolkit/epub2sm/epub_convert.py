@@ -1,6 +1,8 @@
 import copy
 import io
 import os
+import shutil
+from pathlib import Path
 
 import ebooklib
 from bs4 import BeautifulSoup, Doctype, NavigableString, Tag
@@ -371,7 +373,25 @@ def split_html_with_lenght(book, book_f_name, limit_num):
     return doc.replace("\n", "").replace("\r", "")
 
 
-def start_with_toc(epub_file, save_folder):
+def move_folder(src, dst_parent):
+    src = Path(src)
+    dst_parent = Path(dst_parent)
+
+    if not src.is_dir():
+        print(f"源文件夹不存在或不是文件夹: {src}")
+        return
+
+    dst_parent.mkdir(parents=True, exist_ok=True)
+    target = dst_parent / src.name
+
+    if target.exists():
+        print(f"目标已存在: {target}")
+        return
+
+    shutil.move(str(src), str(dst_parent))
+
+
+def start_with_toc(epub_file, save_folder, save_image_folder=None):
     # UserWarning: In the future version we will turn default option ignore_ncx to True.
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
@@ -404,11 +424,12 @@ def start_with_toc(epub_file, save_folder):
     with open(file, "w", encoding="utf-8") as f:
         f.write(doc.getvalue())
     write_img_file(book, folder)
-
+    if save_image_folder:
+        move_folder(folder, save_image_folder)
     print("转换完成，已存储至：", save_folder)
 
 
-def start_with_seq(epub_file, save_folder):
+def start_with_seq(epub_file, save_folder, save_image_folder=None):
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
     print("开始处理书籍：", book_f_name)
@@ -434,11 +455,12 @@ def start_with_seq(epub_file, save_folder):
     with open(file, "w", encoding="utf-8") as f:
         f.write(doc.getvalue())
     write_img_file(book, folder)
-
+    if save_image_folder:
+        move_folder(folder, save_image_folder)
     print("转换完成，已存储至：", save_folder)
 
 
-def start_with_topic(epub_file, save_folder, limit_num):
+def start_with_topic(epub_file, save_folder, limit_num, save_image_folder=None):
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
     print("开始处理书籍：", book_f_name)
@@ -461,7 +483,8 @@ def start_with_topic(epub_file, save_folder, limit_num):
     with open(file, "w", encoding="utf-8") as f:
         f.write(doc.getvalue())
     write_img_file(book, folder)
-
+    if save_image_folder:
+        move_folder(folder, save_image_folder)
     print("转换完成，已存储至：", save_folder)
 
 
