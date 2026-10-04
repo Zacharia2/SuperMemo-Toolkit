@@ -420,8 +420,15 @@ def autotts(onlyat):
 
 class Shell(cmd.Cmd):
     prompt = ">"
-    os.chdir(os.path.dirname(sys.executable))
-    intro = f"\nSuperMemo 增强工具(交互模式), Ver:{__version__}。 输入 smtk 查看帮助。\ncwd: {os.path.dirname(sys.executable).lower()}\n"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 只在交互模式下 chdir，避免污染 CLI 的 CWD
+        os.chdir(os.path.dirname(sys.executable))
+        self.intro = (
+            f"\nSuperMemo 增强工具(交互模式), Ver:{__version__}。输入 smtk 查看帮助。\n"
+            f"cwd: {os.path.dirname(sys.executable).lower()}\n"
+        )
 
     def do_smtk(self, arg: str):
         if arg.strip() != "":
