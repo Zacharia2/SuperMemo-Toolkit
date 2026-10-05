@@ -1923,6 +1923,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pymem"
+version = "1.14.0"
+source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
+sdist = { url = "https://mirrors.aliyun.com/pypi/packages/1f/fd/1906f383fd9697c0da599580c58f5cd5af48edb55429f6ef994c447fb94e/pymem-1.14.0.tar.gz", hash = "sha256:29f6c32bcad0032888afabadf97d1e4c7757f88873de4d79f7f4c1df9b9e7ef1" }
+wheels = [
+    { url = "https://mirrors.aliyun.com/pypi/packages/0d/a5/23907a4b55d67cd4c0e4b9a37e32f5f1ffaf7e286dcf172a2a1bb9e12444/pymem-1.14.0-py3-none-any.whl", hash = "sha256:2b9cc64b49d0685f73d616ab1f638611f87e8d649869e7a556f050f677c42a7e" },
+]
+
+[[package]]
 name = "pyparsing"
 version = "3.3.2"
 source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }
@@ -2138,6 +2147,7 @@ dependencies = [
     { name = "numpy", version = "2.4.6", source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }, marker = "python_full_version == '3.11.*'" },
     { name = "numpy", version = "2.5.1", source = { registry = "https://mirrors.aliyun.com/pypi/simple/" }, marker = "python_full_version >= '3.12'" },
     { name = "pillow" },
+    { name = "pymem" },
     { name = "pyperclip" },
     { name = "pypinyin" },
     { name = "pyquery" },
@@ -2169,6 +2179,7 @@ requires-dist = [
     { name = "miniaudio", specifier = ">=1.71" },
     { name = "numpy", specifier = ">=2.2.6" },
     { name = "pillow", specifier = ">=12.3.0" },
+    { name = "pymem", specifier = ">=1.14.0" },
     { name = "pyperclip", specifier = ">=1.11.0" },
     { name = "pypinyin", specifier = ">=0.55.0" },
     { name = "pyquery", specifier = ">=2.0.1" },

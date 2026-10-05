@@ -176,7 +176,9 @@ def get_collections_primaryStorage(sm_location):
         path = os.path.join(systems, current)
         # if os.path.isfile(path):
         if os.path.isdir(path) and current != ".git":
-            collections.update({current: os.path.join(path, "elements")})
+            collections.update(
+                {current: os.path.normpath(os.path.join(path, "elements"))}
+            )
 
     return collections
 
