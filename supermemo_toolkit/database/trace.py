@@ -116,8 +116,14 @@ def trace(callback: Callable[[int, TextRegistry], any]):
 
         last_id = None
         while True:
+            if not app.is_process_running():
+                return
             elem_id = reader.read_id()
             if elem_id is not None and elem_id != last_id:
+                if elem_id == 0:
+                    time.sleep(0.5)
+                    if not app.is_process_running():
+                        return
                 last_id = elem_id
                 callback(elem_id, reg)
             time.sleep(0.1)
