@@ -102,7 +102,7 @@ def trace(callback: Callable[[int, TextRegistry], any]):
     active_kno_path = get_active_kno_path()
     if active_kno_path == None:
         return
-    reg = TextRegistry(active_kno_path)
+    text_reg = TextRegistry(active_kno_path)
 
     reader = ElementNo(exe_full_name, arch)
     try:
@@ -125,7 +125,8 @@ def trace(callback: Callable[[int, TextRegistry], any]):
                     if not app.is_process_running():
                         return
                 last_id = elem_id
-                callback(elem_id, reg)
+                text_reg.refresh(element_id=elem_id)
+                callback(text_reg)
             time.sleep(0.1)
     finally:
         reader.detach()
@@ -134,10 +135,9 @@ def trace(callback: Callable[[int, TextRegistry], any]):
 if __name__ == "__main__":
     # 仅需提供：sm_location，并且打开程序
 
-    def work(id, currEl):
-        currEl.refresh(element_id=id)
+    def work(text_reg: TextRegistry):
         print(
-            f"[Registry] [No. {id}] Title:{currEl.eTitle[:12]} Path:{currEl.eComponents[1].mPath}"
+            f"[Registry] [No. {text_reg.eId}] Title:{text_reg.eTitle[:12]} Path:{text_reg.eComponents[1].mPath}"
         )
 
     trace(work)

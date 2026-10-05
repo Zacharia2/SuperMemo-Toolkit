@@ -78,6 +78,7 @@ class TextRegistry:
     # 设计为函数式的，实时读取文件并计算状态。暂时仅限正在显示的当前元素。
     # 一般情况下，若为topic就选第零个组件，若为item就选第零和第一个组件。
 
+    eId = None
     eTitle = None
     eType = None
     eComponents = None
@@ -284,8 +285,9 @@ class TextRegistry:
         return text_content
 
     def refresh(self, element_id: int):
+        self.eId = element_id
         records = self.__parse_elinfo()
-        record = records[element_id] if 0 < element_id < len(records) else None
+        record = records[self.eId] if 0 < self.eId < len(records) else None
         if record is None:
             return
 
