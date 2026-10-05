@@ -1,6 +1,7 @@
 import ctypes
 import os
 import time
+import warnings
 from collections.abc import Callable
 from tkinter import messagebox
 
@@ -80,6 +81,9 @@ def get_active_kno_path():
 
 def trace(callback: Callable[[int, TextRegistry], any]):
     try:
+        warnings.filterwarnings(
+            "ignore", message=".*32-bit application should be automated.*"
+        )
         app = Application(backend="win32").connect(class_name="TElWind")
         h = win32api.OpenProcess(
             win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
@@ -120,12 +124,12 @@ def trace(callback: Callable[[int, TextRegistry], any]):
                 return
             elem_id = reader.read_id()
             if elem_id is not None and elem_id != last_id:
-                if elem_id == 0:
+                last_id = elem_id
+                text_reg.refresh(element_id=elem_id)
+                if text_reg.eId == None:
                     time.sleep(0.5)
                     if not app.is_process_running():
                         return
-                last_id = elem_id
-                text_reg.refresh(element_id=elem_id)
                 callback(text_reg)
             time.sleep(0.1)
     finally:

@@ -289,6 +289,10 @@ class TextRegistry:
         records = self.__parse_elinfo()
         record = records[self.eId] if 0 < self.eId < len(records) else None
         if record is None:
+            self.eId = None
+            self.eType = None
+            self.eTitle = None
+            self.eComponents = None
             return
 
         # 解析元素类型和标题
