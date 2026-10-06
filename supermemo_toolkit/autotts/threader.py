@@ -1,6 +1,6 @@
 import sys
 import threading
-from typing import Callable, Dict, List
+from collections.abc import Callable
 
 
 class Id:
@@ -38,7 +38,7 @@ class Id:
         """
         self.__release(int(tid.split("thread_")[-1]))
 
-    def to_array(self) -> List[int]:
+    def to_array(self) -> list[int]:
         """
         返回当前已注册 ID 的列表。
         """
@@ -47,7 +47,7 @@ class Id:
 
 class ThreadController:
     def __init__(self):
-        self.threads: Dict[str, tuple[threading.Thread, threading.Event]] = {}
+        self.threads: dict[str, tuple[threading.Thread, threading.Event]] = {}
         self.lock = threading.Lock()
         self.reg_id = Id()
 
