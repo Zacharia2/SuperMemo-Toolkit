@@ -248,14 +248,14 @@ class TempHandler(FileSystemEventHandler):
                 except OSError:
                     continue
                 self.seen[name] = mtime
-                if mtime > latest_mtime and mtime > self.session_start:
+                if mtime > self.session_start and mtime > latest_mtime:
                     latest_mtime = mtime
                     latest_file = name
         except FileNotFoundError:
             pass
 
         # 启动时主动识别一次：取 mtime 最新的文件作为当前元素
-        if latest_mtime > self.session_start and latest_file:
+        if latest_file:
             m = self.PATTERN.search(latest_file)
             self.callback(int(m.group(1)))
 
