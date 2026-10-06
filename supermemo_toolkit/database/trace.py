@@ -137,7 +137,7 @@ def trace(callback: Callable[[int, TextRegistry], any]):
         reader.detach()
 
 
-def trace_with_temp_handler(callback: Callable[[int, TextRegistry], any]):
+def trace_with_observer(callback: Callable[[int, TextRegistry], any]):
     try:
         warnings.filterwarnings(
             "ignore", message=".*32-bit application should be automated.*"
@@ -186,4 +186,4 @@ if __name__ == "__main__":
         )
 
     # trace(work)
-    trace_with_temp_handler(work)
+    trace_with_observer(work)
