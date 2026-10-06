@@ -1,9 +1,12 @@
 import ctypes
 import os
+import sys
 import time
 import warnings
 from collections.abc import Callable
+from pathlib import Path
 from tkinter import messagebox
+from typing import Literal
 
 import win32api
 import win32con
@@ -19,13 +22,13 @@ from supermemo_toolkit.utilscripts import config as smtk_config
 
 class Trace:
     # 常量定义
-    GENERIC_READ = 0x80000000
-    GENERIC_WRITE = 0x40000000
-    FILE_SHARE_NONE = 0x00000000  # 关键：不允许任何共享
-    OPEN_EXISTING = 3
-    INVALID_HANDLE_VALUE = -1
+    _GENERIC_READ = 0x80000000
+    _GENERIC_WRITE = 0x40000000
+    _FILE_SHARE_NONE = 0x00000000  # 关键：不允许任何共享
+    _OPEN_EXISTING = 3
+    _INVALID_HANDLE_VALUE = -1
 
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
     def __init__(self):
         self.__stoped = False
@@ -46,17 +49,17 @@ class Trace:
         使用 CreateFileW 以 FILE_SHARE_NONE 模式打开文件来检测锁定状态。
         """
         # 尝试以“独占”方式打开文件：请求读权限，且不允许任何共享
-        handle = self.kernel32.CreateFileW(
+        handle = self._kernel32.CreateFileW(
             filepath,
-            self.GENERIC_READ,  # 请求读权限
-            self.FILE_SHARE_NONE,  # 不允许其他进程共享
+            self._GENERIC_READ,  # 请求读权限
+            self._FILE_SHARE_NONE,  # 不允许其他进程共享
             None,  # 默认安全属性
-            self.OPEN_EXISTING,  # 文件必须存在
+            self._OPEN_EXISTING,  # 文件必须存在
             0,  # 默认标志
             None,  # 无模板文件
         )
 
-        if handle == self.INVALID_HANDLE_VALUE:
+        if handle == self._INVALID_HANDLE_VALUE:
             error_code = ctypes.get_last_error()
             # ERROR_SHARING_VIOLATION = 32
             if error_code == 32:  # noqa: SIM103
@@ -67,7 +70,7 @@ class Trace:
                 return False
         else:
             # 成功打开，立即关闭句柄
-            self.kernel32.CloseHandle(handle)
+            self._kernel32.CloseHandle(handle)
             # print(f"[ctypes] 文件 {filepath} 未被独占锁定。")
             return False
 
@@ -201,15 +204,41 @@ class Trace:
     def stop(self):
         self.__stoped = True
 
+    def print_info(self, mode=Literal["o", "m"]):
+        def make_link(text: str, url: str) -> str:
+            if text == "":
+                return "None"
+            if not sys.stdout.isatty():
+                return f"{text} ({url})"
+            return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
+
+        def work_print(text_reg: TextRegistry):
+
+            path = (
+                text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
+            )
+
+            # 把本地路径转成 file:// URL
+            try:
+                url = Path(path).resolve().as_uri()
+            except Exception:
+                url = path  # 如果本来就是 URL，就直接用
+
+            path_link = make_link(path, url)
+
+            print(
+                f"[No. {text_reg.eId}] "
+                f"[Type: {text_reg.eType.name}] "
+                f"[Title: {text_reg.eTitle[:12].strip()}] "
+                f"[Path: {path_link}]"
+            )
+
+        if mode == "o":
+            self.trace_with_observer(work_print)
+        if mode == "m":
+            self.trace_with_mem(work_print)
+
 
 if __name__ == "__main__":
     # 仅需提供：sm_location，并且打开程序
-    trace = Trace()
-
-    def work(text_reg: TextRegistry):
-        print(
-            f"[Registry] [No. {text_reg.eId}] Title:{text_reg.eTitle[:12]} Path:{text_reg.eComponents[1].mPath}"
-        )
-
-    # trace(work)
-    trace.trace_with_observer(work)
+    Trace().print_info(mode="m")

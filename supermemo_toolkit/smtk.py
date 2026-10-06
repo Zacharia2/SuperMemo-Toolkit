@@ -4,6 +4,7 @@ import ctypes
 import os
 import shlex
 import sys
+from pathlib import Path
 
 import click
 from edge_tts.voices import list_voices
@@ -11,6 +12,8 @@ from tabulate import tabulate
 
 from supermemo_toolkit.ansm_conv.sm2anki import qa_to_anki
 from supermemo_toolkit.autotts.autotts import run_auto_tts
+from supermemo_toolkit.database.registry import TextRegistry
+from supermemo_toolkit.database.trace import Trace
 from supermemo_toolkit.epub2sm import epub_convert, format_ascii
 from supermemo_toolkit.latex2img import formula_to_png
 from supermemo_toolkit.pathpix import im_sort_out
@@ -416,6 +419,16 @@ def comptitle(htmtoc: str, node: str, xml: str):
 def autotts(onlyat):
     """运行 AutoTTS 卡片朗读 文本转语音"""
     run_auto_tts(onlyat)
+
+
+@main.command()
+@click.option("--mem", is_flag=True, help="通过扫描内存追踪当前元素")
+def trace(mem):
+    """追踪当前元素，并输出当前元素信息"""
+    if mem:
+        Trace().print_info(mode="m")
+    else:
+        Trace().print_info(mode="o")
 
 
 class Shell(cmd.Cmd):
