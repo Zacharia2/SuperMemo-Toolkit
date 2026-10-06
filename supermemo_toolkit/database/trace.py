@@ -92,7 +92,7 @@ def get_active_kno_path():
     return None
 
 
-def trace(callback: Callable[[int, TextRegistry], any]):
+def trace_with_mem(callback: Callable[[int, TextRegistry], any]):
     try:
         warnings.filterwarnings(
             "ignore", message=".*32-bit application should be automated.*"

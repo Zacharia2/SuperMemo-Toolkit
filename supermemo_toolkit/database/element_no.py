@@ -146,6 +146,8 @@ def validate_object(pm, obj_addr, ptr_offset, max_ptr):
 
 
 class ElementNo:
+    """适配sm18、sm19、sm20"""
+
     def __init__(self, file_path, arch):
         self.process_name = os.path.basename(file_path)
         # sm18、sm19、sm20
@@ -225,6 +227,8 @@ class ElementNo:
 
 
 class TempHandler(FileSystemEventHandler):
+    """适配sm18、sm19、sm20"""
+
     PATTERN = re.compile(r"Element#(\d+)-Component#\d+\.htm$", re.IGNORECASE)
 
     def __init__(self, temp_dir, callback, session_start):
