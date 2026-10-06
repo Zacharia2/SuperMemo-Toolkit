@@ -7,6 +7,7 @@ from ctypes import wintypes
 import pymem
 import pymem.process
 import win32api
+from watchdog.events import FileSystemEventHandler
 
 # 32 位：SuperMemo 18 / 19
 _CFG_32 = (
@@ -221,3 +222,69 @@ class ElementNo:
             return self.py_mem.read_uint(obj + self.ptr_offset)
         except Exception:
             return None
+
+
+class TempHandler(FileSystemEventHandler):
+    PATTERN = re.compile(r"Element#(\d+)-Component#\d+\.htm$", re.IGNORECASE)
+
+    def __init__(self, temp_dir, callback):
+        self.temp_dir = temp_dir
+        self.callback = callback
+        self.seen = {}  # filename -> mtime
+        self._init_seen()
+
+    def _init_seen(self):
+        """启动时记录所有已有文件的 mtime，并识别当前元素"""
+        latest_file = None
+        latest_mtime = 0
+        try:
+            for name in os.listdir(self.temp_dir):
+                if not self.PATTERN.search(name):
+                    continue
+                path = os.path.join(self.temp_dir, name)
+                try:
+                    mtime = os.path.getmtime(path)
+                except OSError:
+                    continue
+                self.seen[name] = mtime
+                if mtime > latest_mtime:
+                    latest_mtime = mtime
+                    latest_file = name
+        except FileNotFoundError:
+            pass
+
+        # 启动时主动识别一次：取 mtime 最新的文件作为当前元素
+        if latest_file:
+            m = self.PATTERN.search(latest_file)
+            self.callback(int(m.group(1)))
+
+    def _process(self, path):
+        if not path:
+            return
+        name = os.path.basename(path)
+        if not self.PATTERN.search(name):
+            return
+        try:
+            mtime = os.path.getmtime(path)
+        except OSError:
+            return
+        old = self.seen.get(name)
+        # 文件名已存在且 mtime 没变 → 遗留文件，忽略
+        if old is not None and mtime <= old:
+            return
+        # 新文件或 mtime 更新 → 触发
+        self.seen[name] = mtime
+        m = self.PATTERN.search(name)
+        self.callback(int(m.group(1)))
+
+    def on_created(self, event):
+        if not event.is_directory:
+            self._process(event.src_path)
+
+    def on_modified(self, event):
+        if not event.is_directory:
+            self._process(event.src_path)
+
+    def on_moved(self, event):
+        if not event.is_directory:
+            self._process(event.dest_path)

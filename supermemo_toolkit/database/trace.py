@@ -10,8 +10,9 @@ import win32con
 import win32process
 from pywinauto.application import Application
 from pywinauto.findwindows import ElementNotFoundError
+from watchdog.observers import Observer
 
-from supermemo_toolkit.database.element_no import ElementNo
+from supermemo_toolkit.database.element_no import ElementNo, TempHandler
 from supermemo_toolkit.database.registry import TextRegistry
 from supermemo_toolkit.utilscripts import config as smtk_config
 
@@ -136,6 +137,46 @@ def trace(callback: Callable[[int, TextRegistry], any]):
         reader.detach()
 
 
+def trace_with_temp_handler(callback: Callable[[int, TextRegistry], any]):
+    try:
+        warnings.filterwarnings(
+            "ignore", message=".*32-bit application should be automated.*"
+        )
+        app = Application(backend="win32").connect(class_name="TElWind")
+
+    except Exception as e:  # noqa: BLE001
+        if isinstance(e, ElementNotFoundError):
+            messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
+        else:
+            messagebox.showerror("错误", e)
+        return
+
+    active_kno_path = get_active_kno_path()
+    if active_kno_path == None:
+        return
+    text_reg = TextRegistry(active_kno_path)
+
+    def on_element_changed(elem_id):
+        # print(f"[TempHandler] [No. {elem_id}]")
+        text_reg.refresh(element_id=elem_id)
+        if text_reg.eId == None:
+            time.sleep(0.5)
+            if not app.is_process_running():
+                return
+        callback(text_reg)
+
+    observer = Observer()
+    temp_dir = os.path.join(active_kno_path, "temp")
+    handler = TempHandler(temp_dir, on_element_changed)
+    observer.schedule(handler, temp_dir, recursive=False)
+    observer.start()
+
+    while True:
+        if not app.is_process_running():
+            return
+        time.sleep(0.1)
+
+
 if __name__ == "__main__":
     # 仅需提供：sm_location，并且打开程序
 
@@ -144,4 +185,5 @@ if __name__ == "__main__":
             f"[Registry] [No. {text_reg.eId}] Title:{text_reg.eTitle[:12]} Path:{text_reg.eComponents[1].mPath}"
         )
 
-    trace(work)
+    # trace(work)
+    trace_with_temp_handler(work)

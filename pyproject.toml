@@ -36,6 +36,7 @@ dependencies = [
     "sounddevice>=0.5.5",
     "svglib>=2.2.0",
     "tqdm>=4.69.1",
+    "watchdog>=6.0.0",
     "yattag>=1.16.1",
 ]
 
