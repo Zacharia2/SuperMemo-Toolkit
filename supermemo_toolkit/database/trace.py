@@ -26,6 +26,18 @@ INVALID_HANDLE_VALUE = -1
 kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
 
+def get_process_start_timestamp(pid):
+    """
+    返回进程启动时间的 Unix 时间戳（浮点秒），格式同 time.time()
+    """
+    h = win32api.OpenProcess(win32con.PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+    try:
+        info = win32process.GetProcessTimes(h)
+        return info["CreationTime"].timestamp()
+    finally:
+        win32api.CloseHandle(h)
+
+
 def is_kno_locked_ctypes(filepath):
     """
     使用 CreateFileW 以 FILE_SHARE_NONE 模式打开文件来检测锁定状态。
@@ -167,7 +179,9 @@ def trace_with_observer(callback: Callable[[int, TextRegistry], any]):
 
     observer = Observer()
     temp_dir = os.path.join(active_kno_path, "temp")
-    handler = TempHandler(temp_dir, on_element_changed)
+    handler = TempHandler(
+        temp_dir, on_element_changed, get_process_start_timestamp(app.process)
+    )
     observer.schedule(handler, temp_dir, recursive=False)
     observer.start()
 

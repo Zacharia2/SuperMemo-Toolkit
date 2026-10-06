@@ -227,9 +227,10 @@ class ElementNo:
 class TempHandler(FileSystemEventHandler):
     PATTERN = re.compile(r"Element#(\d+)-Component#\d+\.htm$", re.IGNORECASE)
 
-    def __init__(self, temp_dir, callback):
+    def __init__(self, temp_dir, callback, session_start):
         self.temp_dir = temp_dir
         self.callback = callback
+        self.session_start = session_start
         self.seen = {}  # filename -> mtime
         self._init_seen()
 
@@ -247,14 +248,14 @@ class TempHandler(FileSystemEventHandler):
                 except OSError:
                     continue
                 self.seen[name] = mtime
-                if mtime > latest_mtime:
+                if mtime > latest_mtime and mtime > self.session_start:
                     latest_mtime = mtime
                     latest_file = name
         except FileNotFoundError:
             pass
 
         # 启动时主动识别一次：取 mtime 最新的文件作为当前元素
-        if latest_file:
+        if latest_mtime > self.session_start and latest_file:
             m = self.PATTERN.search(latest_file)
             self.callback(int(m.group(1)))
 
@@ -269,8 +270,11 @@ class TempHandler(FileSystemEventHandler):
         except OSError:
             return
         old = self.seen.get(name)
-        # 文件名已存在且 mtime 没变 → 遗留文件，忽略
+        # 文件名已存在且 mtime 没变 → 忽略
         if old is not None and mtime <= old:
+            return
+        # mtime小于启动时间 → 忽略
+        if mtime <= self.session_start:
             return
         # 新文件或 mtime 更新 → 触发
         self.seen[name] = mtime
