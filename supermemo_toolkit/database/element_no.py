@@ -1,27 +1,50 @@
 import ctypes
+import os
 import re
 import struct
 from ctypes import wintypes
 
 import pymem
 import pymem.process
+import win32api
 
-PTR_SCAN_CONFIG = {
-    64: (
-        re.compile(
-            rb"\x48\x8B\x05([\x00-\xFF]{4})\x8B\x8D[\x00-\xFF]{4}\x89\x88\x90\x07\x00\x00",
-        ),
-        0x790,
-        0x00007FFFFFFFFFFF,
+# 32 位：SuperMemo 18 / 19
+_CFG_32 = (
+    re.compile(
+        rb"\xA1([\x00-\xFF]{4})"  # mov eax, [abs32]
+        rb"\x8B\x55[\x00-\xFF]"  # mov edx, [ebp+disp8]
+        rb"\x89\x90\xF4\x03\x00\x00"  # mov [eax+0x3F4], edx
     ),
-    32: (
-        re.compile(
-            rb"\xA1([\x00-\xFF]{4})\x8B\x55[\x00-\xFF]\x89\x90\xF4\x03\x00\x00",
-        ),
-        0x3F4,
-        0x7FFFFFFF,
+    0x3F4,
+    0x7FFFFFFF,
+)
+
+# 64 位：SuperMemo 20
+_CFG_64 = (
+    re.compile(
+        rb"\x48\x8B\x05([\x00-\xFF]{4})"  # mov rax, [rip+disp32]
+        rb"\x8B\x8D[\x00-\xFF]{4}"  # mov ecx, [rbp+disp32]
+        rb"\x89\x88\x90\x07\x00\x00"  # mov [rax+0x790], ecx
     ),
+    0x790,
+    0x00007FFFFFFFFFFF,
+)
+
+_PTR_SCAN_CONFIG = {
+    (32, "sm18"): _CFG_32,
+    (32, "sm19"): _CFG_32,
+    (64, "sm20"): _CFG_64,
 }
+
+
+def get_file_string_info(path, key):
+    try:
+        translations = win32api.GetFileVersionInfo(path, r"\VarFileInfo\Translation")
+        lang, codepage = translations[0]
+        sub_block = f"\\StringFileInfo\\{lang:04x}{codepage:04x}\\{key}"
+        return win32api.GetFileVersionInfo(path, sub_block)
+    except Exception:
+        return None
 
 
 # 定义 MEMORY_BASIC_INFORMATION 结构体
@@ -49,7 +72,8 @@ kernel32.VirtualQueryEx.restype = ctypes.c_size_t
 
 def scan_aob_execute_read_only(pm, base_address, module_size, pattern, arch):
     """
-    只在可执行段EXECUTE_READ里扫描特征码。条件: MEM_COMMIT + EXECUTE_READ
+    只在可执行段 EXECUTE_READ 里扫描特征码，返回所有候选全局变量地址。
+    条件: MEM_COMMIT + EXECUTE_READ，且非 PAGE_GUARD。
     """
     process_handle = pm.process_handle
     mbi = MEMORY_BASIC_INFORMATION()
@@ -59,6 +83,8 @@ def scan_aob_execute_read_only(pm, base_address, module_size, pattern, arch):
     MEM_COMMIT = 0x1000
     EXECUTE_READ = 0x20
     PAGE_GUARD = 0x100
+
+    candidates = []
 
     while address < end_address:
         ret = kernel32.VirtualQueryEx(
@@ -87,7 +113,13 @@ def scan_aob_execute_read_only(pm, base_address, module_size, pattern, arch):
                     elif arch == 32:
                         abs_bytes = match.group(1)
                         global_var_addr = struct.unpack("<I", abs_bytes)[0]
-                    return global_var_addr
+                    else:
+                        continue
+
+                    # 去重，避免同一地址重复加入
+                    if global_var_addr not in candidates:
+                        candidates.append(global_var_addr)
+                    # print(len(data) / 1024**2)
             except Exception:  # noqa: BLE001, S110
                 pass
 
@@ -95,12 +127,14 @@ def scan_aob_execute_read_only(pm, base_address, module_size, pattern, arch):
             break
         address = mbi.BaseAddress + mbi.RegionSize
 
-    return None
+    return candidates
 
 
 def validate_object(pm, obj_addr, ptr_offset, max_ptr):
     """验证指针是否指向一个合理的主对象"""
     if not (0x10000 <= obj_addr < max_ptr):
+        return False
+    if obj_addr % 4 != 0:  # 指针对齐
         return False
     try:
         # 读取 ID，判断是否合理
@@ -111,8 +145,10 @@ def validate_object(pm, obj_addr, ptr_offset, max_ptr):
 
 
 class ElementNo:
-    def __init__(self, process_name, arch):
-        self.process_name = process_name
+    def __init__(self, file_path, arch):
+        self.process_name = os.path.basename(file_path)
+        # sm18、sm19、sm20
+        self.file_description = get_file_string_info(file_path, "FileDescription")
         self.arch = arch
         self.py_mem = None
         self.base = 0
@@ -142,24 +178,35 @@ class ElementNo:
 
     def locate(self):
         """扫描一次定位全局变量地址，后续直接复用"""
-        pattern, self.ptr_offset, self.max_ptr = PTR_SCAN_CONFIG.get(self.arch)
-        addr = scan_aob_execute_read_only(
+        cfg = _PTR_SCAN_CONFIG.get((self.arch, self.file_description))
+        if not cfg:
+            return False
+
+        pattern, self.ptr_offset, self.max_ptr = cfg
+        candidates = scan_aob_execute_read_only(
             self.py_mem, self.base, self.module_size, pattern, self.arch
         )
-        if not addr:
+        if not len(candidates) > 0:
             return False
 
-        # 校验：读一下对象是否合理
-        if self.arch == 64:
-            obj = self.py_mem.read_ulonglong(addr)
-        elif self.arch == 32:
-            obj = self.py_mem.read_uint(addr)
+        for addr in candidates:
+            try:
+                # 校验：读一下对象是否合理
+                if self.arch == 64:
+                    obj = self.py_mem.read_ulonglong(addr)
+                elif self.arch == 32:
+                    obj = self.py_mem.read_uint(addr)
+                else:
+                    continue
+            except Exception:  # noqa: BLE001, S112
+                continue
 
-        if not validate_object(self.py_mem, obj, self.ptr_offset, self.max_ptr):
-            return False
+            if validate_object(self.py_mem, obj, self.ptr_offset, self.max_ptr):
+                self.global_ptr_addr = addr
+                return True
 
-        self.global_ptr_addr = addr
-        return True
+        # 所有候选都验证失败
+        return False
 
     def read_id(self):
         if self.global_ptr_addr is None:

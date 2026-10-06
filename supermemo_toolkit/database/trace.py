@@ -92,7 +92,7 @@ def trace(callback: Callable[[int, TextRegistry], any]):
         )
         arch = 64 if app.is64bit() else 32
         try:
-            exe_full_name = os.path.basename(win32process.GetModuleFileNameEx(h, 0))
+            file_path = win32process.GetModuleFileNameEx(h, 0)
         finally:
             win32api.CloseHandle(h)
 
@@ -108,7 +108,7 @@ def trace(callback: Callable[[int, TextRegistry], any]):
         return
     text_reg = TextRegistry(active_kno_path)
 
-    reader = ElementNo(exe_full_name, arch)
+    reader = ElementNo(file_path, arch)
     try:
         if not reader.attach():
             print("[ElementNo] 附加进程失败")
