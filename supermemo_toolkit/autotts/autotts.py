@@ -1,19 +1,17 @@
 import logging
 import sys
+import threading
 import warnings
 from tkinter import messagebox
 
 import pyperclip
-import win32gui
 from pywinauto.application import Application
 from pywinauto.findwindows import ElementNotFoundError
 
 from supermemo_toolkit.autotts.switcher import AudioSwitcher
 from supermemo_toolkit.autotts.ui import WinGUI
-from supermemo_toolkit.database.htmtext import (
-    get_supermemo_html,
-    get_supermemo_ie_document,
-)
+from supermemo_toolkit.database.registry import TextRegistry
+from supermemo_toolkit.database.trace import Trace
 
 
 class AutoTTS:
@@ -25,7 +23,7 @@ class AutoTTS:
         if not onlyat:
             try:
                 self.app = Application(backend="win32").connect(class_name="TElWind")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 if isinstance(e, ElementNotFoundError):
                     messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
                 else:
@@ -33,19 +31,62 @@ class AutoTTS:
                 sys.exit()
 
         self.switcher = AudioSwitcher()
-        self.hisWindowText = ""
-        self.targetClassName = [
-            "TMsgDialog",
-            "TBitBtnTScrollBox",
-            "Internet Explorer_Server",
-            "TElWind",
-            "TBitBtn",
-            "TScrollBox",
-            "TTabControl",
-            "TToolBar",
-        ]
-        self.window = None
-        self.stop_run_main_loop = True  # 软件启动后手动启动监听
+        self.window: Win = None
+        self.trace: Trace = Trace()
+        self.trace_thread = None
+        self.stoped = True  # 软件启动后手动启动监听
+        self.eid = None
+        self.title = None
+
+    def play_current_content(self, text_reg: TextRegistry = None):
+        """在主线程里真正播放当前内容"""
+        self.eid = text_reg.eId
+        self.title = text_reg.eTitle[:12].strip()
+        self.switcher.stop()
+        if self.stoped == True:
+            return
+
+        text = text_reg.eComponents[1].eText if len(text_reg.eComponents) != 0 else None
+        print(self.show_title())
+        if text is not None and text != "":
+            self.window.update_lable_text(self.show_title())
+            self.switcher.play(text)
+            # 保存到重播按钮
+            self.window.update_text(text)
+
+    def _on_trace_element_changed(self, text_reg):
+        """Trace 线程里的回调，不能直接碰 Tk 控件"""
+
+        if self.window:
+            # 切回 Tk 主线程执行
+            self.window.after(0, lambda tr=text_reg: self.play_current_content(tr))
+        else:
+            self.play_current_content(text_reg)
+
+    def start_trace(self, mode="m"):
+        """
+        mode: 'm' 使用内存读取，'o' 使用 watchdog observer
+        """
+        if self.stoped == True:
+            return
+
+        def run():
+            if mode == "m":
+                self.trace.trace_with_mem(self._on_trace_element_changed)
+            elif mode == "o":
+                self.trace.trace_with_observer(self._on_trace_element_changed)
+            else:
+                raise ValueError("mode 只能是 'm' 或 'o'")
+
+        self.trace.set_running()
+        self.trace_thread = threading.Thread(target=run, daemon=True)
+        self.trace_thread.start()
+        self.stoped = False
+
+    def stop_trace(self):
+        self.trace.set_running(False)
+        self.switcher.stop()
+        self.stoped = True
 
     def set_autotts_window(self, window: WinGUI):
         self.window = window
@@ -54,45 +95,13 @@ class AutoTTS:
         """设置替换列表，传入一个字典，键为要替换的文本，值为替换后的文本。"""
         self.switcher.replace_list = replace_list
 
-    def get_content(self):
-        """切换页面就触发获取文本。"""
-        return get_supermemo_html(get_supermemo_ie_document(self.app))
-
-    def focusInArea(self) -> bool:
-        focus_hwnd = win32gui.WindowFromPoint(win32gui.GetCursorPos())
-        focusClassName = win32gui.GetClassName(focus_hwnd)
-        return focusClassName in self.targetClassName
+    def show_title(self) -> str:
+        return f"[TTS] [No. {self.eid}] [Title: {self.title[:12].strip()}]"
 
     @staticmethod
     def format_title(text: str) -> str:
         title = text[:12].translate(str.maketrans("\n\r", "  ")).strip()
-        return f"[Main] len={len(text)}, {title}"
-
-    def run_main_loop(self):
-        # 停止监听守卫，默认停止监听
-        if self.stop_run_main_loop:
-            self.window.after(500, self.run_main_loop)
-            return
-        # 1. 光标位置必须在选定区域内
-        if not self.focusInArea():
-            self.window.after(500, self.run_main_loop)
-            return
-
-        # 3. 历史最求窗口名和当前最前窗口名必须不一致
-        # 当光标在选定区域并且最前窗口为选定区域，说明目标窗口聚焦
-        foregroundWindowText = self.app.window(class_name="TElWind").window_text()
-        if self.hisWindowText != foregroundWindowText:
-            print(f"[Main] 窗口标题: {foregroundWindowText}")
-            text = self.get_content()
-            if text is not None and text != "":
-                print(self.format_title(text))
-                self.window.update_lable_text(self.format_title(text))
-                self.switcher.play(text)
-                # 保存到重播按钮
-                self.window.update_text(text)
-            self.hisWindowText = foregroundWindowText
-
-        self.window.after(500, self.run_main_loop)
+        return f"[TTS] [LEN: {len(text)}] [Title: {title}]"
 
 
 class Controller:
@@ -109,15 +118,17 @@ class Controller:
         self.ui = ui
 
     def onEClick(self, evt):
-        self.auto_tts.stop_run_main_loop = not self.auto_tts.stop_run_main_loop
-        if self.auto_tts.stop_run_main_loop:
+        self.auto_tts.stoped = not self.auto_tts.stoped
+        if self.auto_tts.stoped:
+            self.auto_tts.stop_trace()
             self.auto_tts.window.update_lable_text("AutoTTS 窗口监听 已停止")
         else:
+            self.auto_tts.start_trace()
             self.auto_tts.window.update_lable_text("AutoTTS 窗口监听 已恢复")
 
     def onERightClick(self, evt):
         self.auto_tts.switcher.stop()
-        self.auto_tts.window.update_lable_text("[Main] play stopped")
+        self.auto_tts.window.update_lable_text("[TTS] play stopped")
 
     def onAClick(self, evt):
         # 目前为止所有获取内容都不是主动获得焦点的，而是被动获取
@@ -129,15 +140,11 @@ class Controller:
 
     def onTClick(self, evt):
         text = pyperclip.paste()
-        text = self.auto_tts.getPrasedPlainText(text)
         if text is not None and text != "":
             print(self.auto_tts.format_title(text))
             self.auto_tts.window.update_lable_text(self.auto_tts.format_title(text))
             self.auto_tts.switcher.play(text)
             self.auto_tts.window.update_text(text)
-
-    def run_auto_tts_loop(self):
-        self.auto_tts.run_main_loop()
 
     def set_autotts(self, autotts: AutoTTS):
         self.auto_tts = autotts
@@ -163,10 +170,6 @@ class Win(WinGUI):
         self.tk_button_miileno7.bind("<Button-1>", self.ctl.onAClick)
         self.tk_button_mipjikfh.bind("<Button-1>", self.ctl.onTClick)
         self.menu.add_command(
-            label="重启监听",
-            command=lambda: self.after(500, self.ctl.run_auto_tts_loop),
-        )
-        self.menu.add_command(
             label="重置窗口位置", command=lambda: self.geometry(self.geometry_size)
         )
         self.menu.add_command(label="退出程序", command=self.quit)
@@ -187,6 +190,7 @@ class Win(WinGUI):
         # 不用，丢就丢了，通知到位就可以 join的话就丢不了了。
         # exit(0) os._exit(0)
         # 先暂停把，清理完成就退出了
+        self.ctl.auto_tts.stop_trace()
         self.ctl.auto_tts.switcher.stop()
         sys.exit(0)
 
@@ -209,7 +213,7 @@ def run_auto_tts(onlyat: bool = False):
     autotts.set_autotts_window(autotts_window)
     autotts.set_replace_list({"[...]": "，什么，"})
     controller.set_autotts(autotts)
-    autotts_window.after(500, controller.run_auto_tts_loop())
+    autotts.start_trace()  # 或 mode="o"
     autotts_window.mainloop()
 
 

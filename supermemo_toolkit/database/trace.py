@@ -201,8 +201,9 @@ class Trace:
                 return
             time.sleep(0.1)
 
-    def stop(self):
-        self.__stoped = True
+    def set_running(self, running: bool = True):
+        """True 表示继续运行，False 表示停止。"""
+        self.__stoped = not running
 
     def print_info(self, mode=Literal["o", "m"]):
         def make_link(text: str, url: str) -> str:

@@ -45,15 +45,14 @@ class AudioSwitcher:
             chunk_type = chunk["type"]
             if chunk_type == "audio":
                 sentence_buffer.extend(chunk["data"])
-            elif chunk_type == "SentenceBoundary":
-                if len(sentence_buffer) > 0:
-                    audio = miniaudio.decode(
-                        bytes(sentence_buffer),
-                        output_format=miniaudio.SampleFormat.SIGNED16,
-                    )
-                    samples = np.frombuffer(audio.samples, dtype=np.int16)
-                    yield (samples, audio.sample_rate, audio.nchannels)
-                    sentence_buffer.clear()
+            elif chunk_type == "SentenceBoundary" and len(sentence_buffer) > 0:
+                audio = miniaudio.decode(
+                    bytes(sentence_buffer),
+                    output_format=miniaudio.SampleFormat.SIGNED16,
+                )
+                samples = np.frombuffer(audio.samples, dtype=np.int16)
+                yield (samples, audio.sample_rate, audio.nchannels)
+                sentence_buffer.clear()
 
         if len(sentence_buffer) > 0:
             audio = miniaudio.decode(
@@ -275,8 +274,12 @@ class AudioSwitcher:
         """停止播放并等待线程完全结束"""
         with self.__lock:
             # 1. 先设置停止事件
-            self.__thread_manager.stop(self.__producer_id)
-            self.__thread_manager.stop(self.__player_id)
+            if self.__producer_id is not None:
+                self.__thread_manager.stop(self.__producer_id)
+                self.__producer_id = None
+            if self.__player_id is not None:
+                self.__thread_manager.stop(self.__player_id)
+                self.__player_id = None
             # 2. 立即清空音频队列（关键！）
             self.__clear_audio_queue()
             # 3. 强制关闭音频流，使回调立刻退出

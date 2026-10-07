@@ -282,17 +282,17 @@ class TextRegistry:
         return text_content
 
     def refresh(self, element_id: int):
-        self.eId = element_id
+        self.eId = None
+        self.eType = None
+        self.eTitle = None
+        self.eComponents = None
         records = self.__parse_elinfo()
-        record = records[self.eId] if 0 < self.eId < len(records) else None
+        record = records[element_id] if 0 < element_id < len(records) else None
         if record is None:
-            self.eId = None
-            self.eType = None
-            self.eTitle = None
-            self.eComponents = None
             return
 
         # 解析元素类型和标题
+        self.eId = element_id
         self.eType = record["element_type"]
         tMember = self.__get_member_by_position(record["title_text_id"])
         self.eTitle = self.__get_rtx_text(tMember.RtxOffset, tMember.RtxLength)
