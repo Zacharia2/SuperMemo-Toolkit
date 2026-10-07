@@ -131,7 +131,12 @@ class TextRegistry:
                 Member(
                     fields[0],
                     LinkType(fields[1]),
-                    *fields[2:],
+                    fields[2],
+                    fields[3],
+                    fields[4],
+                    fields[5],
+                    fields[6] if fields[6] != 0 else None,
+                    fields[7],
                 )
                 for fields in member_fmt.iter_unpack(mem_data)
             ],
@@ -305,28 +310,35 @@ class TextRegistry:
             # mIndex = None  # members_current_index
             # mUse = None  # number_of_users_of_the_member
             # mPosition = None  # members_physical_position
-            mSlot = None  # filespace_slot_used_by_the_member
-            mPath = None  # members_filespace_path
-            mLinkType = None  # members_link_type
-            eText = None
+            # mSlot = None  # filespace_slot_used_by_the_member
+            # mPath = None  # members_filespace_path
+            # mLinkType = None  # members_link_type
+            # eText = None
 
+            # 空值守卫
             if position is None:
                 continue
-
             cMember = self.__get_member_by_position(position)
             if cMember is None:
                 continue
 
-            mLinkType = cMember.LinkType
-            mSlot = cMember.SlotId
-            if mSlot is None:
-                continue
+            # 异常警报
+            if cMember.SlotId is None and (
+                cMember.LinkType is LinkType.FILE_AND_RTX
+                or cMember.LinkType is LinkType.FILE
+            ):
+                print(f"[Registry] 元素={self.eId} slot=0, pos={position}")
 
-            mPath = self.__compute_element_path(mSlot)
+            # 读成员数据
+            mPath = (
+                self.__compute_element_path(cMember.SlotId)
+                if cMember.SlotId != None
+                else ""
+            )
             eText = self.__get_rtx_text(cMember.RtxOffset, cMember.RtxLength)
             self.eComponents[compon_id] = Component(
                 mPosition=position,
-                mLinkType=mLinkType,
+                mLinkType=cMember.LinkType,
                 mPath=mPath,
                 eText=eText,
             )
