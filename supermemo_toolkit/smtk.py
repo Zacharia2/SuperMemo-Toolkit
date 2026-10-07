@@ -21,7 +21,7 @@ from supermemo_toolkit.utilscripts import config as smtk_config
 
 sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM).lower()
 smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
-__version__ = "0.1.28"
+__version__ = "0.2.1"
 
 
 @click.group(
