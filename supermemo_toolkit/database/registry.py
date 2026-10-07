@@ -43,36 +43,6 @@ COMPONENT_TYPES = {
 }
 
 
-# 字节序：小端，格式字符串对应字段顺序
-# https://github.com/supermemo/SuperMemoAssistant/blob/develop/src/Core/SuperMemoAssistant.Core/SuperMemo/SuperMemo17/Files/RegMemElem17.cs
-# lst（和一个mem成员关联的元素列表（一（member）对多（元素）列表））
-# lst 行号1522 (同时也是members index)，内容是元素id
-# prt 行号1522 (同时也是members index)，内容是 members的行号(Position)
-# members 行号6461 (Position)，内容是 member(UseCount=1, LinkType=2, RtxId=0, RtxOffset=6832362, RtxLength=10625, XX=2613, SlotId=1846, Empty=0, Reserved=0)
-# 01000000 0300 00000000 01000000 19000000 01000000 00000000 00000000
-# 01000000 03 00 00000000 01000000 19000000 01000000 00000000 00000000
-member_fmt = struct.Struct("<IHIIIIII")
-Member = namedtuple(
-    "Member",
-    [
-        "UseCount",  # uint32, offset 0 没问题
-        "LinkType",  # uint16, offset 4 没问题
-        "unknown1",  # uint32, offset 6
-        "RtxOffset",  # uint32, offset 10
-        "RtxLength",  # uint32, offset 14
-        "LstRelated",  # uint32, offset 18
-        "SlotId",  # uint32, offset 22 没问题
-        "unknown2",  # uint32, offset 26
-    ],
-)
-
-# def parse_member(data: bytes) -> Member:
-#     if len(data) != 30:
-#         raise ValueError(f"数据长度必须是 30 字节，实际为 {len(data)} 字节")
-#     unpacked = member_fmt.unpack(data)
-#     return Member(*unpacked)
-
-
 class TextRegistry:
     # 元素Id、文本注册表的Pos是动态的，在每次切换后就会动态更新到新值。而这个新值是可以在组件文件中访问到。
     # 设计为函数式的，实时读取文件并计算状态。暂时仅限正在显示的当前元素。
@@ -133,6 +103,28 @@ class TextRegistry:
             return None
 
         # 构建 members 列表（1-based 元组）
+        # 字节序：小端，格式字符串对应字段顺序
+        # https://github.com/supermemo/SuperMemoAssistant/blob/develop/src/Core/SuperMemoAssistant.Core/SuperMemo/SuperMemo17/Files/RegMemElem17.cs
+        # lst（和一个mem成员关联的元素列表（一（member）对多（元素）列表））
+        # lst 行号1522 (同时也是members index)，内容是元素id
+        # prt 行号1522 (同时也是members index)，内容是 members的行号(Position)
+        # members 行号6461 (Position)，内容是 member(UseCount=1, LinkType=2, RtxId=0, RtxOffset=6832362, RtxLength=10625, XX=2613, SlotId=1846, Empty=0, Reserved=0)
+        # 01000000 0300 00000000 01000000 19000000 01000000 00000000 00000000
+        # 01000000 03 00 00000000 01000000 19000000 01000000 00000000 00000000
+        Member = namedtuple(
+            "Member",
+            [
+                "UseCount",  # uint32, offset 0 没问题
+                "LinkType",  # uint16, offset 4 没问题
+                "unknown1",  # uint32, offset 6
+                "RtxOffset",  # uint32, offset 10
+                "RtxLength",  # uint32, offset 14
+                "LstRelated",  # uint32, offset 18
+                "SlotId",  # uint32, offset 22 没问题
+                "unknown2",  # uint32, offset 26
+            ],
+        )
+        member_fmt = struct.Struct("<IHIIIIII")
         members = (
             None,
             *[
@@ -321,17 +313,17 @@ class TextRegistry:
             if position is None:
                 continue
 
-            Member = self.__get_member_by_position(position)
-            if Member is None:
+            cMember = self.__get_member_by_position(position)
+            if cMember is None:
                 continue
 
-            mLinkType = Member.LinkType
-            mSlot = Member.SlotId
+            mLinkType = cMember.LinkType
+            mSlot = cMember.SlotId
             if mSlot is None:
                 continue
 
             mPath = self.__compute_element_path(mSlot)
-            eText = self.__get_rtx_text(Member.RtxOffset, Member.RtxLength)
+            eText = self.__get_rtx_text(cMember.RtxOffset, cMember.RtxLength)
             self.eComponents[compon_id] = Component(
                 mPosition=position,
                 mLinkType=mLinkType,
@@ -343,7 +335,7 @@ class TextRegistry:
 if __name__ == "__main__":
     # 测试代码
     currEl = TextRegistry(r"D:\SuperMemo\systems\Reading-And-Review")
-    currEl.refresh(element_id=2310)
+    currEl.refresh(element_id=1255)
     pass
 
     # \systems\Reading-And-Review\temp\文件夹下自动生成当前显示的元素：Element#2582-Component#1.htm，

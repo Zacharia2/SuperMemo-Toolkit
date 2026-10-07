@@ -4,7 +4,6 @@ import ctypes
 import os
 import shlex
 import sys
-from pathlib import Path
 
 import click
 from edge_tts.voices import list_voices
@@ -12,7 +11,6 @@ from tabulate import tabulate
 
 from supermemo_toolkit.ansm_conv.sm2anki import qa_to_anki
 from supermemo_toolkit.autotts.autotts import run_auto_tts
-from supermemo_toolkit.database.registry import TextRegistry
 from supermemo_toolkit.database.trace import Trace
 from supermemo_toolkit.epub2sm import epub_convert, format_ascii
 from supermemo_toolkit.latex2img import formula_to_png
