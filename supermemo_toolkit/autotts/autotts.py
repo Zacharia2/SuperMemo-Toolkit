@@ -40,6 +40,8 @@ class AutoTTS:
 
     def play_current_content(self, text_reg: TextRegistry = None):
         """在主线程里真正播放当前内容"""
+        if text_reg.eId == None:
+            return
         self.eid = text_reg.eId
         self.title = text_reg.eTitle[:12].strip()
         self.switcher.stop()

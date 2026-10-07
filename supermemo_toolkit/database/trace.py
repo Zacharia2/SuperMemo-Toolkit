@@ -214,7 +214,8 @@ class Trace:
             return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
 
         def work_print(text_reg: TextRegistry):
-
+            if text_reg.eId == None:
+                return
             path = (
                 text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
             )
