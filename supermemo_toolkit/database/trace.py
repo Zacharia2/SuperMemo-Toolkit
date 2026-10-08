@@ -206,18 +206,23 @@ class Trace:
         self.__stoped = not running
 
     def print_info(self, mode=Literal["o", "m"]):
-        def make_link(text: str, url: str) -> str:
+        def _make_link(text: str, url: str) -> str:
             if text == "":
                 return "None"
             if not sys.stdout.isatty():
                 return f"{text} ({url})"
             return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
 
-        def work_print(text_reg: TextRegistry):
+        def _printf(text_reg: TextRegistry):
             if text_reg.eId == None:
                 return
             path = (
                 text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
+            )
+            position = (
+                text_reg.eComponents[1].mPosition
+                if len(text_reg.eComponents) > 0
+                else None
             )
 
             # 把本地路径转成 file:// URL
@@ -226,19 +231,20 @@ class Trace:
             except Exception:
                 url = path  # 如果本来就是 URL，就直接用
 
-            path_link = make_link(path, url)
+            path_link = _make_link(path, url)
 
             print(
                 f"[No. {text_reg.eId}] "
                 f"[Type: {text_reg.eType.name}] "
                 f"[Title: {text_reg.eTitle[:12].strip()}] "
+                f"[Position: {position}] "
                 f"[Path: {path_link}]"
             )
 
         if mode == "o":
-            self.trace_with_observer(work_print)
+            self.trace_with_observer(_printf)
         if mode == "m":
-            self.trace_with_mem(work_print)
+            self.trace_with_mem(_printf)
 
 
 if __name__ == "__main__":

@@ -2131,7 +2131,7 @@ wheels = [
 
 [[package]]
 name = "supermemo-toolkit"
-version = "0.2.1"
+version = "0.2.3"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },

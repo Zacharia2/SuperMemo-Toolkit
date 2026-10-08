@@ -306,6 +306,8 @@ class TextRegistry:
         component_group_positions = self.__get_member_component_group_positions(
             record["compon_pos"]
         )
+        if component_group_positions is None:
+            return
         for compon_id, position in component_group_positions.items():
             # mIndex = None  # members_current_index
             # mUse = None  # number_of_users_of_the_member
@@ -327,7 +329,7 @@ class TextRegistry:
                 cMember.LinkType is LinkType.FILE_AND_RTX
                 or cMember.LinkType is LinkType.FILE
             ):
-                print(f"[Registry] 元素={self.eId} slot=0, pos={position}")
+                print(f"[Registry] 警告: slot=0 异常 (元素={self.eId}, pos={position})")
 
             # 读成员数据
             mPath = (
