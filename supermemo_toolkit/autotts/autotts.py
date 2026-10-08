@@ -5,11 +5,17 @@ import warnings
 from tkinter import messagebox
 
 import pyperclip
+import win32api
+import win32con
+import win32gui
+import win32process
 from pywinauto.application import Application
 from pywinauto.findwindows import ElementNotFoundError
 
 from supermemo_toolkit.autotts.switcher import AudioSwitcher
 from supermemo_toolkit.autotts.ui import WinGUI
+from supermemo_toolkit.database.element_no import compute_sm_ver
+from supermemo_toolkit.database.htmtext import get_supermemo_html
 from supermemo_toolkit.database.registry import TextRegistry
 from supermemo_toolkit.database.trace import Trace
 
@@ -22,7 +28,9 @@ class AutoTTS:
         )
         if not onlyat:
             try:
-                self.app = Application(backend="win32").connect(class_name="TElWind")
+                self.app: Application = Application(backend="win32").connect(
+                    class_name="TElWind"
+                )
             except Exception as e:  # noqa: BLE001
                 if isinstance(e, ElementNotFoundError):
                     messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
@@ -37,6 +45,7 @@ class AutoTTS:
         self.stoped = True  # 软件启动后手动启动监听
         self.eid = None
         self.title = None
+        self.legacy_version_his_window_text: str = ""
 
     def play_current_content(self, text_reg: TextRegistry = None):
         """在主线程里真正播放当前内容"""
@@ -105,13 +114,57 @@ class AutoTTS:
         title = text[:12].translate(str.maketrans("\n\r", "  ")).strip()
         return f"[TTS] [LEN: {len(text)}] [Title: {title}]"
 
+    def legacy(self):
+        def focusInArea() -> bool:
+            targetClassName = [
+                "TMsgDialog",
+                "TBitBtnTScrollBox",
+                "Internet Explorer_Server",
+                "TElWind",
+                "TBitBtn",
+                "TScrollBox",
+                "TTabControl",
+                "TToolBar",
+                "TButton",
+                "TPage"
+            ]
+            focus_hwnd = win32gui.WindowFromPoint(win32gui.GetCursorPos())
+            focusClassName = win32gui.GetClassName(focus_hwnd)
+            return focusClassName in targetClassName
+
+        # 停止监听守卫，默认停止监听
+        if self.stoped:
+            self.window.after(500, self.legacy)
+            return
+        # 1. 光标位置必须在选定区域内
+        if not focusInArea():
+            self.window.after(500, self.legacy)
+            return
+
+        # 3. 历史最求窗口名和当前最前窗口名必须不一致
+        # 当光标在选定区域并且最前窗口为选定区域，说明目标窗口聚焦
+        foregroundWindowText: str = self.app.window(class_name="TElWind").window_text()
+        if self.legacy_version_his_window_text != foregroundWindowText:
+            print(f"[Main] 窗口标题: {foregroundWindowText}")
+            text = get_supermemo_html(self.app)
+            if text is not None and text != "":
+                print(self.format_title(text))
+                self.window.update_lable_text(self.format_title(text))
+                self.switcher.play(text)
+                # 保存到重播按钮
+                self.window.update_text(text)
+            self.legacy_version_his_window_text = foregroundWindowText
+
+        self.window.after(500, self.legacy)
+
 
 class Controller:
     # 导入UI类后，替换以下的 object 类型，将获得 IDE 属性提示功能
     ui: WinGUI
 
-    def __init__(self):
+    def __init__(self, sm_ver: str):
         self.auto_tts: AutoTTS = None
+        self.sm_ver = sm_ver
 
     def init(self, ui):
         """
@@ -122,10 +175,12 @@ class Controller:
     def onEClick(self, evt):
         self.auto_tts.stoped = not self.auto_tts.stoped
         if self.auto_tts.stoped:
-            self.auto_tts.stop_trace()
+            if self.sm_ver not in ["sm15", "sm16"]:
+                self.auto_tts.stop_trace()
             self.auto_tts.window.update_lable_text("AutoTTS 窗口监听 已停止")
         else:
-            self.auto_tts.start_trace()
+            if self.sm_ver not in ["sm15", "sm16"]:
+                self.auto_tts.start_trace()
             self.auto_tts.window.update_lable_text("AutoTTS 窗口监听 已恢复")
 
     def onERightClick(self, evt):
@@ -151,12 +206,16 @@ class Controller:
     def set_autotts(self, autotts: AutoTTS):
         self.auto_tts = autotts
 
+    def run_legacy_autotts(self):
+        self.auto_tts.legacy()
+
 
 class Win(WinGUI):
     ctl: Controller
 
-    def __init__(self, controller: Controller, onlyat=False):
+    def __init__(self, controller: Controller, onlyat=False, sm_ver: str = ""):
         self.ctl = controller
+        self.sm_ver = sm_ver
         super().__init__()
         if onlyat:
             self.__onlyat_event_bind()
@@ -171,6 +230,11 @@ class Win(WinGUI):
         self.tk_button_miik3xn9.bind("<Button-3>", self.ctl.onERightClick)
         self.tk_button_miileno7.bind("<Button-1>", self.ctl.onAClick)
         self.tk_button_mipjikfh.bind("<Button-1>", self.ctl.onTClick)
+        if self.sm_ver in ["sm15", "sm16"]:
+            self.menu.add_command(
+                label="重启监听",
+                command=lambda: self.after(500, self.ctl.run_legacy_autotts),
+            )
         self.menu.add_command(
             label="重置窗口位置", command=lambda: self.geometry(self.geometry_size)
         )
@@ -208,14 +272,44 @@ class Win(WinGUI):
         super().update_lable_text(mtext)
 
 
+def supermemo_ver():
+    try:
+        warnings.filterwarnings(
+            "ignore", message=".*32-bit application should be automated.*"
+        )
+        app = Application(backend="win32").connect(class_name="TElWind")
+        h = win32api.OpenProcess(
+            win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
+            False,
+            app.process,
+        )
+        try:
+            file_path = win32process.GetModuleFileNameEx(h, 0)
+            sm_ver = compute_sm_ver(file_path)
+        finally:
+            win32api.CloseHandle(h)
+
+    except Exception as e:  # noqa: BLE001
+        if isinstance(e, ElementNotFoundError):
+            messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
+        else:
+            messagebox.showerror("错误", e)
+        return
+    return sm_ver
+
+
 def run_auto_tts(onlyat: bool = False):
-    controller = Controller()
-    autotts_window = Win(controller, onlyat)
+    sm_ver = supermemo_ver()
+    controller = Controller(sm_ver)
+    autotts_window = Win(controller, onlyat, sm_ver)
     autotts = AutoTTS(onlyat)
     autotts.set_autotts_window(autotts_window)
     autotts.set_replace_list({"[...]": "，什么，"})
     controller.set_autotts(autotts)
-    autotts.start_trace()  # 或 mode="o"
+    if sm_ver not in ["sm15", "sm16"]:
+        autotts.start_trace()  # 或 mode="o"
+    else:
+        autotts_window.after(500, controller.run_legacy_autotts())
     autotts_window.mainloop()
 
 

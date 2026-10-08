@@ -179,7 +179,8 @@ def get_supermemo_ie_document(app=None):
             pythoncom.CoUninitialize()
 
 
-def get_supermemo_html(ie_document) -> str:
+def get_supermemo_html(app=None) -> str:
+    ie_document = get_supermemo_ie_document(app)
     if ie_document is None:
         return ""
     content: str = ie_document.body.innerText
