@@ -25,6 +25,18 @@ get_id = get_id_func()
 id_counts = 0
 
 
+def long_path(path):
+    """Windows 下给路径加 \\\\?\\ 前缀，绕过 260 字符限制。非 Windows 平台原样返回。"""
+    if os.name != "nt":
+        return path
+    path = os.path.abspath(path)
+    if path.startswith("\\\\?\\"):
+        return path
+    if path.startswith("\\\\"):  # UNC 路径
+        return "\\\\?\\UNC\\" + path[2:]
+    return "\\\\?\\" + path
+
+
 def modify_img_url(book, doc, folder_name):
     soup = BeautifulSoup(doc, "html.parser")
     # 删除DOCTYPE定义
@@ -340,7 +352,7 @@ def write_img_file(ebook: epub.EpubBook, book_img_folder: str) -> None:
             file = os.path.join(book_img_folder, filename)
         else:
             file = os.path.join(book_img_folder, image.file_name)
-        with open(file, "wb") as f:
+        with open(long_path(file), "wb") as f:
             f.write(image.content)
 
 
@@ -391,10 +403,29 @@ def move_folder(src, dst_parent):
     shutil.move(str(src), str(dst_parent))
 
 
+def filename_length_check_pass(book_f_name, max_len=255):
+    filename = book_f_name + ".xml"
+
+    utf8_bytes = len(filename.encode("utf-8"))
+    utf16_units = len(filename.encode("utf-16-le")) // 2
+
+    if utf8_bytes > max_len or utf16_units > max_len:
+        print(
+            f"警告：文件名过长"
+            f" (UTF-8 {utf8_bytes} 字节, UTF-16 {utf16_units} 码元，限制 {max_len}), "
+            f"请缩短文件名。"
+        )
+        return False
+
+    return True
+
+
 def start_with_toc(epub_file, save_folder, save_image_folder=None):
     # UserWarning: In the future version we will turn default option ignore_ncx to True.
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
+    if not filename_length_check_pass(book_f_name):
+        return
     print("开始处理书籍：", book_f_name)
     # 创建数据结构
     toc = toc_orgnize.merge_doc(book)
@@ -419,21 +450,22 @@ def start_with_toc(epub_file, save_folder, save_image_folder=None):
             for element in el_list:
                 with tag("SuperMemoElement"):
                     doc.asis(element)
-    file = os.path.join(save_folder, book_f_name + ".xml")
-    folder = os.path.join(save_folder, book_f_name)
+    file = long_path(os.path.join(os.path.abspath(save_folder), book_f_name + ".xml"))
+    folder = os.path.join(os.path.abspath(save_folder), book_f_name)
     with open(file, "w", encoding="utf-8") as f:
         f.write(doc.getvalue())
     write_img_file(book, folder)
     if save_image_folder:
         move_folder(folder, save_image_folder)
-    print("转换完成，已存储至：", save_folder)
+    print("转换完成，已存储至：", os.path.abspath(save_folder))
 
 
 def start_with_seq(epub_file, save_folder, save_image_folder=None):
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
     print("开始处理书籍：", book_f_name)
-
+    if not filename_length_check_pass(book_f_name):
+        return
     doc, tag, text = Doc().tagtext()
     mid = get_id()
     el_list = get_docs_by_doclist(book, book_f_name)
@@ -450,19 +482,21 @@ def start_with_seq(epub_file, save_folder, save_image_folder=None):
             for element in el_list:
                 with tag("SuperMemoElement"):
                     doc.asis(element)
-    file = os.path.join(save_folder, book_f_name + ".xml")
-    folder = os.path.join(save_folder, book_f_name)
+    file = long_path(os.path.join(os.path.abspath(save_folder), book_f_name + ".xml"))
+    folder = os.path.join(os.path.abspath(save_folder), book_f_name)
     with open(file, "w", encoding="utf-8") as f:
         f.write(doc.getvalue())
     write_img_file(book, folder)
     if save_image_folder:
         move_folder(folder, save_image_folder)
-    print("转换完成，已存储至：", save_folder)
+    print("转换完成，已存储至：", os.path.abspath(save_folder))
 
 
 def start_with_topic(epub_file, save_folder, limit_num, save_image_folder=None):
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
+    if not filename_length_check_pass(book_f_name):
+        return
     print("开始处理书籍：", book_f_name)
 
     doc, tag, text, line = Doc().ttl()
@@ -478,14 +512,14 @@ def start_with_topic(epub_file, save_folder, limit_num, save_image_folder=None):
             line("Type", "Topic")
             with tag("Content"), tag("Question"):
                 text(topic_doc)
-    file = os.path.join(save_folder, book_f_name + ".xml")
-    folder = os.path.join(save_folder, book_f_name)
+    file = long_path(os.path.join(os.path.abspath(save_folder), book_f_name + ".xml"))
+    folder = os.path.join(os.path.abspath(save_folder), book_f_name)
     with open(file, "w", encoding="utf-8") as f:
         f.write(doc.getvalue())
     write_img_file(book, folder)
     if save_image_folder:
         move_folder(folder, save_image_folder)
-    print("转换完成，已存储至：", save_folder)
+    print("转换完成，已存储至：", os.path.abspath(save_folder))
 
 
 if __name__ == "__main__":

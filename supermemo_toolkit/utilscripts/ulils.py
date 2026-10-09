@@ -39,7 +39,7 @@ def mkdir(path):
 
 
 def makeNameSafe(name):
-    illegalFilenameCharacters = r"/<|>|\:|\"|\/|\\|\||\?|\*|\^|\s/g"
+    illegalFilenameCharacters = r"<|>|\:|\"|\/|\\|\||\?|\*|\^|\s"
     fixedTitle = re.sub(illegalFilenameCharacters, "_", name)
     return fixedTitle
 
