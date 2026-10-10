@@ -295,6 +295,8 @@ class TextRegistry:
         self.eId = element_id
         self.eType = record["element_type"]
         tMember = self.__get_member_by_position(record["title_text_id"])
+        if tMember is None:
+            return
         self.eTitle = self.__get_rtx_text(tMember.RtxOffset, tMember.RtxLength)
 
         # 解析组件组，获取组件信息
