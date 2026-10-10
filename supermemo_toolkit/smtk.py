@@ -2,11 +2,11 @@ import asyncio
 import cmd
 import ctypes
 import os
-from pathlib import Path
 import re
 import shlex
 import shutil
 import sys
+from pathlib import Path
 
 import click
 from edge_tts.voices import list_voices
@@ -426,12 +426,18 @@ def autotts(onlyat):
 
 @main.command()
 @click.option("--mem", is_flag=True, help="通过扫描内存追踪当前元素")
-def trace(mem):
+@click.option("--his", is_flag=True, help="打印浏览过的历史id")
+def trace(mem, his):
     """追踪当前元素，并输出当前元素信息"""
-    if mem:
-        Trace().print_info(mode="m")
-    else:
-        Trace().print_info(mode="o")
+    try:
+        trace = Trace()
+        if mem:
+            trace.print_info(mode="m")
+        else:
+            trace.print_info(mode="o")
+
+    finally:
+        print("id: ", ",".join(map(str, trace.his_id)))
 
 
 def parse_ids(ctx, param, value):

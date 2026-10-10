@@ -40,6 +40,7 @@ class Trace:
 
     def __init__(self):
         self.__stoped = False
+        self.his_id = []
 
     def _get_process_start_timestamp(self, pid):
         """
@@ -232,6 +233,8 @@ class Trace:
         def _printf(text_reg: TextRegistry):
             if text_reg.eId == None:
                 return
+
+            self.his_id.append(text_reg.eId)
             path = (
                 text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
             )
