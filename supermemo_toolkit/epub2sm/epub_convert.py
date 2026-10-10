@@ -57,9 +57,9 @@ def modify_img_url(book, doc, folder_name):
 
     for doc_img in doc_imgs:
         # 处理svg和webp图片，转换为png格式
-        doc_img_name = os.path.basename(doc_img.attrs["src"]).lower()
+        doc_img_name = os.path.basename(doc_img.attrs["src"])
         if len(not_support) != 0 and doc_img_name in not_support_1:
-            image_file_name = not_support[not_support_1.index(doc_img_name)][1]
+            _, image_file_name = not_support[not_support_1.index(doc_img_name.lower())]
             image = book.get_item_with_href(image_file_name)
             if image.media_type == "image/svg+xml":
                 output_buffer = io.BytesIO()
@@ -79,12 +79,10 @@ def modify_img_url(book, doc, folder_name):
                 name, _ = os.path.splitext(image.file_name)
                 image.file_name = name + ".png"
                 image.media_type = "image/png"
-
-        # 正常及修改后的图片。
-        doc_img_name = os.path.basename(doc_img.attrs["src"])
-        name, _ = os.path.splitext(doc_img_name)
-        doc_img_name = name + ".png"
-        # 新的图片将会放在一个全英文下面的文件中，文件夹名字以书名命名。
+            doc_img.attrs["src"] = (
+                f"file:///[PrimaryStorage]local_pic/{folder_name}/{image.file_name}"
+            )
+        # 受支持的图片
         doc_img.attrs["src"] = (
             f"file:///[PrimaryStorage]local_pic/{folder_name}/{doc_img_name}"
         )
@@ -523,4 +521,4 @@ def start_with_topic(epub_file, save_folder, limit_num, save_image_folder=None):
 
 
 if __name__ == "__main__":
-    start_with_toc(r"C:\Users\Snowy\Desktop\学会提问.epub", r"C:\Users\Snowy\Desktop")
+    start_with_toc(r"D:\Calibre Library\Calibre 花园\Kong Zi\Zhu Zi Bai Jia Xi Lie Tao Zhuang [(T (85)\Zhu Zi Bai Jia Xi Lie Tao Zhuan - Kong Zi.epub", r"C:\Users\Snowy\Desktop")
