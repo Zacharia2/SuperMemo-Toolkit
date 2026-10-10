@@ -354,8 +354,7 @@ def write_img_file(ebook: epub.EpubBook, book_img_folder: str) -> None:
             f.write(image.content)
 
 
-def split_html_with_lenght(book, book_f_name, limit_num):
-    html = merge_epub_to_topic(book, book_f_name).replace("\n", "")
+def split_html_with_lenght(html, limit_num):
     soup = BeautifulSoup(html, "html.parser")
 
     def recursion(node, words=0):
@@ -499,7 +498,8 @@ def start_with_topic(epub_file, save_folder, limit_num, save_image_folder=None):
 
     doc, tag, text, line = Doc().ttl()
     if limit_num:
-        topic_doc = split_html_with_lenght(book, book_f_name, limit_num)
+        html = merge_epub_to_topic(book, book_f_name).replace("\n", "")
+        topic_doc = split_html_with_lenght(html, limit_num)
     else:
         topic_doc = merge_epub_to_topic(book, book_f_name)
     with tag("SuperMemoCollection"):

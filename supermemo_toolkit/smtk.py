@@ -2,7 +2,10 @@ import asyncio
 import cmd
 import ctypes
 import os
+from pathlib import Path
+import re
 import shlex
+import shutil
 import sys
 
 import click
@@ -11,13 +14,15 @@ from tabulate import tabulate
 
 from supermemo_toolkit.ansm_conv.sm2anki import qa_to_anki
 from supermemo_toolkit.autotts.autotts import run_auto_tts
-from supermemo_toolkit.database.trace import Trace
+from supermemo_toolkit.database.registry import TextRegistry
+from supermemo_toolkit.database.trace import Trace, make_link
 from supermemo_toolkit.epub2sm import epub_convert, format_ascii
 from supermemo_toolkit.latex2img import formula_to_png
 from supermemo_toolkit.pathpix import im_sort_out
 from supermemo_toolkit.pathpix.gui import run_pathpix_ui
 from supermemo_toolkit.title_xref import complete_title
 from supermemo_toolkit.utilscripts import config as smtk_config
+from supermemo_toolkit.utilscripts.ulils import makeNameSafe
 
 sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM).lower()
 smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
@@ -427,6 +432,88 @@ def trace(mem):
         Trace().print_info(mode="m")
     else:
         Trace().print_info(mode="o")
+
+
+def parse_ids(ctx, param, value):
+    ids = []
+    for item in value:
+        for part in item.split(","):
+            part = part.strip()
+            if part:
+                ids.append(int(part))
+    return tuple(ids)
+
+
+@main.command()
+@click.option("--re", "re_pattern", type=str, help="根据正则条件插入水平分割线")
+@click.option(
+    "--num",
+    type=int,
+    default=1000,
+    show_default=True,
+    help="根据字数条件插入水平分割线，支持 --id <id1>,<id2>",
+)
+@click.option(
+    "--id",
+    "eid",
+    multiple=True,
+    callback=parse_ids,
+    help="根据元素id条件插入水平分割线",
+)
+def splitline(re_pattern, num, eid):
+    """在当前元素中根据条件插入水平分割线"""
+    # 字数默认推荐1000字，按段落分。
+    trace = Trace()
+
+    def work(text_reg: TextRegistry):
+        if text_reg is None or text_reg.eId == None:
+            return
+        path = text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
+        if path == "":
+            return
+        try:
+            url = Path(path).resolve().as_uri()
+        except Exception:
+            url = path  # 如果本来就是 URL，就直接用
+        click.echo(f"[No. {text_reg.eId}] [Title: {text_reg.eTitle[:12].strip()}]")
+
+        root, namedpath = path.split("elements")
+        filename = makeNameSafe(f"Element#{text_reg.eId}-Path{namedpath}")
+        temp = os.path.join(root, "temp", filename)
+        shutil.copyfile(path, temp)
+        click.echo(f"[Backups: {temp}]")
+        with open(path, "r", encoding="utf-8") as fs:
+            htm = fs.read()
+
+        if re_pattern:
+            try:
+                regex = re.compile(re_pattern)
+                count = sum(1 for _ in regex.finditer(htm))
+                click.echo(f"找到 {count} 个匹配项")
+                inserted = regex.sub(lambda m: "<hr/>" + m.group(0), htm)
+            except re.error as e:
+                click.echo(f"正则表达式无效: {e}", err=True)
+                return
+            with open(path, "w", encoding="utf-8") as fs:
+                fs.write(inserted)
+        elif num:
+            try:
+                inserted = epub_convert.split_html_with_lenght(htm, num)
+            except Exception as e:  # noqa: BLE001
+                click.echo(f"{e}", err=True)
+                return
+            with open(path, "w", encoding="utf-8") as fs:
+                fs.write(inserted)
+        click.echo("分割线插入完成")
+        click.echo(f"[Path: {make_link(path, url)}]")
+        # 终止
+        return True
+
+    if not eid:
+        trace.trace_with_mem(work)
+    else:
+        for element_id in eid:
+            work(trace.trace_with_id(element_id))
 
 
 class Shell(cmd.Cmd):

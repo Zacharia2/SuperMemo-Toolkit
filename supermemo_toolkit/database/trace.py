@@ -20,6 +20,14 @@ from supermemo_toolkit.database.registry import TextRegistry
 from supermemo_toolkit.utilscripts import config as smtk_config
 
 
+def make_link(text: str, url: str) -> str:
+    if text == "":
+        return "None"
+    if not sys.stdout.isatty():
+        return f"{text} ({url})"
+    return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
+
+
 class Trace:
     # 常量定义
     _GENERIC_READ = 0x80000000
@@ -153,7 +161,9 @@ class Trace:
                             return
                         if self.__stoped:
                             return
-                    callback(text_reg)
+                    terminate = callback(text_reg)
+                    if terminate == True:
+                        self.set_running(False)
                 time.sleep(0.1)
         finally:
             reader.detach()
@@ -201,17 +211,23 @@ class Trace:
                 return
             time.sleep(0.1)
 
+    def trace_with_id(self, elem_id):
+        active_kno_path = self._get_active_kno_path()
+        if active_kno_path == None:
+            print("没有正在活动的集合")
+            return
+        text_reg = TextRegistry(active_kno_path)
+
+        text_reg.refresh(element_id=elem_id)
+        if text_reg.eId == None:
+            return
+        return text_reg
+
     def set_running(self, running: bool = True):
         """True 表示继续运行，False 表示停止。"""
         self.__stoped = not running
 
     def print_info(self, mode=Literal["o", "m"]):
-        def _make_link(text: str, url: str) -> str:
-            if text == "":
-                return "None"
-            if not sys.stdout.isatty():
-                return f"{text} ({url})"
-            return f"\033]8;;{url}\033\\{text}\033]8;;\033\\"
 
         def _printf(text_reg: TextRegistry):
             if text_reg.eId == None:
@@ -231,7 +247,7 @@ class Trace:
             except Exception:
                 url = path  # 如果本来就是 URL，就直接用
 
-            path_link = _make_link(path, url)
+            path_link = make_link(path, url)
 
             print(
                 f"[No. {text_reg.eId}] "
