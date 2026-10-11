@@ -17,6 +17,7 @@ from pywinauto.application import Application
 from pywinauto.findwindows import ElementNotFoundError
 from watchdog.events import FileSystemEventHandler
 
+# 当时用的CE定位的
 _OFF_SM15_16 = rb"\xBC\x03\x00\x00"
 _OFF_SM17 = rb"\xC4\x03\x00\x00"
 _OFF_SM18_19 = rb"\xF4\x03\x00\x00"
@@ -156,6 +157,7 @@ class ElementNo:
         MEM_COMMIT = 0x1000
         EXECUTE_READ = 0x20
         PAGE_GUARD = 0x100
+        MOV_RAX_RIP_LEN = 7  # 48 8B 05 + disp32  RIP 相对寻址
 
         candidates = {}
 
@@ -180,13 +182,17 @@ class ElementNo:
                     for match in re.finditer(pattern, data):
                         instr_addr = mbi.BaseAddress + match.start()
                         if self.sm_arch == 64:
+                            # 64 位 RIP 相对寻址、目标地址计算instr + MOV_RAX_RIP_LEN + disp32（有符号）
+                            # 读取全局指针 read_longlong（8 字节）
                             global_var_addr = (
                                 instr_addr
-                                + 7
+                                + MOV_RAX_RIP_LEN
                                 + struct.unpack("<i", match.group("ptr"))[0]
                             )
                             ptr_offset = struct.unpack("<i", match.group("off"))[0]
                         elif self.sm_arch == 32:
+                            # 32 位 绝对地址、目标地址计算disp32（直接就是地址，无符号）
+                            # 读取全局指针 read_uint（4 字节）
                             global_var_addr = struct.unpack("<I", match.group("ptr"))[0]
                             ptr_offset = struct.unpack("<I", match.group("off"))[0]
                         else:
