@@ -442,9 +442,7 @@ def trace(mem, his):
 @click.option(
     "--num",
     type=int,
-    default=1000,
-    show_default=True,
-    help="根据字数条件插入水平分割线，支持 --id <id1>,<id2>",
+    help="根据字数条件插入水平分割线, 推荐1000字",
 )
 @click.option("--id", "eid", help="根据元素id条件插入水平分割线")
 def splitline(re_pattern, num, eid):
@@ -482,9 +480,11 @@ def splitline(re_pattern, num, eid):
             except re.error as e:
                 click.echo(f"[No. {text_reg.eId}] 正则表达式无效: {e}", err=True)
                 return
+            if count == 0:
+                return
             with force_reload, open(path, "w", encoding="utf-8") as fs:
                 fs.write(inserted)
-        elif num:
+        elif num is not None:
             try:
                 inserted = epub_convert.split_html_with_lenght(htm, num)
             except Exception as e:  # noqa: BLE001
@@ -563,6 +563,10 @@ def is_launched_from_gui():
 
 
 if __name__ == "__main__":
+    # (?i)忽略大小写
+    # main.commands["splitline"](
+    #     ["--re", r"(?i)(?s)<p>(?!<b>)\s*.*?</p>"], standalone_mode=False
+    # )
     if is_launched_from_gui():
         try:
             import pyi_splash
