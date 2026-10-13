@@ -429,25 +429,11 @@ def autotts(onlyat):
 @click.option("--his", is_flag=True, help="打印浏览过的历史id")
 def trace(mem, his):
     """追踪当前元素，并输出当前元素信息"""
-    try:
-        trace = Trace()
-        if mem:
-            trace.print_info(mode="m")
-        else:
-            trace.print_info(mode="o")
-
-    finally:
-        print("id: ", ",".join(map(str, trace.his_id)))
-
-
-def parse_ids(ctx, param, value):
-    ids = []
-    for item in value:
-        for part in item.split(","):
-            part = part.strip()
-            if part:
-                ids.append(int(part))
-    return tuple(ids)
+    trace = Trace()
+    if mem:
+        trace.print_info(mode="m")
+    else:
+        trace.print_info(mode="o")
 
 
 @main.command()
@@ -459,13 +445,7 @@ def parse_ids(ctx, param, value):
     show_default=True,
     help="根据字数条件插入水平分割线，支持 --id <id1>,<id2>",
 )
-@click.option(
-    "--id",
-    "eid",
-    multiple=True,
-    callback=parse_ids,
-    help="根据元素id条件插入水平分割线",
-)
+@click.option("--id", "eid", help="根据元素id条件插入水平分割线")
 def splitline(re_pattern, num, eid):
     """在当前元素中根据条件插入水平分割线"""
     # 字数默认推荐1000字，按段落分。
@@ -518,8 +498,7 @@ def splitline(re_pattern, num, eid):
     if not eid:
         trace.trace_with_mem(work)
     else:
-        for element_id in eid:
-            work(trace.trace_with_id(element_id))
+        work(trace.trace_with_id(eid))
 
 
 class Shell(cmd.Cmd):
