@@ -115,14 +115,6 @@ class Trace:
 
         reader = ElementNo()
         try:
-            if not reader.attach():
-                print("[ElementNo] 附加进程失败")
-                return
-
-            if not reader.locate():
-                print("[ElementNo] 扫描失败，未找到有效特征码")
-                return
-
             last_id = None
             while True:
                 if not reader.app.is_process_running():

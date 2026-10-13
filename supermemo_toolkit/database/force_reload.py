@@ -1,4 +1,5 @@
 import ctypes
+import logging
 import os
 import re
 import struct
@@ -13,6 +14,7 @@ import pymem.process
 import win32api
 import win32con
 import win32process
+from pymem.exception import MemoryReadError, ProcessError
 from pywinauto.application import Application
 from pywinauto.findwindows import ElementNotFoundError
 
@@ -73,10 +75,10 @@ TElWind_Self_32 = re.compile(
 )
 
 _FORCE_RELOADING_SCAN_CONFIG = {
-    (32, "sm17"): (TElWind_Self_32, ForceReloading_32),
-    (32, "sm18"): (TElWind_Self_32, ForceReloading_32),
-    (32, "sm19"): (TElWind_Self_32, ForceReloading_32),
-    (64, "sm20"): (TElWind_Self_64, ForceReloading_64),
+    (32, "sm17"): (TElWind_Self_32, ForceReloading_32, None),
+    (32, "sm18"): (TElWind_Self_32, ForceReloading_32, 0x0E0B),
+    (32, "sm19"): (TElWind_Self_32, ForceReloading_32, 0x0E4F),
+    (64, "sm20"): (TElWind_Self_64, ForceReloading_64, 0x1C4D),
 }
 
 
@@ -102,19 +104,44 @@ kernel32.VirtualQueryEx.argtypes = [
 ]
 kernel32.VirtualQueryEx.restype = ctypes.c_size_t
 
+# 声明函数参数类型，避免 64 位下句柄被截断
+user32 = ctypes.WinDLL("user32", use_last_error=True)
+user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+user32.ShowWindow.restype = wintypes.BOOL
+user32.PostMessageW.argtypes = [
+    wintypes.HWND,
+    wintypes.UINT,
+    wintypes.WPARAM,
+    wintypes.LPARAM,
+]
+user32.PostMessageW.restype = wintypes.BOOL
+user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+user32.FindWindowW.restype = wintypes.HWND
+
 
 class ForceReload:
     """适配sm17、sm18、sm19、sm20"""
 
     def __init__(self):
-        file_path, app = self._get_exe_info()
+        info = self._get_exe_info()
+        if info is None:
+            sys.exit()
+        file_path, arch, telwind_handle = info
         self.process_name = os.path.basename(file_path)
         self.sm_ver: str = compute_sm_ver(file_path)
-        self.sm_arch: int = 64 if app.is64bit() else 32
-        self.handle = app.window(class_name="TElWind").handle
+        self.sm_arch: int = arch
+        self.telwind_handle: int = telwind_handle
         self.py_mem: pymem.Pymem = None
         self.base = 0
         self.force_addr = None  # 缓存下来，只扫一次
+        if not self.attach():
+            self.detach()
+            print("[ForceReload] 附加进程失败")
+            sys.exit()
+        if not self.locate():
+            self.detach()
+            print("[ForceReload] 扫描失败，未找到有效特征码")
+            sys.exit()
 
     def _scan_aob_execute_read_only(self, pattern, is_offset=False):
         """
@@ -125,11 +152,8 @@ class ForceReload:
         mbi = MEMORY_BASIC_INFORMATION()
         address = self.base
         end_address = self.base + self.module_size
-
         MOV_RAX_RIP_LEN = 7  # 48 8B 05 + disp32  RIP 相对寻址
-
         candidates = []
-
         while address < end_address:
             ret = kernel32.VirtualQueryEx(
                 process_handle,
@@ -158,10 +182,9 @@ class ForceReload:
                                 global_var_addr = instr_addr + MOV_RAX_RIP_LEN + disp
                             elif self.sm_arch == 32:
                                 global_var_addr = struct.unpack("<I", match.group(1))[0]
-                            else:
-                                continue
                         else:
-                            global_var_addr = struct.unpack("<i", match.group(1))[0]
+                            # offset 分支
+                            global_var_addr = struct.unpack("<I", match.group(1))[0]
 
                         # 去重，避免同一地址重复加入
                         if global_var_addr not in candidates:
@@ -176,12 +199,13 @@ class ForceReload:
 
         return candidates
 
-    def _is_reasonable_offset(self, ptr_addr):
-        """验证指针是否指向一个合理的主对象"""
-        return 0 <= ptr_addr < 65535
+    def _is_reasonable_offset(self, offset):
+        """校验字段偏移是否在合理范围内"""
+        return 0x0800 <= offset < 0x2000
 
     def attach(self):
         try:
+            logging.getLogger("pymem").setLevel(logging.WARNING)
             self.py_mem = pymem.Pymem(self.process_name)
             module = pymem.process.module_from_name(
                 self.py_mem.process_handle, self.process_name
@@ -199,6 +223,8 @@ class ForceReload:
             except Exception:  # noqa: BLE001, S110
                 pass
             self.py_mem = None
+        self.force_addr = None
+        self.telwind_handle = None
 
     def locate(self):
         """扫描一次定位全局变量地址，后续直接复用"""
@@ -206,7 +232,7 @@ class ForceReload:
         if not cfg:
             return False
 
-        telwind_pattern, force_pattern = cfg
+        telwind_pattern, force_pattern, _expect_offset = cfg
         telwind_candidates = self._scan_aob_execute_read_only(telwind_pattern)
         force_candidates = self._scan_aob_execute_read_only(force_pattern, True)
 
@@ -217,9 +243,10 @@ class ForceReload:
             telwind_addr = self.py_mem.read_longlong(telwind_candidates[0])
         elif self.sm_arch == 32:
             telwind_addr = self.py_mem.read_uint(telwind_candidates[0])
-        if self._is_reasonable_offset(force_candidates[0]):
+        if telwind_addr != 0 and self._is_reasonable_offset(force_candidates[0]):
             self.force_addr = telwind_addr + force_candidates[0]
             return True
+        self.force_addr = None
         return False
 
     def read_force_reloading(self):
@@ -227,7 +254,7 @@ class ForceReload:
             return None
         try:
             return bool(self.py_mem.read_bool(self.force_addr))
-        except Exception:
+        except (TypeError, MemoryReadError, ProcessError):
             return None
 
     def set_force_reloading(self):
@@ -235,36 +262,22 @@ class ForceReload:
             return False
         try:
             self.py_mem.write_bool(self.force_addr, True)
-            return self.read_force_reloading() is True
-        except Exception:
+            return bool(self.read_force_reloading())
+        except (TypeError, MemoryReadError, ProcessError):
             return False
 
     def activate_window(self):
         # 仅需设置ForceReloading = 1就可以，然后让主窗口获得焦点即可
         # 仅这些就可以实现消费ForceReloading。需要先设置ForceReloading在发消息才可以
-        hwnd = self.handle
-        user32 = ctypes.WinDLL("user32", use_last_error=True)
-        # 声明函数参数类型，避免 64 位下句柄被截断
-        user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
-        user32.ShowWindow.restype = wintypes.BOOL
-
-        user32.PostMessageW.argtypes = [
-            wintypes.HWND,
-            wintypes.UINT,
-            wintypes.WPARAM,
-            wintypes.LPARAM,
-        ]
-        user32.PostMessageW.restype = wintypes.BOOL
-
-        user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
-        user32.FindWindowW.restype = wintypes.HWND
-        if not hwnd:
+        if not self.telwind_handle:
             return False
 
-        user32.ShowWindow(hwnd, win32con.SW_RESTORE)
-        user32.PostMessageW(hwnd, win32con.WM_NULL, 0, 0)
-        user32.PostMessageW(hwnd, win32con.WM_NULL, 0, 0)
-        user32.PostMessageW(hwnd, win32con.WM_ACTIVATE, win32con.WA_ACTIVE, 0)
+        user32.ShowWindow(self.telwind_handle, win32con.SW_RESTORE)
+        user32.PostMessageW(self.telwind_handle, win32con.WM_NULL, 0, 0)
+        user32.PostMessageW(self.telwind_handle, win32con.WM_NULL, 0, 0)
+        user32.PostMessageW(
+            self.telwind_handle, win32con.WM_ACTIVATE, win32con.WA_ACTIVE, 0
+        )
         return True
 
     def _get_exe_info(self):
@@ -281,42 +294,44 @@ class ForceReload:
 
             try:
                 file_path = win32process.GetModuleFileNameEx(h, 0)
-                return (file_path, app)
+                return (
+                    file_path,
+                    64 if app.is64bit() else 32,
+                    app.window(class_name="TElWind").handle,
+                )
             finally:
                 win32api.CloseHandle(h)
 
+        except ElementNotFoundError as e:
+            messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
+            return None
         except Exception as e:  # noqa: BLE001
-            if isinstance(e, ElementNotFoundError):
-                messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
-            else:
-                messagebox.showerror("错误", e)
-            sys.exit()
+            messagebox.showerror("错误", e)
+            return None
 
     def __enter__(self):
-        print("__enter__")
+        # print("__enter__")
         self.set_force_reloading()
         return self
 
     def __exit__(self, exc_type, exc, tb):
-        print("__exit__")
-        self.activate_window()
+        # print("__exit__")
+        if exc_type is None:
+            self.activate_window()
+        return False  # 异常照抛
 
 
 if __name__ == "__main__":
-    reader = ForceReload()
+    force_reload = ForceReload()
     try:
-        if not reader.attach():
-            print("[ForceReload] 附加进程失败")
-            sys.exit()
+        print(time.asctime(), "ForceReloading::", force_reload.read_force_reloading())
+        time.sleep(1)
+        with force_reload:
+            print(
+                time.asctime(), "ForceReloading::", force_reload.read_force_reloading()
+            )
+        time.sleep(1)
+        print(time.asctime(), "ForceReloading::", force_reload.read_force_reloading())
 
-        if not reader.locate():
-            print("[ForceReload] 扫描失败，未找到有效特征码")
-            sys.exit()
-        with reader:
-            pass
-        while True:
-            print(time.asctime(), "ForceReloading::", reader.read_force_reloading())
-            time.sleep(1)
-            # reader.set_force_reloading()
     finally:
-        reader.detach()
+        force_reload.detach()

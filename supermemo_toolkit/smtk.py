@@ -450,8 +450,8 @@ def trace(mem, his):
 def splitline(re_pattern, num, eid):
     """在当前元素中根据条件插入水平分割线"""
     # 字数默认推荐1000字，按段落分。
-    trace = Trace()
     force_reload = ForceReload()
+    trace = Trace()
 
     def work(text_reg: TextRegistry):
         if text_reg is None or text_reg.eId == None:
@@ -466,7 +466,7 @@ def splitline(re_pattern, num, eid):
         click.echo(f"[No. {text_reg.eId}] [Title: {text_reg.eTitle[:12].strip()}]")
 
         root, namedpath = path.split("elements")
-        filename = makeNameSafe(f"Element#{text_reg.eId}-Path{namedpath}")
+        filename = makeNameSafe(f"El#{text_reg.eId}-Path{namedpath}")
         temp = os.path.join(root, "temp", filename)
         shutil.copyfile(path, temp)
         click.echo(f"[No. {text_reg.eId}] [Backups: {temp}]")
@@ -482,40 +482,27 @@ def splitline(re_pattern, num, eid):
             except re.error as e:
                 click.echo(f"[No. {text_reg.eId}] 正则表达式无效: {e}", err=True)
                 return
-            force_reload.set_force_reloading()
-            with open(path, "w", encoding="utf-8") as fs:
+            with force_reload, open(path, "w", encoding="utf-8") as fs:
                 fs.write(inserted)
-            force_reload.activate_window()
         elif num:
             try:
                 inserted = epub_convert.split_html_with_lenght(htm, num)
             except Exception as e:  # noqa: BLE001
                 click.echo(f"{e}", err=True)
                 return
-            force_reload.set_force_reloading()
-            with open(path, "w", encoding="utf-8") as fs:
+            with force_reload, open(path, "w", encoding="utf-8") as fs:
                 fs.write(inserted)
-            force_reload.activate_window()
         click.echo(
             f"[No. {text_reg.eId}] [分割线插入完成] [Path: {make_link(path, url)}]"
         )
         # 终止
         return True
 
-    try:
-        if not force_reload.attach():
-            print("[ForceReload] 附加进程失败")
-            sys.exit()
-
-        if not force_reload.locate():
-            print("[ForceReload] 扫描失败，未找到有效特征码")
-            sys.exit()
+    if force_reload.force_addr is not None:
         if not eid:
             trace.trace_with_mem(work)
         else:
             work(trace.trace_with_id(eid))
-
-    finally:
         force_reload.detach()
 
 

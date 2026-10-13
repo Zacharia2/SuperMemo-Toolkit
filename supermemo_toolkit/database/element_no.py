@@ -1,4 +1,5 @@
 import ctypes
+import logging
 import os
 import re
 import struct
@@ -13,6 +14,7 @@ import pymem.process
 import win32api
 import win32con
 import win32process
+from pymem.exception import MemoryReadError, ProcessError
 from pywinauto.application import Application
 from pywinauto.findwindows import ElementNotFoundError
 from watchdog.events import FileSystemEventHandler
@@ -135,16 +137,29 @@ class ElementNo:
     """适配sm15、sm16、sm17、sm18、sm19、sm20"""
 
     def __init__(self):
-        file_path, app = self._get_exe_info()
+        info = self._get_exe_info()
+        if info is None:
+            sys.exit()
+        file_path, app = info
         self.app = app
         self.process_name = os.path.basename(file_path)
         self.sm_ver: str = compute_sm_ver(file_path)
         self.sm_arch: int = 64 if app.is64bit() else 32
         self.py_mem: pymem.Pymem = None
-        self.base = 0
+        self.base: int = 0
         self.global_ptr_addr = None  # 缓存下来，只扫一次
         self.ptr_offset = 0
         self.max_ptr = 0
+        self.module_size: int = 0
+        if not self.attach():
+            self.detach()
+            print("[ElementNo] 附加进程失败")
+            sys.exit()
+
+        if not self.locate():
+            self.detach()
+            print("[ElementNo] 扫描失败，未找到有效特征码")
+            sys.exit()
 
     def _scan_aob_execute_read_only(self, pattern):
         """
@@ -195,8 +210,6 @@ class ElementNo:
                             # 读取全局指针 read_uint（4 字节）
                             global_var_addr = struct.unpack("<I", match.group("ptr"))[0]
                             ptr_offset = struct.unpack("<I", match.group("off"))[0]
-                        else:
-                            continue
 
                         # 去重，避免同一地址重复加入
                         if global_var_addr not in candidates:
@@ -221,7 +234,7 @@ class ElementNo:
             # 读取 ID，判断是否合理
             eid = self.py_mem.read_uint(obj_addr + self.ptr_offset)
             return ElementNo.is_valid_eid(eid)
-        except Exception:
+        except (TypeError, MemoryReadError, ProcessError):
             return False
 
     @staticmethod
@@ -230,6 +243,7 @@ class ElementNo:
 
     def attach(self):
         try:
+            logging.getLogger("pymem").setLevel(logging.WARNING)
             self.py_mem = pymem.Pymem(self.process_name)
             module = pymem.process.module_from_name(
                 self.py_mem.process_handle, self.process_name
@@ -247,6 +261,7 @@ class ElementNo:
             except Exception:  # noqa: BLE001, S110
                 pass
             self.py_mem = None
+        self.global_ptr_addr = None
 
     def locate(self):
         """扫描一次定位全局变量地址，后续直接复用"""
@@ -278,6 +293,7 @@ class ElementNo:
                 return True
 
         # 所有候选都验证失败
+        self.global_ptr_addr = None
         return False
 
     def read_id(self):
@@ -291,7 +307,7 @@ class ElementNo:
             if not self._validate_object(obj):
                 return None
             return self.py_mem.read_uint(obj + self.ptr_offset)
-        except Exception:
+        except (TypeError, MemoryReadError, ProcessError):
             return None
 
     def _get_exe_info(self):
@@ -312,12 +328,12 @@ class ElementNo:
             finally:
                 win32api.CloseHandle(h)
 
+        except ElementNotFoundError as e:
+            messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
+            return None
         except Exception as e:  # noqa: BLE001
-            if isinstance(e, ElementNotFoundError):
-                messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
-            else:
-                messagebox.showerror("错误", e)
-            sys.exit()
+            messagebox.showerror("错误", e)
+            return None
 
 
 class TempHandler(FileSystemEventHandler):
@@ -395,14 +411,6 @@ class TempHandler(FileSystemEventHandler):
 if __name__ == "__main__":
     reader = ElementNo()
     try:
-        if not reader.attach():
-            print("[ElementNo] 附加进程失败")
-            sys.exit()
-
-        if not reader.locate():
-            print("[ElementNo] 扫描失败，未找到有效特征码")
-            sys.exit()
-
         last_id = None
         while True:
             if not reader.app.is_process_running():
