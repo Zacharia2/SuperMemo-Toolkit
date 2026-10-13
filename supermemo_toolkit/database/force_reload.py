@@ -133,7 +133,7 @@ class ForceReload:
         self.telwind_handle: int = telwind_handle
         self.py_mem: pymem.Pymem = None
         self.base = 0
-        self.force_addr = None  # 缓存下来，只扫一次
+        self.online_and_has_force_addr = None  # 缓存下来，只扫一次，也是成功的标志
         if not self.attach():
             self.detach()
             print("[ForceReload] 附加进程失败")
@@ -223,7 +223,7 @@ class ForceReload:
             except Exception:  # noqa: BLE001, S110
                 pass
             self.py_mem = None
-        self.force_addr = None
+        self.online_and_has_force_addr = None
         self.telwind_handle = None
 
     def locate(self):
@@ -244,24 +244,24 @@ class ForceReload:
         elif self.sm_arch == 32:
             telwind_addr = self.py_mem.read_uint(telwind_candidates[0])
         if telwind_addr != 0 and self._is_reasonable_offset(force_candidates[0]):
-            self.force_addr = telwind_addr + force_candidates[0]
+            self.online_and_has_force_addr = telwind_addr + force_candidates[0]
             return True
-        self.force_addr = None
+        self.online_and_has_force_addr = None
         return False
 
     def read_force_reloading(self):
-        if self.force_addr is None:
+        if self.online_and_has_force_addr is None:
             return None
         try:
-            return bool(self.py_mem.read_bool(self.force_addr))
+            return bool(self.py_mem.read_bool(self.online_and_has_force_addr))
         except (TypeError, MemoryReadError, ProcessError):
             return None
 
     def set_force_reloading(self):
-        if self.force_addr is None:
+        if self.online_and_has_force_addr is None:
             return False
         try:
-            self.py_mem.write_bool(self.force_addr, True)
+            self.py_mem.write_bool(self.online_and_has_force_addr, True)
             return bool(self.read_force_reloading())
         except (TypeError, MemoryReadError, ProcessError):
             return False

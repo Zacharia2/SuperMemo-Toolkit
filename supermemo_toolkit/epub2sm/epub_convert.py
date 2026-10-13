@@ -364,7 +364,7 @@ def split_html_with_lenght(html, limit_num):
             words += len(str(node))
             if words > limit_num and node.parent:
                 node_index = node.parent.index(node)
-                node.parent.insert(node_index + 1, soup.new_tag("hr"))
+                node.parent.insert(node_index + 1, soup.new_tag("hr", id="smtk-number"))
                 words = 0
 
         elif isinstance(node, Tag):
@@ -521,4 +521,7 @@ def start_with_topic(epub_file, save_folder, limit_num, save_image_folder=None):
 
 
 if __name__ == "__main__":
-    start_with_toc(r"D:\Calibre Library\Calibre 花园\Kong Zi\Zhu Zi Bai Jia Xi Lie Tao Zhuang [(T (85)\Zhu Zi Bai Jia Xi Lie Tao Zhuan - Kong Zi.epub", r"C:\Users\Snowy\Desktop")
+    start_with_toc(
+        r"D:\Calibre Library\Calibre 花园\Kong Zi\Zhu Zi Bai Jia Xi Lie Tao Zhuang [(T (85)\Zhu Zi Bai Jia Xi Lie Tao Zhuan - Kong Zi.epub",
+        r"C:\Users\Snowy\Desktop",
+    )

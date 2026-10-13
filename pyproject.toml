@@ -32,6 +32,7 @@ dependencies = [
     "python-magic>=0.4.27; sys_platform != 'win32'",
     "python-magic-bin>=0.4.14; sys_platform == 'win32'",
     "pywinauto>=0.6.9; sys_platform == 'win32'",
+    "regex>=2026.9.29",
     "requests>=2.34.2",
     "sounddevice>=0.5.5",
     "svglib>=2.2.0",
