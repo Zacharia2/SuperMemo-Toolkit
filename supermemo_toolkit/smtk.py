@@ -27,7 +27,7 @@ from supermemo_toolkit.utilscripts.ulils import makeNameSafe
 
 sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM).lower()
 smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
-__version__ = "0.2.3"
+__version__ = "0.2.5"
 
 
 @click.group(
