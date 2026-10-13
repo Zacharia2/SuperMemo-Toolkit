@@ -14,6 +14,7 @@ from tabulate import tabulate
 
 from supermemo_toolkit.ansm_conv.sm2anki import qa_to_anki
 from supermemo_toolkit.autotts.autotts import run_auto_tts
+from supermemo_toolkit.database.force_reload import ForceReload
 from supermemo_toolkit.database.registry import TextRegistry
 from supermemo_toolkit.database.trace import Trace, make_link
 from supermemo_toolkit.epub2sm import epub_convert, format_ascii
@@ -450,6 +451,7 @@ def splitline(re_pattern, num, eid):
     """在当前元素中根据条件插入水平分割线"""
     # 字数默认推荐1000字，按段落分。
     trace = Trace()
+    force_reload = ForceReload()
 
     def work(text_reg: TextRegistry):
         if text_reg is None or text_reg.eId == None:
@@ -467,7 +469,7 @@ def splitline(re_pattern, num, eid):
         filename = makeNameSafe(f"Element#{text_reg.eId}-Path{namedpath}")
         temp = os.path.join(root, "temp", filename)
         shutil.copyfile(path, temp)
-        click.echo(f"[Backups: {temp}]")
+        click.echo(f"[No. {text_reg.eId}] [Backups: {temp}]")
         with open(path, "r", encoding="utf-8") as fs:
             htm = fs.read()
 
@@ -475,30 +477,46 @@ def splitline(re_pattern, num, eid):
             try:
                 regex = re.compile(re_pattern)
                 count = sum(1 for _ in regex.finditer(htm))
-                click.echo(f"找到 {count} 个匹配项")
+                click.echo(f"[No. {text_reg.eId}] [找到 {count} 个匹配项]")
                 inserted = regex.sub(lambda m: "<hr/>" + m.group(0), htm)
             except re.error as e:
-                click.echo(f"正则表达式无效: {e}", err=True)
+                click.echo(f"[No. {text_reg.eId}] 正则表达式无效: {e}", err=True)
                 return
+            force_reload.set_force_reloading()
             with open(path, "w", encoding="utf-8") as fs:
                 fs.write(inserted)
+            force_reload.activate_window()
         elif num:
             try:
                 inserted = epub_convert.split_html_with_lenght(htm, num)
             except Exception as e:  # noqa: BLE001
                 click.echo(f"{e}", err=True)
                 return
+            force_reload.set_force_reloading()
             with open(path, "w", encoding="utf-8") as fs:
                 fs.write(inserted)
-        click.echo("分割线插入完成")
-        click.echo(f"[Path: {make_link(path, url)}]")
+            force_reload.activate_window()
+        click.echo(
+            f"[No. {text_reg.eId}] [分割线插入完成] [Path: {make_link(path, url)}]"
+        )
         # 终止
         return True
 
-    if not eid:
-        trace.trace_with_mem(work)
-    else:
-        work(trace.trace_with_id(eid))
+    try:
+        if not force_reload.attach():
+            print("[ForceReload] 附加进程失败")
+            sys.exit()
+
+        if not force_reload.locate():
+            print("[ForceReload] 扫描失败，未找到有效特征码")
+            sys.exit()
+        if not eid:
+            trace.trace_with_mem(work)
+        else:
+            work(trace.trace_with_id(eid))
+
+    finally:
+        force_reload.detach()
 
 
 class Shell(cmd.Cmd):
