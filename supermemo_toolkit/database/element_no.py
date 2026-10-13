@@ -134,10 +134,12 @@ kernel32.VirtualQueryEx.restype = ctypes.c_size_t
 class ElementNo:
     """适配sm15、sm16、sm17、sm18、sm19、sm20"""
 
-    def __init__(self, file_path, arch):
+    def __init__(self):
+        file_path, app = self._get_exe_info()
+        self.app = app
         self.process_name = os.path.basename(file_path)
         self.sm_ver: str = compute_sm_ver(file_path)
-        self.sm_arch: int = arch
+        self.sm_arch: int = 64 if app.is64bit() else 32
         self.py_mem: pymem.Pymem = None
         self.base = 0
         self.global_ptr_addr = None  # 缓存下来，只扫一次
@@ -154,9 +156,6 @@ class ElementNo:
         address = self.base
         end_address = self.base + self.module_size
 
-        MEM_COMMIT = 0x1000
-        EXECUTE_READ = 0x20
-        PAGE_GUARD = 0x100
         MOV_RAX_RIP_LEN = 7  # 48 8B 05 + disp32  RIP 相对寻址
 
         candidates = {}
@@ -172,11 +171,12 @@ class ElementNo:
                 break
 
             # 只扫已提交且可执行的页
-            if (
-                mbi.State == MEM_COMMIT
-                and (mbi.Protect & EXECUTE_READ)
-                and not (mbi.Protect & PAGE_GUARD)
-            ):
+            is_scannable_code = (
+                mbi.State == win32con.MEM_COMMIT
+                and (mbi.Protect & win32con.PAGE_EXECUTE_READ)
+                and not (mbi.Protect & win32con.PAGE_GUARD)
+            )
+            if is_scannable_code:
                 try:
                     data = self.py_mem.read_bytes(mbi.BaseAddress, mbi.RegionSize)
                     for match in re.finditer(pattern, data):
@@ -294,6 +294,31 @@ class ElementNo:
         except Exception:
             return None
 
+    def _get_exe_info(self):
+        try:
+            warnings.filterwarnings(
+                "ignore", message=".*32-bit application should be automated.*"
+            )
+            app = Application(backend="win32").connect(class_name="TElWind")
+            h = win32api.OpenProcess(
+                win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
+                False,
+                app.process,
+            )
+
+            try:
+                file_path = win32process.GetModuleFileNameEx(h, 0)
+                return (file_path, app)
+            finally:
+                win32api.CloseHandle(h)
+
+        except Exception as e:  # noqa: BLE001
+            if isinstance(e, ElementNotFoundError):
+                messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
+            else:
+                messagebox.showerror("错误", e)
+            sys.exit()
+
 
 class TempHandler(FileSystemEventHandler):
     """适配sm18、sm19、sm20"""
@@ -368,30 +393,7 @@ class TempHandler(FileSystemEventHandler):
 
 
 if __name__ == "__main__":
-    try:
-        warnings.filterwarnings(
-            "ignore", message=".*32-bit application should be automated.*"
-        )
-        app = Application(backend="win32").connect(class_name="TElWind")
-        h = win32api.OpenProcess(
-            win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
-            False,
-            app.process,
-        )
-        arch = 64 if app.is64bit() else 32
-        try:
-            file_path = win32process.GetModuleFileNameEx(h, 0)
-        finally:
-            win32api.CloseHandle(h)
-
-    except Exception as e:  # noqa: BLE001
-        if isinstance(e, ElementNotFoundError):
-            messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
-        else:
-            messagebox.showerror("错误", e)
-        sys.exit()
-
-    reader = ElementNo(file_path, arch)
+    reader = ElementNo()
     try:
         if not reader.attach():
             print("[ElementNo] 附加进程失败")
@@ -403,7 +405,7 @@ if __name__ == "__main__":
 
         last_id = None
         while True:
-            if not app.is_process_running():
+            if not reader.app.is_process_running():
                 break
 
             elem_id = reader.read_id()

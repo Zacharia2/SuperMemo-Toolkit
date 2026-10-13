@@ -108,35 +108,12 @@ class Trace:
         return None
 
     def trace_with_mem(self, callback: Callable[[int, TextRegistry], any]):
-        try:
-            warnings.filterwarnings(
-                "ignore", message=".*32-bit application should be automated.*"
-            )
-            app = Application(backend="win32").connect(class_name="TElWind")
-            h = win32api.OpenProcess(
-                win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
-                False,
-                app.process,
-            )
-            arch = 64 if app.is64bit() else 32
-            try:
-                file_path = win32process.GetModuleFileNameEx(h, 0)
-            finally:
-                win32api.CloseHandle(h)
-
-        except Exception as e:  # noqa: BLE001
-            if isinstance(e, ElementNotFoundError):
-                messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
-            else:
-                messagebox.showerror("错误", e)
-            return
-
         active_kno_path = self._get_active_kno_path()
         if active_kno_path == None:
             return
         text_reg = TextRegistry(active_kno_path)
 
-        reader = ElementNo(file_path, arch)
+        reader = ElementNo()
         try:
             if not reader.attach():
                 print("[ElementNo] 附加进程失败")
@@ -148,7 +125,7 @@ class Trace:
 
             last_id = None
             while True:
-                if not app.is_process_running():
+                if not reader.app.is_process_running():
                     return
                 if self.__stoped:
                     return
@@ -158,7 +135,7 @@ class Trace:
                     text_reg.refresh(element_id=elem_id)
                     if text_reg.eId == None:
                         time.sleep(0.5)
-                        if not app.is_process_running():
+                        if not reader.app.is_process_running():
                             return
                         if self.__stoped:
                             return
