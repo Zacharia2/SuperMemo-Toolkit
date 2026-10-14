@@ -23,6 +23,7 @@ from supermemo_toolkit.database.window_focus import activate_window
 from supermemo_toolkit.epub2sm import epub_convert, format_ascii
 from supermemo_toolkit.latex2img import formula_to_png
 from supermemo_toolkit.pathpix import im_sort_out
+from supermemo_toolkit.pathpix.epub_imgfit import EpubImageFit
 from supermemo_toolkit.pathpix.gui import run_pathpix_ui
 from supermemo_toolkit.title_xref import complete_title
 from supermemo_toolkit.utilscripts import config as smtk_config
@@ -35,7 +36,6 @@ __version__ = "0.2.5"
 
 @click.group(
     no_args_is_help=True,
-    context_settings={"help_option_names": []},
     help=f"SuperMemo 增强工具(CLI命令行)。 Ver:{__version__}\n包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS 卡片朗读等。",
 )
 @click.version_option(version=__version__)
@@ -443,16 +443,17 @@ def trace(mem, his):
 @main.command()
 @click.option("--re", "pattern", type=str, help="根据正则条件插入水平分割线")
 @click.option(
-    "--limit",
+    "--n",
+    "limit",
     type=int,
     help="根据字数条件插入水平分割线, 推荐1000字",
 )
-@click.option("--id", "eid", help="根据元素id条件插入水平分割线")
-@click.option("--recover", is_flag=True, help="清楚文档分割符标记")
+@click.option("--id", "eid", type=int, help="根据元素id条件插入水平分割线")
 @click.option(
-    "--trace", "tracing", is_flag=True, default=False, help="清楚文档分割符标记"
+    "--trace", "tracing", is_flag=True, default=False, help="清除文档分割符标记"
 )
-def splitline(pattern, limit, eid, recover, tracing):
+@click.option("--recover", is_flag=True, help="清除文档分割符标记")
+def splitline(pattern, limit, eid, tracing, recover):
     """在当前元素中根据条件插入水平分割线"""
     CONTINUE = not tracing
 
@@ -595,6 +596,87 @@ def splitline(pattern, limit, eid, recover, tracing):
         force_reload.detach()
 
 
+@main.command()
+@click.option(
+    "--trace",
+    "tracing",
+    is_flag=True,
+    default=False,
+    help="追踪当前元素, 处理元素中的图片, 并标记",
+)
+@click.option("--ignore", "ignore", is_flag=True, help="忽略已处理标记, 重新处理一次")
+@click.option(
+    "--max-width",
+    "max_width",
+    type=int,
+    default=1200,
+    help="设置图片最大宽度, 默认1200px",
+)
+def imgfit(tracing, ignore, max_width):
+    """对当前元素中的图片尺寸做适当调整, 使看起来合适"""
+    CONTINUE = not tracing
+
+    def work(text_reg: TextRegistry) -> bool:
+        if text_reg is None or text_reg.eId == None:
+            return CONTINUE
+        path = text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
+        if path == "":
+            return CONTINUE
+        try:
+            url = Path(path).resolve().as_uri()
+        except Exception:
+            url = path  # 如果本来就是 URL，就直接用
+        click.echo(f"[No. {text_reg.eId}] [Title: {text_reg.eTitle[:12].strip()}]")
+        IMG_RE = regex.compile(
+            r"""(?isx)
+            <!--.*?-->                                         (*SKIP)(*F)
+            | <(?:script|style)\b[^>]*>.*?</(?:script|style)>  (*SKIP)(*F)
+            | <(?:img|image)(?=[\s/>])(?:"[^"]*"|'[^']*'|[^>"'])*>
+            """
+        )
+        IMG_RE_CLASS = regex.compile(
+            rf"\b(?:{'|'.join([f'smtk-{x}' for x in imgfit.style])})\b"
+        )
+
+        with open(path, "r", encoding="utf-8") as fs:
+            htm = fs.read()
+
+        progress_count = len(IMG_RE_CLASS.findall(htm))
+        has_progress = progress_count > 0
+        if has_progress and not ignore:
+            click.echo(
+                f"[No. {text_reg.eId}] [跳过] 已存在 {progress_count} 个标记，无需重复处理。"
+            )
+            return CONTINUE
+
+        count = len(IMG_RE.findall(htm))
+        if count > 0:
+            if tracing:
+                hwnd = find_origin_window()
+                if hwnd is None:
+                    print(f"[No. {id}] 命令行程序未找到可聚焦的顶层窗口")
+                    return CONTINUE
+                activate_window(hwnd)
+                with force_reload:
+                    imgfit.process_file(path)
+            else:
+                with force_reload:
+                    imgfit.process_file(path)
+            click.echo(
+                f"[No. {text_reg.eId}] [图片尺寸适配完成] [Path: {make_link(path, url)}]"
+            )
+        else:
+            click.echo(f"[No. {text_reg.eId}] [跳过，没有找到图片]")
+        return CONTINUE
+
+    force_reload = ForceReload()
+    trace = Trace()
+    imgfit = EpubImageFit(page_width=max_width)
+    if force_reload.online_and_has_force_addr is not None:
+        trace.trace_with_mem(work)
+        force_reload.detach()
+
+
 class Shell(cmd.Cmd):
     prompt = ">"
 
@@ -660,6 +742,7 @@ if __name__ == "__main__":
     # main.commands["splitline"](
     #     ["--re", r'(?i)(?s)<p class="block">.*?</p>\s*\K<p>'], standalone_mode=False
     # )
+    # main.commands["imgfit"](["--trace"], standalone_mode=False)
     if is_launched_from_gui():
         try:
             import pyi_splash
