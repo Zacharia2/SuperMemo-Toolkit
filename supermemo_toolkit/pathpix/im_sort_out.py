@@ -1,10 +1,13 @@
 import hashlib
+import html
 import logging
 import os
 import re
 import shutil
 import time
 import uuid
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import unquote, urlparse
 
 import magic
@@ -428,7 +431,7 @@ def collect_documents(elements_folder):
     Returns:
         tuple: (path, mtime)
     """
-    htm_file_list = []
+    htm_file_list: list[tuple[str, float]] = []
     count_processed = 0
 
     stack = [elements_folder]
@@ -543,36 +546,199 @@ def relative_and_localize(wait_htm_path_list, elements_folder, collection_temp_f
             print(item)
 
 
+class FindImgSrc:
+    _WS = b" \t\r\n\f"
+    _SEP = b"=/>"
+    _QUOTES = (0x22, 0x27)
+    _EQ = 0x3D
+
+    _IMG_TAG_RE = re.compile(rb'<img(?=[\s/>])(?:[^>"\']|"[^"]*"|\'[^\']*\')*>', re.I)
+
+    @staticmethod
+    def _iter_attrs(raw: bytes):
+        i, n = 1, len(raw)
+        while i < n and raw[i] not in FindImgSrc._WS + b"/>":
+            i += 1
+        while i < n:
+            while i < n and raw[i] in FindImgSrc._WS + b"/":
+                i += 1
+            if i >= n:
+                break
+            start = i
+            while i < n and raw[i] not in FindImgSrc._WS + FindImgSrc._SEP:
+                i += 1
+            if i == start:
+                i += 1
+                continue
+            name = raw[start:i]
+            while i < n and raw[i] in FindImgSrc._WS:
+                i += 1
+            value = None
+            if i < n and raw[i] == FindImgSrc._EQ:
+                i += 1
+                while i < n and raw[i] in FindImgSrc._WS:
+                    i += 1
+                if i < n and raw[i] in FindImgSrc._QUOTES:
+                    quote = raw[i]
+                    i += 1
+                    vs = i
+                    while i < n and raw[i] != quote:
+                        i += 1
+                    value = raw[vs:i]
+                    if i < n:
+                        i += 1
+                else:
+                    vs = i
+                    while i < n and raw[i] not in FindImgSrc._WS + b">":
+                        i += 1
+                    value = raw[vs:i]
+            yield name, value
+
+    @staticmethod
+    def find_img_srcs(text: bytes) -> list[str]:
+        out = []
+        for m in FindImgSrc._IMG_TAG_RE.finditer(text):
+            for name, value in FindImgSrc._iter_attrs(m.group(0)):
+                if name.lower() == b"src":
+                    if value is not None:
+                        out.append(value.decode("utf-8"))
+                    break
+        return out
+
+
+# ============================================================
+# 路径规范化工具
+# ============================================================
+def _to_short(abs_path: str) -> str:
+    """绝对路径 → 形如 \\local_pic\\xxx.jpeg"""
+    n = os.path.normpath(abs_path)
+    if "elements" in n:
+        n = n.rsplit("elements", 1)[1]
+    if not n.startswith("\\"):
+        n = "\\" + n.lstrip("/")
+    return n
+
+
+def _normalize_img_key(img: str) -> str:
+    """图片 key → \\local_pic\\xxx.jpeg（内部会 unescape HTML 实体）"""
+    img = html.unescape(img)
+    n = os.path.normpath(img)
+    if "elements" in n:
+        n = n.rsplit("elements", 1)[1]
+    if not n.startswith("\\"):
+        n = "\\" + n.lstrip("/")
+    return n
+
+
+def _normalize_htm_key(path: str) -> str:
+    """htm 路径 → 形如 \\8\\85.HTM"""
+    n = os.path.normpath(path)
+    if "elements" in n:
+        n = n.rsplit("elements", 1)[1]
+    if not n.startswith("\\"):
+        n = "\\" + n.lstrip("/")
+    return n
+
+
+def _to_abs(elements_folder: str, short: str) -> str:
+    return os.path.join(elements_folder, short.lstrip("\\/"))
+
+
+# ============================================================
+# 并行扫描 htm
+# ============================================================
+def _scan_htm_refs(htm_abs_paths, desc):
+    """并行读一批 htm，返回 {img_short: {htm_short, ...}}"""
+    index: dict[str, set[str]] = defaultdict(set)
+    if not htm_abs_paths:
+        return index
+
+    def one(p):
+        try:
+            with open(p, "rb") as f:
+                raw = f.read()
+            return p, FindImgSrc.find_img_srcs(raw)
+        except (OSError, UnicodeDecodeError):
+            return p, []
+
+    total = len(htm_abs_paths)
+    with ThreadPoolExecutor() as ex:
+        for htm_abs, srcs in tqdm(ex.map(one, htm_abs_paths), total=total, desc=desc):
+            if not srcs:
+                continue
+            short = _normalize_htm_key(htm_abs)
+            for im in srcs:
+                im = re.sub(r"^file.*?Storage\]", "", im)
+                index[_normalize_img_key(im)].add(short)
+    return index
+
+
+# ============================================================
+# 文档差异
+# ============================================================
 def diff_scanhtm(elements_folder, previous_scan_path):
-    """返回新旧扫描结果的差集、当前扫描结果"""
-    # ([diff] None One)、([diff] One Two)
+    """返回 (差异文档列表, 现在扫描的文档列表, 已删除的文档列表)，均为绝对路径"""
     if os.path.exists(previous_scan_path):
-        previous_scan = config.read_config(previous_scan_path)
+        previous_scaned_docs = config.read_config(previous_scan_path) or {}
     else:
-        previous_scan = {}
+        previous_scaned_docs = {}
 
-    # 构建一个字典 { path: mtime }
-    now_scan = {path: mtime for path, mtime in collect_documents(elements_folder)}
+    now_scaned_docs = dict(collect_documents(elements_folder))
 
-    diff_list = []
-    if len(previous_scan) > 0:
-        for path, mtime in now_scan.items():
-            # 1.说明文件是存在的
-            if path in previous_scan:
-                # 1.说明是修改过的文件。
-                if mtime != previous_scan[path]:
-                    diff_list.append(path)
-
-            # 2.说明文件是新增的
-            else:
-                diff_list.append(path)
-
-            # 3.previous_scan有的，now_scan没有的，是被删除的。不用管。
-    else:
-        # 第一次添加生成字典。所谓的初始化数据库。
+    if not previous_scaned_docs:
         print("PathPix:: 未检测到历史记录，本次将会全部整理。")
-        diff_list = list(now_scan)
-    return diff_list, now_scan
+        return list(now_scaned_docs), now_scaned_docs, []
+
+    diff_docs = [
+        p
+        for p, m in now_scaned_docs.items()
+        if p not in previous_scaned_docs or previous_scaned_docs[p] != m
+    ]
+    del_docs = list(set(previous_scaned_docs) - set(now_scaned_docs))
+    return diff_docs, now_scaned_docs, del_docs
+
+
+# ============================================================
+# 图片引用记数本
+# ============================================================
+def 获取图片引用记数本(pre_record_path, htm_paths):
+    """返回 {img_short: set(htm_short)}；冷启动时并行全量扫描"""
+    if os.path.exists(pre_record_path):
+        raw = config.read_config(pre_record_path)
+        if raw:
+            return {
+                _normalize_img_key(img): {_normalize_htm_key(h) for h in paths}
+                for img, paths in raw.items()
+            }
+
+    print("PathPix:: 未检测到图片记数本，全量扫描。")
+    index = _scan_htm_refs(htm_paths, desc="收集被引用的图片")
+    config.dump_config(
+        pre_record_path,
+        {img: sorted(paths) for img, paths in index.items()},
+    )
+    return index
+
+
+# ============================================================
+# 磁盘图片（带目录树指纹缓存）
+# ============================================================
+def _tree_fingerprint(root: str) -> str:
+    """目录树指纹：所有目录的 (路径, mtime_ns) 排序后 hash。"""
+    entries = []
+    for dirpath, _, _ in os.walk(root):
+        try:
+            entries.append((dirpath, os.stat(dirpath).st_mtime_ns))
+        except OSError:
+            continue
+    entries.sort()
+    h = hashlib.sha1()
+    for p, m in entries:
+        h.update(p.encode("utf-8", "surrogatepass"))
+        h.update(b"\0")
+        h.update(str(m).encode())
+        h.update(b"\n")
+    return h.hexdigest()
 
 
 def find_im(directory):
@@ -582,7 +748,21 @@ def find_im(directory):
         current_path = stack.pop()
         try:
             for entry in os.scandir(current_path):
-                if entry.is_file():
+                IMG_EXTS = {
+                    ".jpg",
+                    ".jpeg",
+                    ".png",
+                    ".gif",
+                    ".bmp",
+                    ".webp",
+                    ".tif",
+                    ".tiff",
+                    ".svg",
+                }
+                if (
+                    entry.is_file()
+                    and os.path.splitext(entry.name)[1].lower() in IMG_EXTS
+                ):
                     im_list.append(os.path.normpath(entry.path))
                 if entry.is_dir():
                     stack.append(os.path.normpath(entry.path))
@@ -591,100 +771,117 @@ def find_im(directory):
     return im_list
 
 
+def 获取磁盘图片集合(web_pic, local_pic, cache_path):
+    """返回 {\\local_pic\\xxx.jpeg, ...}；目录树没变则用缓存"""
+    roots = [d for d in (web_pic, local_pic) if os.path.isdir(d)]
+    fp_parts = []
+    for d in roots:
+        try:
+            fp_parts.append(f"{d}|{_tree_fingerprint(d)}")
+        except OSError:
+            fp_parts.append(f"{d}|missing")
+    fingerprint = "||".join(fp_parts)
+
+    if os.path.exists(cache_path):
+        cached = config.read_config(cache_path)
+        if cached and cached.get("fingerprint") == fingerprint:
+            return set(cached["paths"])
+
+    paths = set()
+    for d in roots:
+        for p in find_im(d):
+            paths.add(_to_short(p))
+
+    config.dump_config(cache_path, {"fingerprint": fingerprint, "paths": sorted(paths)})
+    return paths
+
+
+# ============================================================
+# 主流程
+# ============================================================
 def organize_unused_im(elements_folder):
-    """仅清理web_pic和local_pic文件夹中未被引用的图片，移动到temp文件夹中。"""
     web_pic = os.path.join(elements_folder, "web_pic")
     local_pic = os.path.join(elements_folder, "local_pic")
     temp_dir = os.path.normpath(os.path.join(elements_folder, "../", "temp"))
     unused_pic = os.path.join(temp_dir, "unused_im")
 
-    is_exists_web_pic = os.path.exists(web_pic)
-    is_exists_local_pic = os.path.exists(local_pic)
-    if not (is_exists_web_pic or is_exists_local_pic):
+    if not (os.path.exists(web_pic) or os.path.exists(local_pic)):
         print("PathPix:: 未处理过此集合, web_pic 和 local_pic 文件夹不存在。")
         return
 
     print("PathPix::", "清理web_pic, local_pic文件夹中未被使用的图片")
-    # 增量清理，必须知道图片被多少链接引用的数量。
-    # {图片短路径: [{link1: htm1}, {link2: htm2}, {link3: htm2}]}
-    # image_ref_record: dict[str : list[dict[str, str]]] = {}
-    # 'local_pic\\FengTangChengShiXinFa\\96-i.jpg'
-    all_referenced_images = set()
-    htm_paths_and_mtimes = collect_documents(elements_folder)
-    for htm_path, _ in tqdm(htm_paths_and_mtimes, desc="收集被引用的图片"):
-        try:
-            with open(htm_path, "rb") as f:
-                raw_data = f.read()
-                best = from_bytes(raw_data).best()
-                if best:
-                    encoding = best.encoding
-                else:
-                    encoding = None
-                    print(f"{htm_path}, 无法检测编码")
-                    continue
 
-            content = raw_data.decode(encoding=encoding, errors="xmlcharrefreplace")
-            soup = BeautifulSoup(content, "html.parser")
-            img_tags = soup.find_all("img")
+    key = makeNameSafe(elements_folder).lower()
+    配置_扫描路径 = os.path.join(config_dir, f"previous_scaned_docs_{key}.json")
+    配置_记数本路径 = os.path.join(config_dir, f"previous_img_peer_htms_{key}.json")
+    配置_磁盘缓存 = os.path.join(config_dir, f"previous_disk_imgs_{key}.json")
 
-            filtered_im_list = list(
-                filter(
-                    lambda im_node: (
-                        "src" in im_node.attrs and im_node.attrs["src"] != ""
-                    ),
-                    img_tags,
-                )
-            )
-            for image in filtered_im_list:
-                parse_result = urlparse(image.attrs["src"])
-                file_path = unquote(parse_result.path)
-                if "web_pic" in file_path or "local_pic" in file_path:
-                    all_referenced_images.add(
-                        os.path.normpath(file_path)
-                        .replace("[PrimaryStorage]", "")
-                        .removeprefix(os.path.normpath("/"))
-                    )
-        except UnicodeDecodeError as e:
-            print(htm_path + "\n\t" + e)
+    # 1. 文档差异
+    差异文档列表, 现在扫描的文档列表, 已删除的文档列表 = diff_scanhtm(
+        elements_folder, 配置_扫描路径
+    )
+    删除集合 = {_normalize_htm_key(x) for x in 已删除的文档列表}
+    增改集合 = {_normalize_htm_key(x) for x in 差异文档列表}
 
-    # 对比所有图片文件夹中的图片，找出未被引用的图片。
-    unused_pic_list = []
-    # 'D:\\SuperMemo\\systems\\Reading-And-Review\\elements\\local_pic\\FengTangChengShiXinFa\\96-i.jpg'
-    all_local_images: list[str] = find_im(web_pic) + find_im(local_pic)
-    for image in all_local_images:
-        # 'local_pic\\FengTangChengShiXinFa\\96-i.jpg'
-        image_path = image.removeprefix(
-            os.path.normpath(elements_folder.removesuffix(os.path.normpath("/")))
-            + os.path.normpath("/")
-        )
-        if image_path not in all_referenced_images:
-            unused_pic_list.append(image)
+    # 2. 并行解析增改文档
+    增改引用 = _scan_htm_refs(差异文档列表, desc="解析变更文档")
 
-    # 移动到temp文件夹
-    if len(unused_pic_list) > 0:
-        for image in unused_pic_list:
-            image_path = image.removeprefix(
-                os.path.normpath(elements_folder.removesuffix(os.path.normpath("/")))
-                + os.path.normpath("/")
-            )
-            # 'D:\\SuperMemo\\systems\\Reading-And-Review\\temp\\unused_im\\local_pic_XueHuiTiWen(YuanShuDi12Ban)_00001.jpeg'
-            dst = os.path.join(unused_pic, makeNameSafe(image_path))
+    # 3. 载入记数本 {img_short: set(htm_short)}
+    记数本 = 获取图片引用记数本(配置_记数本路径, list(现在扫描的文档列表))
+
+    # 4. 剥旧账：删除的文档 + 增改文档的历史引用
+    for paths in 记数本.values():
+        paths -= 删除集合
+        paths -= 增改集合
+
+    # 5. 补新账：增改文档的最新引用
+    for img, htms in 增改引用.items():
+        记数本.setdefault(img, set()).update(htms)
+
+    # 6. 引用数为 0 = 孤儿图；先不删记数本，留给下一步做差时自然排除
+    孤儿图 = {img for img, paths in 记数本.items() if not paths}
+
+    # 7. 磁盘有、文档没有的
+    在磁盘中的图片路径 = 获取磁盘图片集合(web_pic, local_pic, 配置_磁盘缓存)
+    磁盘差集 = 在磁盘中的图片路径 - set(记数本.keys())
+    等待删除的图片路径 = list(孤儿图 | 磁盘差集)
+
+    # 8. 移动
+    if 等待删除的图片路径:
+        mkdir(unused_pic)
+        for short in 等待删除的图片路径:
+            rel = short.lstrip("\\/")
+            src = os.path.join(elements_folder, rel)
+            if not os.path.exists(src):  # 兜底：文件已经不在就当它已经删过了
+                continue
+            dst = os.path.join(unused_pic, makeNameSafe(rel))
             try:
-                print("处理: ", image_path)
-                mkdir(unused_pic)
-                # 将一个文件或文件夹从 src 移动到 dst 如果 dst 已存在且为文件夹，则 src 将会被移动到 dst内。
-                shutil.move(image, dst)
+                print("处理: ", rel)
+                shutil.move(src, dst)
             except Exception as e:
                 print(f"移动至unused_pic时发生错误: {e!s}")
     else:
         print("\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
 
-    # 删除空白图书图片文件夹。
-    # 查找localpic下的所有空白文件夹并删除
-    for entry in os.scandir(local_pic):
-        # not os.listdir(entry.path)即为空文件夹。
-        if entry.is_dir() and not os.listdir(entry.path):
-            os.rmdir(entry.path)
+    # 8.5 记数本落盘前，把孤儿图剔除
+    for img in 孤儿图:
+        del 记数本[img]
+
+    # 9. 清空 local_pic 下的空目录
+    if os.path.isdir(local_pic):
+        for entry in os.scandir(local_pic):
+            if entry.is_dir():
+                try:
+                    os.rmdir(entry.path)
+                except OSError:
+                    pass
+
+    # 10. 落盘
+    config.dump_config(
+        配置_记数本路径,
+        {img: sorted(paths) for img, paths in 记数本.items()},
+    )
+    config.dump_config(配置_扫描路径, 现在扫描的文档列表)
 
 
 def single_file(fullpath: str):
@@ -723,7 +920,7 @@ def start(elements_folder):
     previous_scan_conf_path = os.path.join(
         config_dir, f"previous_scan_{makeNameSafe(elements_folder).lower()}.json"
     )
-    diff_list, now_scan = diff_scanhtm(elements_folder, previous_scan_conf_path)
+    diff_list, now_scan, _ = diff_scanhtm(elements_folder, previous_scan_conf_path)
     if len(diff_list) > 0:
         relative_and_localize(
             diff_list,
@@ -816,11 +1013,9 @@ def transfer_images(src_elements_root: str, dst_elements_root: str):
             print(f"已移动缺失图片: {relative_missing_image}")
 
 
-# transfer_images("", "")
-
 # 区分文件和文件夹路径。文件就使用path，文件夹就使用folder
 
-# start("C:/Users/Snowy/Desktop/sm18/systems/all in one/elements")
 # start("D:/SuperMemo/systems/ALL IN ONE/elements")
 # organize_unused_im("D:/SuperMemo/systems/Reading-And-Review/elements")
 # single_file("E:\\新建文件夹\\elements\\26690.HTM")
+# transfer_images("", "")

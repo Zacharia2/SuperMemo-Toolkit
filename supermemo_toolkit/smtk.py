@@ -492,7 +492,7 @@ def splitline(pattern, limit, eid, tracing, recover):
         if text_reg is None or text_reg.eId == None:
             return CONTINUE
         path = text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
-        if path == "":
+        if path == "" or not os.path.exists(path):
             return CONTINUE
         try:
             url = Path(path).resolve().as_uri()
@@ -620,13 +620,13 @@ def imgfit(tracing, ignore, max_width):
         if text_reg is None or text_reg.eId == None:
             return CONTINUE
         path = text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
-        if path == "":
+        if path == "" or not os.path.exists(path):
             return CONTINUE
         try:
             url = Path(path).resolve().as_uri()
         except Exception:
             url = path  # 如果本来就是 URL，就直接用
-        click.echo(f"[No. {text_reg.eId}] [Title: {text_reg.eTitle[:12].strip()}]")
+
         IMG_RE = regex.compile(
             r"""(?isx)
             <!--.*?-->                                         (*SKIP)(*F)
@@ -651,6 +651,7 @@ def imgfit(tracing, ignore, max_width):
 
         count = len(IMG_RE.findall(htm))
         if count > 0:
+            click.echo(f"[No. {text_reg.eId}] [Title: {text_reg.eTitle[:12].strip()}]")
             if tracing:
                 hwnd = find_origin_window()
                 if hwnd is None:
@@ -665,8 +666,7 @@ def imgfit(tracing, ignore, max_width):
             click.echo(
                 f"[No. {text_reg.eId}] [图片尺寸适配完成] [Path: {make_link(path, url)}]"
             )
-        else:
-            click.echo(f"[No. {text_reg.eId}] [跳过，没有找到图片]")
+
         return CONTINUE
 
     force_reload = ForceReload()
@@ -743,6 +743,7 @@ if __name__ == "__main__":
     #     ["--re", r'(?i)(?s)<p class="block">.*?</p>\s*\K<p>'], standalone_mode=False
     # )
     # main.commands["imgfit"](["--trace"], standalone_mode=False)
+    # main.commands["pathpix"](["Reading-And-Review", "--clean"], standalone_mode=False)
     if is_launched_from_gui():
         try:
             import pyi_splash
