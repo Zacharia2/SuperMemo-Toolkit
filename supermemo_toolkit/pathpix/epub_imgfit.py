@@ -14,16 +14,6 @@ class EpubImageFit:
         self.inline_height_em = 1.05  # 行内小图高度（em）
         # 各类样式 块级元素限定宽度，行级元素限定高度
         self.style = {
-            # 封面：占满屏，居中
-            "cover": lambda width_val: (
-                f"width:{width_val};height:auto;display:block;margin:0 auto;"
-                f"*zoom:1;-ms-interpolation-mode:bicubic;"
-            ),
-            # 宽图：缩到页宽
-            "fit_page": lambda width_val: (
-                f"width:{width_val};height:auto;display:block;margin:1em auto;"
-                f"*zoom:1;-ms-interpolation-mode:bicubic;"
-            ),
             # 行内小图：跟随行高
             "inline": lambda height_em: (
                 f"height:{height_em};vertical-align:middle;display:inline-block;"
@@ -31,6 +21,11 @@ class EpubImageFit:
             ),
             # 图注图：块级居中，宽度自适应
             "figure": lambda width_val: (
+                f"width:{width_val};height:auto;display:block;margin:1em auto;"
+                f"*zoom:1;-ms-interpolation-mode:bicubic;"
+            ),
+            # 宽图：缩到页宽
+            "wide": lambda width_val: (
                 f"width:{width_val};height:auto;display:block;margin:1em auto;"
                 f"*zoom:1;-ms-interpolation-mode:bicubic;"
             ),
@@ -56,15 +51,6 @@ class EpubImageFit:
                 break
             p = p.parent
         return False
-
-    def is_cover(self, img):
-        """封面判断：class 含 cover，或父级 a 指向封面"""
-        if self.has_class(img, ["cover", "封面"]):
-            return True
-        p = img.parent
-        return bool(
-            p and p.name == "a" and "cover" in (p.get("href", "") or "").lower()
-        )
 
     def get_image_size(self, img_src, base_dir):
         """读取图片真实宽高，失败返回 (0, 0)"""
@@ -116,30 +102,24 @@ class EpubImageFit:
     # ====== 核心分类 ======
 
     def classify(self, img, base_dir):
-        # 1. 封面
-        if self.is_cover(img):
-            return "cover"
-
-        # 2. 图注图
-        if self.has_class(img, ["figure", "fig", "caption"]):
-            return "figure"
-
-        # 3. 行内小图：向上找块级祖先，段落有文字，且图片前后有文字
+        # 1. 行内小图：向上找块级祖先，段落有文字，且图片前后有文字
         block = img.find_parent(["p", "li", "td", "div"])
         if block:
             text = block.get_text().strip()
             if text and self.has_text_around(img):
                 return "inline"
 
-        # 4. 读尺寸
-        w, h = self.get_image_size(img.get("src", ""), base_dir)
+        # 2. 图注图
+        if self.has_class(img, ["figure", "fig", "caption"]):
+            return "figure"
 
-        # 5. 宽图：缩到页宽
+        # 3. 宽图：缩到页宽
+        w, _ = self.get_image_size(img.get("src", ""), base_dir)
         if w >= self.page_width:
-            return "fit_page"
-
-        # 6. 小图 / 长图：保持原尺寸
-        return "small"
+            return "wide"
+        # 4. 小图 / 长图：保持原尺寸
+        else:
+            return "small"
 
     # ====== HTML 处理 ======
 
@@ -158,24 +138,25 @@ class EpubImageFit:
             if img.has_attr("style"):
                 del img["style"]
 
-            if cat == "cover" or cat == "fit_page":
-                img["style"] = self.style[cat](str(self.page_width) + "px")
-            elif cat == "inline":
+            if cat == "inline":
                 img["style"] = self.style[cat](str(self.inline_height_em) + "em")
-            elif cat == "figure":
-                figure_width: str = None
-                if w > self.page_width:
-                    figure_width = str(self.page_width - 200) + "px"
-                else:
-                    figure_width = "auto"
-                img["style"] = self.style[cat](figure_width)
+            elif cat == "wide":
+                img["style"] = self.style[cat](str(self.page_width) + "px")
             elif cat == "small":
-                small_width: str = None
-                if w > self.page_width:
-                    small_width = str(self.page_width - 200) + "px"
+                if w:
+                    small_width = str(w) + "px"
                 else:
                     small_width = "auto"
                 img["style"] = self.style[cat](small_width)
+            elif cat == "figure":
+                figure_width: str = None
+                if w > self.page_width:
+                    figure_width = str(self.page_width) + "px"
+                elif w:
+                    figure_width = str(w) + "px"
+                else:
+                    figure_width = "auto"
+                img["style"] = self.style[cat](figure_width)
 
             # 加语义化 class，方便日后识别或再加样式
             img["class"] = list(set(img.get("class", []) + [f"smtk-{cat}"]))
