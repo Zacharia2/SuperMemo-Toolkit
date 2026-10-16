@@ -31,7 +31,7 @@ from supermemo_toolkit.utilscripts.ulils import makeNameSafe
 
 sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM).lower()
 smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
-__version__ = "0.2.5"
+__version__ = "0.2.6"
 
 
 @click.group(
@@ -620,7 +620,7 @@ def imgfit(tracing, ignore, max_width):
         if text_reg is None or text_reg.eId == None:
             return CONTINUE
         path = text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
-        if path == "" or not os.path.exists(path):
+        if path == "":
             return CONTINUE
         try:
             url = Path(path).resolve().as_uri()
@@ -659,9 +659,19 @@ def imgfit(tracing, ignore, max_width):
                     return CONTINUE
                 activate_window(hwnd)
                 with force_reload:
+                    if not os.path.exists(path):
+                        click.echo(
+                            f"[No. {text_reg.eId}] [跳过] FileNotFoundError [Path: {make_link(path, url)}]"
+                        )
+                        return CONTINUE
                     imgfit.process_file(path)
             else:
                 with force_reload:
+                    if not os.path.exists(path):
+                        click.echo(
+                            f"[No. {text_reg.eId}] [跳过] FileNotFoundError [Path: {make_link(path, url)}]"
+                        )
+                        return CONTINUE
                     imgfit.process_file(path)
             click.echo(
                 f"[No. {text_reg.eId}] [图片尺寸适配完成] [Path: {make_link(path, url)}]"

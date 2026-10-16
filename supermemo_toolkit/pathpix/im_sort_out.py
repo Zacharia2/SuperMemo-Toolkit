@@ -938,79 +938,52 @@ def start(elements_folder):
     config.dump_config(previous_scan_conf_path, now_scan)
 
 
+def _diff_by_case(a, b) -> list[str]:
+    """a 中有、b 中没有（大小写不敏感），返回 a 的原始写法。"""
+    a_map = {os.path.normcase(x): x for x in a}
+    b_keys = {os.path.normcase(x) for x in b}
+    return [a_map[k] for k in a_map.keys() - b_keys]
+
+
 def transfer_images(src_elements_root: str, dst_elements_root: str):
     """仅转移web_pic和local_pic文件夹中缺失的图片，从src_kno移动到dst_kno。"""
-
     dst_web_pic = os.path.join(dst_elements_root, "web_pic")
     dst_local_pic = os.path.join(dst_elements_root, "local_pic")
 
     print("PathPix::", "收集dst_kno缺失的图片，从src_kno移动到目的位置。")
 
-    # 收集所有被引用的图片路径。
-    all_referenced_local_images = set()
-    for htm_path, _ in tqdm(
-        collect_documents(dst_elements_root), desc="收集被引用的图片"
-    ):
-        try:
-            with open(htm_path, "rb") as f:
-                raw_data = f.read()
-                best = from_bytes(raw_data).best()
-                if best:
-                    encoding = best.encoding
-                else:
-                    encoding = None
-                    print(f"{htm_path}, 无法检测编码")
-                    continue
+    # 1. 并行扫描 dst 的所有 htm，得到 {img_short: {htm_short}}
+    htm_paths = [p for p, _ in collect_documents(dst_elements_root)]
+    引用索引 = _scan_htm_refs(htm_paths, desc="收集被引用的图片")
 
-            content = raw_data.decode(encoding=encoding, errors="xmlcharrefreplace")
-            soup = BeautifulSoup(content, "html.parser")
-            img_tags = soup.find_all("img")
+    # 只保留 local_pic / web_pic 下的图片
+    被引用的图片 = {img for img in 引用索引 if "local_pic" in img or "web_pic" in img}
 
-            filtered_im_list = list(
-                filter(
-                    lambda im_node: (
-                        "src" in im_node.attrs and im_node.attrs["src"] != ""
-                    ),
-                    img_tags,
-                )
-            )
-            for im in filtered_im_list:
-                parse_result = urlparse(im.attrs["src"])
-                file_path = unquote(parse_result.path)
-                # 示例：'local_pic\\FengTangChengShiXinFa\\96-i.jpg'
-                # 仅收集elements下的图片路径，其他的忽略。
-                # 目前仅收集相对路径化的图片路径。
-                if "local_pic" in file_path or "web_pic" in file_path:
-                    all_referenced_local_images.add(
-                        os.path.normpath(file_path)
-                        .replace("[PrimaryStorage]", "")
-                        .replace("[SecondaryStorage]", "")
-                        .removeprefix(os.path.normpath("/"))
-                    )
-        except UnicodeDecodeError as e:
-            print(htm_path + "\n\t" + e)
+    # 2. 复用磁盘图片缓存，拿到 dst 上实际存在的图片
+    dst_key = makeNameSafe("transfer" + dst_elements_root).lower()
+    配置_磁盘缓存 = os.path.join(config_dir, f"previous_disk_imgs_{dst_key}.json")
+    在磁盘中的图片路径 = 获取磁盘图片集合(dst_web_pic, dst_local_pic, 配置_磁盘缓存)
 
-    # 收集所有存在的图片路径。
-    # 'local_pic\\FengTangChengShiXinFa\\96-i.jpg'
-    all_local_images = [
-        # 相对路径化，以elements为根文件夹的路径。
-        image.removeprefix(
-            os.path.normpath(dst_elements_root.removesuffix(os.path.normpath("/")))
-            + os.path.normpath("/")
-        )
-        for image in find_im(dst_web_pic) + find_im(dst_local_pic)
-    ]
+    # 3. 差集 = 缺失的图片
+    缺失图片 = _diff_by_case(被引用的图片, 在磁盘中的图片路径)
 
-    # 检查缺失的图片路径，并从src_kno移动到dst_kno。
-    # 相对elements为根文件夹的路径。'local_pic\\FengTangChengShiXinFa\\96-i.jpg'
-    missing_images = set(all_referenced_local_images) - set(all_local_images)
-    for relative_missing_image in missing_images:
-        src_image_path = os.path.join(src_elements_root, relative_missing_image)
-        dst_image_path = os.path.join(dst_elements_root, relative_missing_image)
-        if os.path.exists(src_image_path):
-            mkdir(os.path.dirname(dst_image_path))
-            shutil.move(src_image_path, dst_image_path)
-            print(f"已移动缺失图片: {relative_missing_image}")
+    # 4. 从 src 搬到 dst
+    for short in 缺失图片:
+        rel = short.lstrip("\\/")
+        src_path = _to_abs(src_elements_root, rel)
+        dst_path = _to_abs(dst_elements_root, rel)
+        if os.path.exists(src_path):
+            mkdir(os.path.dirname(dst_path))
+            shutil.move(src_path, dst_path)
+            print(f"已移动缺失图片: {rel}")
+
+    # 5. 搬完图，dst 磁盘变了，缓存作废
+    if 缺失图片 and os.path.exists(配置_磁盘缓存):
+        os.remove(配置_磁盘缓存)
+
+    # dst htm ──扫描──→ 被引用的图片 ─┐
+    #                               ├─ 差集 ─→ 缺失图片 ─→ 从 src 搬到 dst
+    # dst 磁盘 ──扫描──→ 磁盘图片 ───┘
 
 
 # 区分文件和文件夹路径。文件就使用path，文件夹就使用folder

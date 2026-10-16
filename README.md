@@ -1,6 +1,6 @@
 # supermemo-toolkit(smtk)
 
-SuperMemo 增强工具(CLI 命令行)。包含图链整理、EPUB 图书转换导入、Latex 公式转图片、sm2anki、修补导出标题乱码、AutoTTS 卡片朗读等。
+SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS卡片朗读、Trace追踪当前元素和文本注册表（API）、无感执行菜单命令（API）、SplitLine快捷分割当前元素、imgfit调整当前元素图片大小、Git时间梯度备份（未来）等。
 
 ## 1. Install
 
@@ -16,7 +16,7 @@ SuperMemo 增强工具(CLI 命令行)。包含图链整理、EPUB 图书转换�
 
 ### 1.2 遇到的问题
 
-支持的supermemo版本？SuperMemo 15.5 到 SuperMemo最新版。
+支持的supermemo版本？SuperMemo 15.5 到 SuperMemo20 最新版。
 
 遇到的问题 2：supermemo 只支持五种图片格式："image/jpeg"、"image/jpg"、"image/png"、"image/gif"、"image/bmp"，PathPix 功能只支持网络图片转换为受支持的五类图片，本地暂时不支持。E2SM 功能对书籍图片进行复制，添加"image/svg+xml"、"image/webp"两种图片格式转换为png图片。
 
@@ -45,7 +45,7 @@ PathPix：任意类型的网络图片整理为受支持的五种格式的图片�
 
 详细问题请查看：旧版 Pathpix 文档：https://docs.qq.com/doc/DQnRpb0VNUEVvR3dl
 
-致谢：● 兰迥 ●Merlin ● 水流众生 ●st ●aicling
+致谢：● 兰迥 ●Merlin ● 水流众生 ●st ●aicling、致谢：NEXT，郁蒸十四，但为君故-sm18tb8
 
 ### 2.1 整理图片
 
@@ -76,10 +76,6 @@ pathpix管理的图片文件，可以导入图像注册表中。由图像注册�
 
 问：清理的图片去了哪里？
 答：systems/集合/temp/unused_im文件夹。你需要手动删除该文件夹。pathpix不会主动删除它们。
-
-问：软件付费嘛？
-答：软件源码开放在github。只是自己使用，分享纯粹是为爱发电，发扬开源精神。如果你请我喝一杯，朋友，你真的太慷慨了，很感激！Best wishes！
-
 
 ## 3. E2SM
 
@@ -204,11 +200,3 @@ AutoTTS 卡片朗读 文本转语音
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Zacharia2/SuperMemo-Toolkit&type=Date)](https://star-history.com/#Zacharia2/SuperMemo-Toolkit&Date)
-
-## A cup of coffee
-
-见证阅读量飙升的喜悦，点亮更多孤独求索者的学习之路，让每一份坚持都收获更温暖的回报。
-
-<center><img src="./docs/donate.png" width="300px"></center>
-
-致谢：NEXT，郁蒸十四，但为君故-sm18tb8
