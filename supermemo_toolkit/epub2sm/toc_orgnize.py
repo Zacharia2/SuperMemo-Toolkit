@@ -1,151 +1,184 @@
 import re
+import urllib.parse
+from copy import deepcopy
 
 import ebooklib
 from bs4 import BeautifulSoup
 from ebooklib import epub
 
 
-def in_toc(book, doc):
-    """判断 doc 是否在 toc 列表中，利用生成器短路"""
+def _normalize_href(href):
+    """去锚点、URL 解码、统一斜杠。"""
+    if not href:
+        return ""
+    href = href.split("#", 1)[0]
+    href = urllib.parse.unquote(href)
+    return href.replace("\\", "/").lstrip("./")
 
-    def _iter_toc_hrefs(chapters):
-        """生成器：递归遍历目录，产出每个条目的文件名（去除锚点）"""
-        for chapter in chapters:
-            if isinstance(chapter, epub.Link):
-                yield chapter.href.split("#")[0]
-            elif isinstance(chapter, tuple) and len(chapter) == 2:
-                # 元组的第一个元素可能是 epub.Section
-                if isinstance(chapter[0], epub.Section):
-                    yield chapter[0].href.split("#")[0]
-                # 如果第二个元素是子列表，继续递归
-                if isinstance(chapter[1], list):
-                    yield from _iter_toc_hrefs(chapter[1])
 
-    return any(fname == doc.file_name for fname in _iter_toc_hrefs(book.toc))
+def _iter_toc_hrefs(chapters):
+    """递归产出目录中所有条目指向的文档路径（已规范化）。"""
+    for chapter in chapters:
+        if isinstance(chapter, epub.Link):
+            yield _normalize_href(chapter.href)
+        elif isinstance(chapter, tuple) and len(chapter) == 2:
+            head, children = chapter
+            # Link 和 Section 都要 yield 自身
+            if isinstance(head, (epub.Section, epub.Link)):
+                yield _normalize_href(head.href)
+            if isinstance(children, list):
+                yield from _iter_toc_hrefs(children)
+
+
+def _collect_toc_hrefs(book):
+    return {h for h in _iter_toc_hrefs(book.toc) if h}
+
+
+def in_toc(book, doc, toc_hrefs=None):
+    """判断 doc 是否在 toc 中。toc_hrefs 可传入以复用。"""
+    hrefs = toc_hrefs if toc_hrefs is not None else _collect_toc_hrefs(book)
+    return _normalize_href(doc.file_name) in hrefs
 
 
 def complete_toc_with_documents(book):
-    """list[]:(toc中存在的文档, [toc中不存在的兄弟结点文档]) 取所有的文档 、toc指向的文档(toc不会指向后续文档), 将toc没有的文档补充到toc中。
-
-    Returns:
-        tuple: (Head[(exist_toc_of_doc,[sibling_doc,...])], Body[(exist_toc_of_doc,[sibling_doc,...])])
     """
-    FirstTocChecked = False
+    分类 book 中的所有文档：
+      Head: toc 之前出现的、不在 toc 中的文档，每项 (file_name, [])
+      Body: toc 中出现的文档，以及每个 toc 文档后紧跟的、不在 toc 中的兄弟文档
+            每项 (toc_file_name, [sibling_file_name, ...])
+    """
+    toc_hrefs = _collect_toc_hrefs(book)
     Head, Body = [], []
+    first_toc_checked = False
 
-    # 现在有两个资源，一个是一列有序html文档，另一个是目录对象，目录指向部分html文档
-    # 最终任务是补全完整的目录对象。这方法是看看遗漏了哪些兄弟结点。
-    docs = book.get_items_of_type(ebooklib.ITEM_DOCUMENT)
-    for doc in docs:
-        # 开头部分。没有toc引用，需要自己创建的。
-        if not in_toc(book, doc) and not FirstTocChecked:
-            Head.append((doc.file_name, []))
-        # toc中有的。
-        elif in_toc(book, doc):
-            FirstTocChecked = True
-            Body.append((doc.file_name, []))
-        # toc中没有，但需要追加的doc。
-        elif not in_toc(book, doc) and FirstTocChecked:
-            # 会有多个doc位于toc之后，但没有没toc引用。
-            last = Body.pop()
-            exist_toc_of_doc, sibling_doc_list = last
-            sibling_doc_list.append(doc.file_name)
-            Body.append(last)
-    return (Head, Body)
+    for doc in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
+        in_toc_doc = _normalize_href(doc.file_name) in toc_hrefs
+
+        if not first_toc_checked:
+            if in_toc_doc:
+                first_toc_checked = True
+                Body.append((doc.file_name, []))
+            else:
+                Head.append((doc.file_name, []))
+        else:
+            if in_toc_doc:
+                Body.append((doc.file_name, []))
+            else:
+                Body[-1][1].append(doc.file_name)
+
+    return Head, Body
 
 
-def 在已有文档目录中插入缺失的文档(
-    book, chapters, 存在文档文件目录的链接, 不存在toc中的兄弟文档列表
-):
-    目标链接 = 存在文档文件目录的链接.split("#")[0]
-    if not 不存在toc中的兄弟文档列表:
-        return
+def _clean_title(raw, max_len=35):
+    """去掉控制字符（含换行）、折叠空白、截断。"""
+    text = re.sub(r"[\x00-\x1f\x7f]", "", raw)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[:max_len] or "无标题"
 
-    # 生成新链接的辅助函数
-    def make_link(href):
-        content = book.get_item_with_href(href).content
-        soup = BeautifulSoup(content, "html.parser")
-        text = "".join(filter(str.isalnum, soup.get_text()))
-        title = re.sub(r"\\[btnfr]", "", text)[:35]
-        return epub.Link(href=href, title=title if title else "无标题")
 
-    新链接列表 = [make_link(href) for href in 不存在toc中的兄弟文档列表]
+def _make_link(book, href):
+    doc = book.get_item_with_href(href)
+    if doc is None:
+        return epub.Link(href=href, title="无标题")
+    try:
+        soup = BeautifulSoup(doc.content, "html.parser")
+        raw = soup.get_text()
+    except Exception:
+        raw = ""
+    return epub.Link(href=href, title=_clean_title(raw))
 
+
+def _insert_siblings(chapters, target_href, new_links):
+    """在 toc 中查找 target_href 对应项，在其后（或子项内）插入 new_links。"""
+    target = _normalize_href(target_href)
     stack = [chapters]
-    已找到 = False
-    while stack and not 已找到:
-        curr_chapters = stack.pop()
-        for idx, chapter in enumerate(curr_chapters):
-            if 已找到:
-                break
-            # 情况1：目录项是 epub.Link
+
+    while stack:
+        curr = stack.pop()
+        for idx, chapter in enumerate(curr):
             if isinstance(chapter, epub.Link):
-                file_name = chapter.href.split("#")[0]
-                if file_name == 目标链接:
-                    # 在此 Link 之后插入所有新链接
-                    for j, link in enumerate(新链接列表):
-                        curr_chapters.insert(idx + 1 + j, link)
-                    已找到 = True
-            # 情况2：目录项是 (epub.Section, list)
-            elif (
-                isinstance(chapter, tuple)
-                and len(chapter) == 2
-                and isinstance(chapter[0], epub.Section)
-            ):
-                section, links = chapter
-                file_name = section.href.split("#")[0]
-                if file_name == 目标链接:
-                    # 在该 Section 元组之后插入，而不是插入到 links 里
-                    for j, link in enumerate(新链接列表):
-                        curr_chapters.insert(idx + 1 + j, link)
-                    已找到 = True
-                # 无论是否匹配，都要继续深入子链接列表查找
-                if isinstance(links, list):
-                    stack.append(links)
+                if _normalize_href(chapter.href) == target:
+                    for j, link in enumerate(new_links):
+                        curr.insert(idx + 1 + j, link)
+                    return True
+
+            elif isinstance(chapter, tuple) and len(chapter) == 2:
+                head, children = chapter
+                if (
+                    isinstance(head, (epub.Section, epub.Link))
+                    and _normalize_href(head.href) == target
+                ):
+                    if isinstance(children, list) and children:
+                        # 有子项：并入 Section 开头
+                        for j, link in enumerate(new_links):
+                            children.insert(j, link)
+                    else:
+                        # 无子项：平级插入 Section 之后
+                        for j, link in enumerate(new_links):
+                            curr.insert(idx + 1 + j, link)
+                    return True
+
+                if isinstance(children, list):
+                    stack.append(children)
+
+    return False
 
 
 def merge_doc(book):
-    M_list = complete_toc_with_documents(book)
-    Head, Body = M_list
-    # 合并没有列入toc的doc。要插入到book.toc中不存在的文档。其实只有head和sub_doc_names不为空的元素。
-    # 将开始的文档构建为epub.Link
-    H_list = []
-    if len(Head) != 0:
-        for item有记录文档跟着无记录文档列表 in Head:
-            content = book.get_item_with_href(
-                item有记录文档跟着无记录文档列表[0]
-            ).content
-            soup = BeautifulSoup(content, "html.parser")
-            title = re.sub(r"\\[btnfr]", "", "".join(filter(str.isalnum, soup.text)))[
-                :50
-            ]
-            H_list.append(
-                epub.Link(href=item有记录文档跟着无记录文档列表[0], title=title)
+    Head, Body = complete_toc_with_documents(book)
+
+    # 深拷贝：后续 insert 只改副本，多次调用不会重复插入
+    toc_copy = deepcopy(book.toc)
+
+    H_list = [_make_link(book, name) for name, _ in Head]
+    epub_chapters = H_list + toc_copy
+
+    for exist_toc_of_doc, sibling_doc_list in Body:
+        if not sibling_doc_list:
+            continue
+        new_links = [_make_link(book, href) for href in sibling_doc_list]
+        if not _insert_siblings(epub_chapters, exist_toc_of_doc, new_links):
+            # 兜底：找不到插入位置时追加到末尾，保证不遗漏文档
+            print(
+                f"警告：未在 toc 中找到 {exist_toc_of_doc}，"
+                f"以下文档追加到末尾：{sibling_doc_list}"
             )
-    # chapters，用toc为基待补充完整的图书章节内容
-    # 将开始的不在toc中的doc加入到章节。
-    epub_chapters = H_list + book.toc
-    # chapters, 查找符合的href，加入到此toc的子集中。
-    if len(Body) != 0:
-        for item有记录文档跟着无记录文档列表 in Body:
-            在toc中存在的文档, 不存在toc中的兄弟文档列表 = (
-                item有记录文档跟着无记录文档列表
-            )
-            # 将toc中不存在的doc，插入到前面的doc的后面
-            if len(不存在toc中的兄弟文档列表) != 0:
-                在已有文档目录中插入缺失的文档(
-                    book, epub_chapters, 在toc中存在的文档, 不存在toc中的兄弟文档列表
-                )
+            epub_chapters.extend(new_links)
 
     return epub_chapters
 
 
-# 可变对象：list dict set
-# 可变对象作为参数传入时，在函数中对其本身进行修改，
-# 是会影响到全局中的这个变量值的，因为函数直接对该地址的值进行了修改
+def check_no_missing(book, chapters):
+    """调试用：校验所有 ITEM_DOCUMENT 都出现在最终 toc 中。"""
+
+    def flatten(chs):
+        for c in chs:
+            if isinstance(c, epub.Link):
+                yield _normalize_href(c.href)
+            elif isinstance(c, tuple) and len(c) == 2:
+                head, children = c
+                if isinstance(head, (epub.Section, epub.Link)):
+                    yield _normalize_href(head.href)
+                if isinstance(children, list):
+                    yield from flatten(children)
+
+    input_set = {
+        _normalize_href(d.file_name)
+        for d in book.get_items_of_type(ebooklib.ITEM_DOCUMENT)
+    }
+    output_set = set(flatten(chapters))
+    missing = input_set - output_set
+    if missing:
+        print(f"遗漏文档：{missing}")
+    else:
+        print("无遗漏")
+    return not missing
+
+
 if __name__ == "__main__":
     book = epub.read_epub(
         r"D:\Dropbox\21-Sandox\图书专题\东尼·博赞.epub",
         {"ignore_ncx": True},
     )
-    merge_doc(book)
+    chapters = merge_doc(book)
+    check_no_missing(book, chapters)
