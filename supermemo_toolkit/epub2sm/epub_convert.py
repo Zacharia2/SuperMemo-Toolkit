@@ -1,11 +1,10 @@
-import copy
 import io
 import os
 import shutil
 from pathlib import Path
 
 import ebooklib
-from bs4 import BeautifulSoup, Doctype, NavigableString, Tag
+from bs4 import BeautifulSoup, Comment, Doctype, NavigableString, Tag
 from ebooklib import epub
 from PIL import Image
 from reportlab.graphics import renderPM
@@ -23,6 +22,14 @@ from supermemo_toolkit.utilscripts.ulils import (
 
 get_id = get_id_func()
 id_counts = 0
+_split_cache = {}
+
+
+def _reset_state():
+    """每本书开始处理前重置全局状态，避免多次转换串数据。"""
+    global id_counts
+    id_counts = 0
+    _split_cache.clear()
 
 
 def long_path(path):
@@ -37,6 +44,11 @@ def long_path(path):
     return "\\\\?\\" + path
 
 
+def _soup_to_ascii(soup):
+    """把 BeautifulSoup 对象转成纯 ASCII 字符串，非 ASCII 字符用字符实体表示。"""
+    return str(soup).encode("ascii", "xmlcharrefreplace").decode("ascii")
+
+
 def modify_img_url(book, doc, folder_name):
     soup = BeautifulSoup(doc, "html.parser")
     # 删除DOCTYPE定义
@@ -45,22 +57,20 @@ def modify_img_url(book, doc, folder_name):
             item.extract()
             break
 
-    # 处理图片
-    doc_imgs = soup.find_all("img")
+    # 可转换图片：basename(小写) -> image 对象
+    convert_map = {}
+    for image in book.get_items():
+        if image.media_type in ("image/svg+xml", "image/webp"):
+            convert_map[os.path.basename(image.file_name).lower()] = image
 
-    not_support = [
-        (os.path.basename(image.file_name).lower(), image.file_name)
-        for image in book.get_items()
-        if image.media_type == "image/svg+xml" or image.media_type == "image/webp"
-    ]
-    not_support_1 = [f[0] for f in not_support]
+    for doc_img in soup.find_all("img"):
+        src = doc_img.attrs.get("src")
+        if not src:
+            continue
+        doc_img_name = os.path.basename(src)
+        image = convert_map.get(doc_img_name.lower())
 
-    for doc_img in doc_imgs:
-        # 处理svg和webp图片，转换为png格式
-        doc_img_name = os.path.basename(doc_img.attrs["src"])
-        if len(not_support) != 0 and doc_img_name in not_support_1:
-            _, image_file_name = not_support[not_support_1.index(doc_img_name.lower())]
-            image = book.get_item_with_href(image_file_name)
+        if image is not None:
             if image.media_type == "image/svg+xml":
                 output_buffer = io.BytesIO()
                 renderPM.drawToPIL(svg2rlg(io.BytesIO(image.content))).save(
@@ -70,7 +80,7 @@ def modify_img_url(book, doc, folder_name):
                 name, _ = os.path.splitext(image.file_name)
                 image.file_name = name + ".png"
                 image.media_type = "image/png"
-            if image.media_type == "image/webp":
+            elif image.media_type == "image/webp":
                 output_buffer = io.BytesIO()
                 Image.open(io.BytesIO(image.content)).convert("RGBA").save(
                     output_buffer, format="PNG"
@@ -79,132 +89,180 @@ def modify_img_url(book, doc, folder_name):
                 name, _ = os.path.splitext(image.file_name)
                 image.file_name = name + ".png"
                 image.media_type = "image/png"
+
             doc_img.attrs["src"] = (
                 f"file:///[PrimaryStorage]local_pic/{folder_name}/{image.file_name}"
             )
-        # 受支持的图片
-        doc_img.attrs["src"] = (
-            f"file:///[PrimaryStorage]local_pic/{folder_name}/{doc_img_name}"
-        )
-    doc = str(soup.encode(encoding="ascii"), "utf-8")
-    return doc.replace("\n", "").replace("\r", "")
+        else:
+            doc_img.attrs["src"] = (
+                f"file:///[PrimaryStorage]local_pic/{folder_name}/{doc_img_name}"
+            )
+
+    return _soup_to_ascii(soup).replace("\n", "").replace("\r", "")
 
 
-def split_anchor_point(html: str, anchor_point: str, anchor_points: list) -> str:
+def _collect_events(root):
+    """对 root 的子节点做 DFS，生成 (kind, payload) 事件流。"""
+    events = []
+
+    def dfs(node):
+        if isinstance(node, Tag):
+            events.append(("open", node))
+            for child in node.children:
+                dfs(child)
+            events.append(("close", node))
+        elif isinstance(node, Comment):
+            events.append(("comment", str(node)))
+        elif isinstance(node, Doctype):
+            pass
+        elif isinstance(node, NavigableString):
+            events.append(("text", str(node)))
+
+    for child in root.children:
+        dfs(child)
+    return events
+
+
+def _build_segment(events, start, end, prefix_stack):
+    """从事件流 [start, end) 重建 HTML；段外未闭合的祖先补空壳。"""
+    soup = BeautifulSoup('<div class="extracted-section"></div>', "html.parser")
+    container = soup.div
+
+    # 补全段外的祖先空壳（从外到内），跳过 id/name 避免产生重复 id
+    current = container
+    for anc in prefix_stack:
+        shell = soup.new_tag(anc.name)
+        for k, v in anc.attrs.items():
+            if k in ("id", "name"):
+                continue
+            shell[k] = v
+        current.append(shell)
+        current = shell
+
+    stack = [current]
+    for i in range(start, end):
+        kind, payload = events[i]
+        if kind == "open":
+            node = payload
+            new_tag = soup.new_tag(node.name)
+            for k, v in node.attrs.items():
+                new_tag[k] = v
+            stack[-1].append(new_tag)
+            stack.append(new_tag)
+        elif kind == "close":
+            if len(stack) > 1:
+                stack.pop()
+        elif kind == "text":
+            stack[-1].append(NavigableString(payload))
+        elif kind == "comment":
+            stack[-1].append(Comment(payload))
+
+    return str(soup.div)
+
+
+def split_html_by_toc(html, anchor_points):
     """
-    按锚点线性切分 HTML，返回从「文档开始或当前锚点（含）」到「下一个锚点（不含）或文档结束」的独立 HTML 片段。
+    按目录顺序切分某文档。
+
+    anchor_points: 该文档在目录中出现的锚点顺序列表（目录顺序）。
+    返回 {anchor_id: segment_html}。
+
+    每个锚点的区间：
+      起点 = 该锚点在文档中的位置；若是目录中该文档的第一个锚点，则从文档开头算起。
+      终点 = 目录中下一个锚点在文档中的位置（不含）；若没有下一个锚点，
+             或下一个锚点在文档中不存在 / 出现在当前锚点之前，
+             则延伸到文档末尾。
+    文档中不存在的锚点，对应片段为 ""。
     """
-    # 保留了文章的完整性。虽然这种方式会第一个切分对象或整个子元素对象和他的父目录（完整文档）产生重复内容。
-    # 开始位置分为两种情况，一种是锚点是body的第一个元素，另一种是锚点在body第一个元素之后。
-    # 结束位置分为两种情况，一种是下一个锚点在这个锚点之后，另一种是当前锚点是body的最后一个元素。
-    # 文档是h1-h6标签分层的。他是有树形层次关系的。但是目录的指向位置是锚点，锚点在视觉上就是一个切分位置。
-    # 在文档中是线性顺序的。所以可以根据锚点作为切分点切分文档。
-    if not html and not html.strip():
-        return " "
+    if not html or not html.strip() or not anchor_points:
+        return {}
 
     soup = BeautifulSoup(html, "html.parser")
-    cur = soup.find(id=anchor_point)
-    if not cur:
-        return ""
+    root = soup.body if soup.body else soup
+    if root is None:
+        return {}
 
-    try:
-        idx = anchor_points.index(anchor_point)
-    except ValueError:
-        return ""
+    events = _collect_events(root)
+    if not events:
+        return {}
 
-    next_anchor = anchor_points[idx + 1] if idx + 1 < len(anchor_points) else None
-    # next_elem = soup.find(id=next_anchor) if next_anchor else None
+    # 锚点 -> 文档中第一次出现的 open 事件索引
+    pos = {}
+    for i, (kind, payload) in enumerate(events):
+        if kind == "open":
+            nid = payload.get("id")
+            if nid and nid not in pos:
+                pos[nid] = i
 
-    # 深拷贝，避免修改原文档
-    soup_copy = copy.deepcopy(soup)
-    cur_copy = soup_copy.find(id=anchor_point)
-    next_copy = soup_copy.find(id=next_anchor) if next_anchor else None
+    # 目录顺序与文档顺序一致性校验（如不需要可删除这段 print）
+    ordered_pos = [pos[aid] for aid in anchor_points if aid in pos]
+    if ordered_pos != sorted(ordered_pos):
+        print(f"警告：目录锚点顺序与文档顺序不一致：{anchor_points}")
 
-    # 确定起始节点
-    if idx == 0:
-        if soup_copy.body and soup_copy.body.contents:
-            start_node = soup_copy.body.contents[0]
-        else:
-            start_node = next(soup_copy.descendants, None)
-    else:
-        start_node = cur_copy
-
-    if not start_node:
-        return " "
-
-    # 收集从 start_node 到 next_copy 之前的所有节点（按文档顺序）
-    nodes_to_move = []
-    collecting = False
-    for node in soup_copy.descendants:
-        if node is start_node:
-            collecting = True
-        if collecting:
-            if next_copy and node is next_copy:
-                break
-            nodes_to_move.append(node)
-
-    if not nodes_to_move:
-        return " "
-
-    # 过滤出顶级节点，避免重复
-    top_nodes = []
-    for node in nodes_to_move:
-        ancestors = list(node.parents)
-        if any(anc in nodes_to_move for anc in ancestors):
+    n = len(anchor_points)
+    ranges = []
+    for idx, aid in enumerate(anchor_points):
+        if aid not in pos:
+            ranges.append((aid, None, None))
             continue
-        top_nodes.append(node)
 
-    # 递归修剪函数，删除包含 next_copy 的子树
-    def trim_node(node, target):
-        """从 node 中删除 target 及其后面的兄弟节点，若 target 在后代中则递归修剪"""
-        if node is target:
-            node.decompose()
-            return True
-        # 只有 Tag 才有 children，NavigableString 无子节点
-        if not isinstance(node, Tag):
-            return False
-        for child in list(node.children):
-            if child is target:
-                # 删除 target 及其所有后续兄弟
-                while child:
-                    nxt = child.next_sibling
-                    child.decompose()
-                    child = nxt
-                return True
+        start = 0 if idx == 0 else pos[aid]
+
+        if idx + 1 < n:
+            next_pos = pos.get(anchor_points[idx + 1])
+            if next_pos is None or next_pos <= start:
+                end = len(events)
             else:
-                if trim_node(child, target):
-                    return True
-        return False
+                end = next_pos
+        else:
+            end = len(events)
 
-    if next_copy:
-        for tn in top_nodes:
-            trim_node(tn, next_copy)
+        ranges.append((aid, start, end))
 
-    # 创建新容器，移动修剪后的顶级节点
-    new_soup = BeautifulSoup('<div class="extracted-section"></div>', "html.parser")
-    container = new_soup.div
-    for node in top_nodes:
-        container.append(node)  # 直接移动节点
+    # 只记录切分点处的活跃祖先栈
+    needed = {s for _, s, _ in ranges if s is not None}
+    active_stack_at = {}
+    stack = []
+    for i, (kind, payload) in enumerate(events):
+        if i in needed:
+            active_stack_at[i] = list(stack)
+        if kind == "open":
+            stack.append(payload)
+        elif kind == "close" and stack:
+            stack.pop()
 
-    return str(new_soup)
+    result = {}
+    for aid, s, e in ranges:
+        if s is None or s >= e:
+            result[aid] = ""
+            continue
+        result[aid] = _build_segment(events, s, e, active_stack_at.get(s, []))
+    return result
 
 
-def get_content(book: epub.EpubBook, href: str, anchor_points: dict = {}):
-    # 锚点类型必须提供锚点列表，文件类型不需要提供。
-    # 备用方案：编辑epub目录或者修改epub自己分割好并映射好目录和内容。
-    if "#" in href and len(anchor_points) > 0:
-        # 锚点类型
-        doc_href, anchor_point = href.split("#")
-        doc = book.get_item_with_href(doc_href)
-        anchor_points = anchor_points.get(doc_href)
-        html = doc.content.decode("utf-8") if doc else " "
-        # 根据锚点取出锚点区间的内容。区间 [文档开始或锚点开始含自己，下一个锚点不含自己或文档结束]
-        section = split_anchor_point(html, anchor_point, anchor_points)
-        return escape_sequence(section)
-    else:
-        # 文件类型
-        doc = book.get_item_with_href(href.split("#")[0] if "#" in href else href)
-        content = doc.content.decode("utf-8") if doc else " "
+def get_content(
+    book: epub.EpubBook,
+    href: str,
+    anchor_points: dict[str, list[str]] | None = None,
+):
+    if "#" in href and anchor_points:
+        doc_href, _, anchor_point = href.partition("#")
+        anchor_list = anchor_points.get(doc_href)
+        if not anchor_list:
+            return ""
+
+        if doc_href not in _split_cache:
+            doc = book.get_item_with_href(doc_href)
+            if doc is None:
+                return ""
+            html = doc.content.decode("utf-8")
+            _split_cache[doc_href] = split_html_by_toc(html, anchor_list)
+
+        return escape_sequence(_split_cache[doc_href].get(anchor_point, ""))
+
+    doc_href = href.partition("#")[0]
+    doc = book.get_item_with_href(doc_href)
+    content = doc.content.decode("utf-8") if doc else " "
     return escape_sequence(content)
 
 
@@ -213,88 +271,67 @@ def get_anchor_point_list(chapters):
         anchor_points = []
         for chapter in chapters:
             if isinstance(chapter, epub.Link):
-                doc_href, anchor_point = (
-                    chapter.href.split("#")
-                    if "#" in chapter.href
-                    else (chapter.href, "")
-                )
+                doc_href, _, anchor_point = chapter.href.partition("#")
                 anchor_points.append((doc_href, anchor_point))
             elif isinstance(chapter, tuple):
                 section, elements = chapter
-                doc_href, anchor_point = (
-                    section.href.split("#")
-                    if "#" in section.href
-                    else (section.href, "")
-                )
+                doc_href, _, anchor_point = section.href.partition("#")
                 anchor_points.append((doc_href, anchor_point))
-                if len(elements) > 0:
+                if elements:
                     anchor_points.extend(recursion(elements))
         return [(x, y) for x, y in anchor_points if str(y).strip() != ""]
 
-    anchor_point_list = recursion(chapters)
-    anchor_point_dict = {}
-    for href, anchor_point in anchor_point_list:
-        if href in anchor_point_dict:
-            anchor_point_dict[href].append(anchor_point)
-        else:
-            anchor_point_dict[href] = [anchor_point]
+    anchor_point_dict: dict[str, list[str]] = {}
+    for href, anchor_point in recursion(chapters):
+        anchor_list = anchor_point_dict.setdefault(href, [])
+        if anchor_point not in anchor_list:
+            anchor_list.append(anchor_point)
 
     return anchor_point_dict
 
 
 def get_docs_by_toc(book, chapters, folder_name):
+    anchor_points = get_anchor_point_list(chapters)
+    return _get_docs_by_toc(book, chapters, folder_name, anchor_points)
+
+
+def _get_docs_by_toc(book, chapters, folder_name, anchor_points):
     global id_counts
     el_list = []
-    anchor_points = get_anchor_point_list(chapters)
     for chapter in chapters:
-        # 把这一层处理好，再去处理下一层。这一层和下一层的逻辑一致。
-        # 循环chapter
         if isinstance(chapter, epub.Link):
-            doc, tag, text = Doc().tagtext()
             title = chapter.title
             href = chapter.href
-            with tag("ID"):
-                text(get_id())
-            with tag("Type"):
-                text("Topic")
-            with tag("Title"):
-                text(title)
-            with tag("Content"), tag("Question"):
-                text(
-                    modify_img_url(
-                        book, get_content(book, href, anchor_points), folder_name
-                    )
-                )
-            id_counts += 1
-            el_list.append(doc.getvalue())
+            children = None
         elif isinstance(chapter, tuple):
-            # 是元组的时候就说明是有子集的数据。
-            # 元组的第一个是本层Element章节，第二个是Element的循环的集合，子章节
-            doc, tag, text = Doc().tagtext()
             sm_section, sm_element = chapter
             title = sm_section.title
             href = sm_section.href
-            with tag("ID"):
-                text(get_id())
-            with tag("Type"):
-                text("Topic")
-            with tag("Title"):
-                text(title)
-            with tag("Content"), tag("Question"):
-                text(
-                    modify_img_url(
-                        book, get_content(book, href, anchor_points), folder_name
-                    )
+            children = sm_element
+        else:
+            continue
+
+        doc, tag, text = Doc().tagtext()
+        with tag("ID"):
+            text(get_id())
+        with tag("Type"):
+            text("Topic")
+        with tag("Title"):
+            text(title)
+        with tag("Content"), tag("Question"):
+            text(
+                modify_img_url(
+                    book, get_content(book, href, anchor_points), folder_name
                 )
-            if len(sm_element) > 0:
-                # 当元组的第二个元素有子元素的时候。此集合名，循环的集合元素
-                # 这里生成多个SuperMemoElement
-                el_sublist = get_docs_by_toc(book, sm_element, folder_name)
-                for el in el_sublist:
-                    with tag("SuperMemoElement"):
-                        doc.asis(el)
-            id_counts += 1
-            el_list.append(doc.getvalue())
+            )
+        id_counts += 1
+
+        if children:
+            for el in _get_docs_by_toc(book, children, folder_name, anchor_points):
+                with tag("SuperMemoElement"):
+                    doc.asis(el)
+
+        el_list.append(doc.getvalue())
     return el_list
 
 
@@ -332,10 +369,11 @@ def merge_epub_to_topic(book, folder_name):
             if "\n" in p.text:
                 p.string = str(p.text).replace("\n", " ")
         html_body = soup.find("body")
+        if not html_body:
+            continue
         for child in html_body.children:
             epub_topic += str(child)
-    doc = modify_img_url(book, epub_topic, folder_name)
-    return doc
+    return modify_img_url(book, epub_topic, folder_name)
 
 
 def write_img_file(ebook: epub.EpubBook, book_img_folder: str) -> None:
@@ -345,7 +383,7 @@ def write_img_file(ebook: epub.EpubBook, book_img_folder: str) -> None:
         # os.path.abspath(".")
         if not os.path.exists(book_img_folder):
             mkdir(book_img_folder)
-        if image.file_name.find("/") != -1:
+        if "/" in image.file_name:
             filename = image.file_name.split("/")[-1]
             file = os.path.join(book_img_folder, filename)
         else:
@@ -378,8 +416,7 @@ def split_html_with_lenght(html, limit_num):
         return words
 
     recursion(soup)
-    doc = str(soup.encode(encoding="ascii"), "utf-8")
-    return doc.replace("\n", "").replace("\r", "")
+    return _soup_to_ascii(soup).replace("\n", "").replace("\r", "")
 
 
 def move_folder(src, dst_parent):
@@ -417,8 +454,19 @@ def filename_length_check_pass(book_f_name, max_len=255):
     return True
 
 
+def _finalize(book, book_f_name, save_folder, save_image_folder, xml_str):
+    file = long_path(os.path.join(os.path.abspath(save_folder), book_f_name + ".xml"))
+    folder = os.path.join(os.path.abspath(save_folder), book_f_name)
+    with open(file, "w", encoding="utf-8") as f:
+        f.write(xml_str)
+    write_img_file(book, folder)
+    if save_image_folder:
+        move_folder(folder, save_image_folder)
+    print("转换完成，已存储至：", os.path.abspath(save_folder))
+
+
 def start_with_toc(epub_file, save_folder, save_image_folder=None):
-    # UserWarning: In the future version we will turn default option ignore_ncx to True.
+    _reset_state()
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
     if not filename_length_check_pass(book_f_name):
@@ -429,8 +477,9 @@ def start_with_toc(epub_file, save_folder, save_image_folder=None):
     diff_list = toc_check.contrast_diff_toc(toc, book)
     # 验证内容完整性
     if len(diff_list) != 0:
-        print("内容完整性: False;/n", diff_list)
+        print("内容完整性: False\n", diff_list)
         return
+
     doc, tag, text = Doc().tagtext()
     mid = get_id()
     el_list = get_docs_by_toc(book, toc, book_f_name)
@@ -447,22 +496,18 @@ def start_with_toc(epub_file, save_folder, save_image_folder=None):
             for element in el_list:
                 with tag("SuperMemoElement"):
                     doc.asis(element)
-    file = long_path(os.path.join(os.path.abspath(save_folder), book_f_name + ".xml"))
-    folder = os.path.join(os.path.abspath(save_folder), book_f_name)
-    with open(file, "w", encoding="utf-8") as f:
-        f.write(doc.getvalue())
-    write_img_file(book, folder)
-    if save_image_folder:
-        move_folder(folder, save_image_folder)
-    print("转换完成，已存储至：", os.path.abspath(save_folder))
+
+    _finalize(book, book_f_name, save_folder, save_image_folder, doc.getvalue())
 
 
 def start_with_seq(epub_file, save_folder, save_image_folder=None):
+    _reset_state()
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
     print("开始处理书籍：", book_f_name)
     if not filename_length_check_pass(book_f_name):
         return
+
     doc, tag, text = Doc().tagtext()
     mid = get_id()
     el_list = get_docs_by_doclist(book, book_f_name)
@@ -479,17 +524,12 @@ def start_with_seq(epub_file, save_folder, save_image_folder=None):
             for element in el_list:
                 with tag("SuperMemoElement"):
                     doc.asis(element)
-    file = long_path(os.path.join(os.path.abspath(save_folder), book_f_name + ".xml"))
-    folder = os.path.join(os.path.abspath(save_folder), book_f_name)
-    with open(file, "w", encoding="utf-8") as f:
-        f.write(doc.getvalue())
-    write_img_file(book, folder)
-    if save_image_folder:
-        move_folder(folder, save_image_folder)
-    print("转换完成，已存储至：", os.path.abspath(save_folder))
+
+    _finalize(book, book_f_name, save_folder, save_image_folder, doc.getvalue())
 
 
 def start_with_topic(epub_file, save_folder, limit_num, save_image_folder=None):
+    _reset_state()
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
     if not filename_length_check_pass(book_f_name):
@@ -510,18 +550,12 @@ def start_with_topic(epub_file, save_folder, limit_num, save_image_folder=None):
             line("Type", "Topic")
             with tag("Content"), tag("Question"):
                 text(topic_doc)
-    file = long_path(os.path.join(os.path.abspath(save_folder), book_f_name + ".xml"))
-    folder = os.path.join(os.path.abspath(save_folder), book_f_name)
-    with open(file, "w", encoding="utf-8") as f:
-        f.write(doc.getvalue())
-    write_img_file(book, folder)
-    if save_image_folder:
-        move_folder(folder, save_image_folder)
-    print("转换完成，已存储至：", os.path.abspath(save_folder))
+
+    _finalize(book, book_f_name, save_folder, save_image_folder, doc.getvalue())
 
 
 if __name__ == "__main__":
     start_with_toc(
-        r"D:\Calibre Library\Calibre 花园\Kong Zi\Zhu Zi Bai Jia Xi Lie Tao Zhuang [(T (85)\Zhu Zi Bai Jia Xi Lie Tao Zhuan - Kong Zi.epub",
+        r"D:\Calibre Library\Calibre 花园\Wei Zhi\Shi Jing (31)\Shi Jing - Wei Zhi.epub",
         r"C:\Users\Snowy\Desktop",
     )
