@@ -473,7 +473,7 @@ def start_with_toc(epub_file, save_folder, save_image_folder=None):
         return
     print("开始处理书籍：", book_f_name)
     # 创建数据结构
-    toc = toc_orgnize.merge_doc(book)
+    toc = toc_orgnize.合并目录(book)
     diff_list = toc_check.contrast_diff_toc(toc, book)
     # 验证内容完整性
     if len(diff_list) != 0:
