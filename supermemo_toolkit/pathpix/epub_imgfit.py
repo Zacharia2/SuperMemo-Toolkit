@@ -13,6 +13,14 @@ class EpubImageFit:
         self.page_width = page_width  # 页宽阈值（px），超过就缩到页宽
         self.inline_height_em = 1.05  # 行内小图高度（em）
         # 各类样式 块级元素限定宽度，行级元素限定高度
+        # 无 <!DOCTYPE html> = ie5
+        # 有 <!DOCTYPE html> = ie7
+        # 有 <meta http-equiv="X-UA-Compatible" content="IE=edge"> = ie11
+        # 仅 <!DOCTYPE html> 容易被吞。
+        # 有 IE=edge 容易触发 Error processing mouse click 未指明的错误。
+        # 综上所述，supermemo 通过 COM 运行在IE5 (Quirks)
+        # <META content=IE=7 http-equiv=X-UA-Compatible> 可以保留下来。
+        # 可以设置为 SuperMemo 模板
         self.style = {
             # 行内小图：跟随行高
             "inline": lambda height_em: (
