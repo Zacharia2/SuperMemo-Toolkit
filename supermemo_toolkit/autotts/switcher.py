@@ -253,11 +253,6 @@ class AudioSwitcher:
                     break
 
     def play(self, text: str):
-        # 重置状态
-        self.__audio_queue = None
-        self.__current_stream = None
-        self.__audio_params.clear()
-
         # 停止播放
         self.stop()
 
@@ -289,6 +284,11 @@ class AudioSwitcher:
                 except Exception:
                     pass
                 self.__current_stream = None
+
+        # 重置状态
+        self.__audio_queue = None
+        self.__current_stream = None
+        self.__audio_params.clear()
 
 
 # ------------------ 测试代码 ------------------
