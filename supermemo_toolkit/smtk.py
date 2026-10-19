@@ -31,12 +31,12 @@ from supermemo_toolkit.utilscripts.ulils import makeNameSafe
 
 sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM).lower()
 smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
-__version__ = "0.2.6"
+__version__ = "0.2.7"
 
 
 @click.group(
     no_args_is_help=True,
-    help=f"SuperMemo 增强工具(CLI命令行)。 Ver:{__version__}\n包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS 卡片朗读等。",
+    help=f"SuperMemo 增强工具(CLI命令行)。 Ver:{__version__}\n\n包含图链整理、EPUB图书转换、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS卡片朗读、SplitLine快捷分割当前元素、imgfit调整当前元素图片大小、time时间梯度备份(实验期)等。",
 )
 @click.version_option(version=__version__)
 def main():

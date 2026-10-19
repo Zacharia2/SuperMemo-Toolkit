@@ -1,6 +1,6 @@
 # supermemo-toolkit(smtk)
 
-SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS卡片朗读、Trace追踪当前元素和文本注册表（API）、无感执行菜单命令（API）、SplitLine快捷分割当前元素、imgfit调整当前元素图片大小、Git时间梯度备份（未来）等。
+SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS卡片朗读、Trace追踪当前元素和文本注册表（API）、无感执行菜单命令（API）、SplitLine快捷分割当前元素、imgfit调整当前元素图片大小、Time时间梯度备份等。
 
 ## 1. Install
 
