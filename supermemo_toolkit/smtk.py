@@ -29,8 +29,8 @@ from supermemo_toolkit.title_xref import complete_title
 from supermemo_toolkit.utilscripts import config as smtk_config
 from supermemo_toolkit.utilscripts.ulils import makeNameSafe
 
-sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM).lower()
-smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
+sm_location: str = smtk_config.read_smtk_conf().get(smtk_config.PROGRAM).lower()
+smtk_config_file_path = os.path.join(smtk_config.config_dir(), "conf.json")
 __version__ = "0.2.7"
 
 
@@ -900,7 +900,7 @@ if __name__ == "__main__":
     # main.commands["pathpix"](["Reading-And-Review", "--clean"], standalone_mode=False)
     if is_launched_from_gui():
         try:
-            import pyi_splash
+            import pyi_splash  # type: ignore
 
             pyi_splash.close()  # 关闭闪屏
         except ImportError:

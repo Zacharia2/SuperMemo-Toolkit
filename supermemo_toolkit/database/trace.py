@@ -1,4 +1,3 @@
-import ctypes
 import os
 import sys
 import time
@@ -17,7 +16,8 @@ from watchdog.observers import Observer
 
 from supermemo_toolkit.database.element_no import ElementNo, TempHandler
 from supermemo_toolkit.database.registry import TextRegistry
-from supermemo_toolkit.utilscripts import config as smtk_config
+from supermemo_toolkit.utilscripts import config
+from supermemo_toolkit.utilscripts.ulils import is_collection_active
 
 
 def make_link(text: str, url: str) -> str:
@@ -29,15 +29,6 @@ def make_link(text: str, url: str) -> str:
 
 
 class Trace:
-    # 常量定义
-    _GENERIC_READ = 0x80000000
-    _GENERIC_WRITE = 0x40000000
-    _FILE_SHARE_NONE = 0x00000000  # 关键：不允许任何共享
-    _OPEN_EXISTING = 3
-    _INVALID_HANDLE_VALUE = -1
-
-    _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-
     def __init__(self):
         self.__stoped = False
         self.his_id = []
@@ -53,67 +44,35 @@ class Trace:
         finally:
             win32api.CloseHandle(h)
 
-    def _is_kno_locked_ctypes(self, filepath):
-        """
-        使用 CreateFileW 以 FILE_SHARE_NONE 模式打开文件来检测锁定状态。
-        """
-        # 尝试以“独占”方式打开文件：请求读权限，且不允许任何共享
-        handle = self._kernel32.CreateFileW(
-            filepath,
-            self._GENERIC_READ,  # 请求读权限
-            self._FILE_SHARE_NONE,  # 不允许其他进程共享
-            None,  # 默认安全属性
-            self._OPEN_EXISTING,  # 文件必须存在
-            0,  # 默认标志
-            None,  # 无模板文件
-        )
-
-        if handle == self._INVALID_HANDLE_VALUE:
-            error_code = ctypes.get_last_error()
-            # ERROR_SHARING_VIOLATION = 32
-            if error_code == 32:  # noqa: SIM103
-                # print(f"[ctypes] 文件 {filepath} 已被独占锁定。")
-                return True
-            else:
-                # print(f"[ctypes] 打开文件失败，错误码: {error_code}")
-                return False
-        else:
-            # 成功打开，立即关闭句柄
-            self._kernel32.CloseHandle(handle)
-            # print(f"[ctypes] 文件 {filepath} 未被独占锁定。")
-            return False
-
     def _get_active_kno_path(self):
-        smtk_config_file_path = os.path.join(smtk_config.get_config_dir(), "conf.json")
-        sm_location: str = smtk_config.get_config().get(smtk_config.PROGRAM).lower()
+        smtk_config_file_path = os.path.join(config.config_dir(), "conf.json")
+        sm_location: str = config.read_smtk_conf().get(config.PROGRAM).lower()
 
-        conf_dict = smtk_config.read_config(smtk_config_file_path)
+        conf_dict = config.read_config(smtk_config_file_path)
         kno_list = []
         ""
-        if smtk_config.KNOS in conf_dict and len(conf_dict[smtk_config.KNOS]) > 0:
+        if config.KNOS in conf_dict and len(conf_dict[config.KNOS]) > 0:
             kno_list = []
-            for x in [x.values() for x in conf_dict[smtk_config.KNOS]]:
+            for x in [x.values() for x in conf_dict[config.KNOS]]:
                 kno_list.extend(x)
             kno_list = [os.path.normpath(x + ".kno").lower() for x in kno_list]
         col_list = [
             os.path.normpath(os.path.join(sm_location, "systems", y + ".kno").lower())
-            for y in [
-                x for x in smtk_config.get_collections_primaryStorage(sm_location)
-            ]
+            for y in [x for x in config.get_collections_primaryStorage(sm_location)]
         ]
         all_kno_path: list[str] = kno_list + col_list
         for kno_path in all_kno_path:
-            if self._is_kno_locked_ctypes(kno_path):
+            if is_collection_active(Path(kno_path)):
                 return kno_path.removesuffix(".kno")
         return None
 
     def trace_with_mem(self, callback: Callable[[int, TextRegistry], any]):
+        reader = ElementNo()
         active_kno_path = self._get_active_kno_path()
         if active_kno_path == None:
             return
         text_reg = TextRegistry(active_kno_path)
 
-        reader = ElementNo()
         try:
             last_id = None
             while True:

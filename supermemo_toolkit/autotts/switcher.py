@@ -8,7 +8,7 @@ import numpy as np
 import sounddevice as sd
 
 from supermemo_toolkit.autotts.threader import ThreadController
-from supermemo_toolkit.utilscripts.config import RATE, VOICE, VOLUME, get_config
+from supermemo_toolkit.utilscripts.config import RATE, VOICE, VOLUME, read_smtk_conf
 
 
 class AudioSwitcher:
@@ -20,9 +20,9 @@ class AudioSwitcher:
         self.__producer_id = None
 
         # 声音配置
-        self.__voice = get_config().get(VOICE) or "en-US-BrianMultilingualNeural"
-        self.__rate = get_config().get(RATE) or "+0%"
-        self.__volume = get_config().get(VOLUME) or "+0%"
+        self.__voice = read_smtk_conf().get(VOICE) or "en-US-BrianMultilingualNeural"
+        self.__rate = read_smtk_conf().get(RATE) or "+0%"
+        self.__volume = read_smtk_conf().get(VOLUME) or "+0%"
 
         # 缓冲配置
         self.__block_size = 1024

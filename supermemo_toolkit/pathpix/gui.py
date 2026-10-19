@@ -18,7 +18,7 @@ class PathPixUI(Tk):
         super().__init__()
         self.__win()
         self.__creat_component()
-        self.conf_path = os.path.join(config.get_config_dir(), "conf.json")
+        self.conf_path = os.path.join(config.config_dir(), "conf.json")
 
     def __win(self):
         # 设置窗口大小、居中

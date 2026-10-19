@@ -1,8 +1,47 @@
 import itertools
 import os
 import re
+from pathlib import Path
 
 import pypinyin
+import pywintypes
+import win32con
+import win32file
+
+_ERROR_SHARING_VIOLATION = 32
+_ERROR_LOCK_VIOLATION = 33
+
+
+def is_kno_locked(path) -> bool:
+    """检测 .kno 是否被占用（SuperMemo 打开集合时会占用）。
+
+    以 FILE_SHARE_NONE 独占打开：任何其他句柄打开着文件都会导致共享冲突。
+    """
+    try:
+        handle = win32file.CreateFile(
+            str(path),
+            win32con.GENERIC_READ,
+            0,  # FILE_SHARE_NONE，win32con 不定义 0 常量
+            None,
+            win32con.OPEN_EXISTING,
+            0,
+            None,
+        )
+    except pywintypes.error as e:
+        # 32 = 共享冲突；33 = 字节范围锁冲突，一并算“被占用”
+        return e.winerror in (
+            _ERROR_SHARING_VIOLATION,
+            _ERROR_LOCK_VIOLATION,
+        )
+
+    handle.Close()  # PyHANDLE 也支持 with 语句
+    return False
+
+
+def is_collection_active(kno_path: Path) -> bool:
+    """集合是否正在激活（.kno 文件存在且被锁定）。"""
+    p = Path(kno_path)
+    return p.exists() and is_kno_locked(p)
 
 
 # resolved：空格变问号的问题

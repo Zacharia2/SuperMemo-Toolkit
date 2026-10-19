@@ -20,7 +20,7 @@ from tqdm import tqdm
 from supermemo_toolkit.utilscripts import config
 from supermemo_toolkit.utilscripts.ulils import makeNameSafe
 
-config_dir = config.get_config_dir()
+config_dir = config.config_dir()
 if os.path.exists(config_dir):
     LOG_FILE = os.path.join(config_dir, "smtk.log.txt")
 elif not os.path.exists(config_dir):
@@ -552,7 +552,7 @@ class FindImgSrc:
     _QUOTES = (0x22, 0x27)
     _EQ = 0x3D
 
-    _IMG_TAG_RE = re.compile(rb'<img(?=[\s/>])(?:[^>"\']|"[^"]*"|\'[^\']*\')*>', re.I)
+    _IMG_TAG_RE = re.compile(rb'<img(?=[\s/>])(?:[^>"\']|"[^"]*"|\'[^\']*\')*>', re.IGNORECASE)
 
     @staticmethod
     def _iter_attrs(raw: bytes):

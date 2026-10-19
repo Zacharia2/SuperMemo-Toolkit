@@ -33,7 +33,7 @@
 配置复用 ~/.config/supermemo_toolkit/conf.json：
     program              SM 根目录
     knos                 离散集合列表
-    backup_min_active    激活不足此秒数整体跳过（默认 180）
+    backup_min_active    激活不足此秒数整体跳过（默认 45）
 
 .kno 位置：集合目录的父目录下，与集合目录同名。
   systems/Maths/        ← 集合目录 = Git 仓库
@@ -47,9 +47,7 @@
 
 from __future__ import annotations
 
-import ctypes
 import hashlib
-import json
 import logging
 import os
 import shutil
@@ -66,18 +64,19 @@ import pystray
 from PIL import Image, ImageDraw
 from typing_extensions import Self
 
-from supermemo_toolkit.utilscripts import config
+from supermemo_toolkit.utilscripts.config import config_dir, read_smtk_conf
+from supermemo_toolkit.utilscripts.ulils import is_collection_active, is_kno_locked
 
 log = logging.getLogger("time")
-config_dir = config.get_config_dir()
-if os.path.exists(config_dir):
-    LOG_FILE = os.path.join(config_dir, "time.log")
-elif not os.path.exists(config_dir):
-    os.makedirs(config_dir)
-    LOG_FILE = os.path.join(config_dir, "time.log")
+
+if os.path.exists(config_dir()):
+    LOG_FILE = os.path.join(config_dir(), "time.log")
+elif not os.path.exists(config_dir()):
+    os.makedirs(config_dir())
+    LOG_FILE = os.path.join(config_dir(), "time.log")
 
 GIT_LOCK = threading.RLock()
-DEFAULT_MIN_ACTIVE = 180
+DEFAULT_MIN_ACTIVE = 45
 QUIET_SECONDS = 2.0  # 防抖静默窗口
 
 
@@ -132,7 +131,7 @@ class BackupConfig:
     Attributes:
         sm_location:        SuperMemo 安装根目录
         collections:        发现的集合列表
-        min_active_seconds: 激活必须持续超过此秒数才触发备份（默认 180）
+        min_active_seconds: 激活必须持续超过此秒数才触发备份（默认 45）
     """
 
     sm_location: str
@@ -173,11 +172,6 @@ class SnapshotData:
     archive: list[str]
     hot: dict[str, list[str]]
     safety_refs: list[str]
-
-
-# ============================================================================
-# 新增类型：CompactResult / RestoreResult
-# ============================================================================
 
 
 @dataclass(frozen=True)
@@ -341,16 +335,47 @@ def setup_logging(verbose: bool = False) -> None:
 # ============================================================================
 
 
-def _config_dir() -> Path:
-    return Path(os.path.expanduser("~")) / ".config" / "supermemo_toolkit"
+def load_config() -> BackupConfig:
+    """加载配置并自动发现集合。
+
+    返回 BackupConfig 对象，包含 sm_location、collections 列表和备份配置。
+    """
+    smtk = read_smtk_conf()
+    sm_location = (smtk.get("program") or "").strip()
+    if not sm_location or sm_location.lower() == "null":
+        raise SystemExit(
+            "请先设置 smtk 配置：smtk config set program <SuperMemo 根目录>"
+        )
+    # 用 `is not None` 代替 `or`，避免 0 被吞掉（0 是有效值，表示禁用短激活重置）
+    min_active_raw = smtk.get("backup_min_active")
+    try:
+        min_active = (
+            int(min_active_raw) if min_active_raw is not None else DEFAULT_MIN_ACTIVE
+        )
+    except (TypeError, ValueError):
+        min_active = DEFAULT_MIN_ACTIVE
+
+    return BackupConfig(
+        sm_location=sm_location,
+        collections=discover_collections(sm_location, smtk),
+        min_active_seconds=max(min_active, 0),
+    )
 
 
-def _read_smtk_conf() -> dict:
-    p = _config_dir() / "conf.json"
-    if not p.exists():
-        return {}
-    with open(p, encoding="utf-8") as f:
-        return json.load(f)
+def get_mtime_of_timedat(coll: Collection) -> float | None:
+    """读取 stats/time.dat 的最后修改时间（只读 mtime，不参与 Watcher 激活判定）。
+
+    此函数是给外部调用方（如 smtk 的其他子命令）使用的公共 API，
+    Watcher 的激活判定只看 .kno 是否被锁定（is_collection_active），
+    不依赖本函数，也不依赖 stats/time.dat 的内容或存在性。
+
+    Returns:
+        stats/time.dat 的 mtime；文件不存在时返回 None。
+    """
+    sf = Path(coll.path) / "stats" / "time.dat"
+    if sf.exists():
+        return sf.stat().st_mtime
+    return None
 
 
 def discover_collections(sm_location: str, smtk: dict) -> list[Collection]:
@@ -380,137 +405,41 @@ def discover_collections(sm_location: str, smtk: dict) -> list[Collection]:
     return list(by_name.values())
 
 
-def load_config() -> BackupConfig:
-    """加载配置并自动发现集合。
-
-    返回 BackupConfig 对象，包含 sm_location、collections 列表和备份配置。
-    """
-    smtk = _read_smtk_conf()
-    sm_location = (smtk.get("program") or "").strip()
-    if not sm_location or sm_location.lower() == "null":
-        raise SystemExit(
-            "请先设置 smtk 配置：smtk config set program <SuperMemo 根目录>"
-        )
-    # 用 `is not None` 代替 `or`，避免 0 被吞掉（0 是有效值，表示禁用短激活跳过）
-    min_active_raw = smtk.get("backup_min_active")
-    try:
-        min_active = (
-            int(min_active_raw) if min_active_raw is not None else DEFAULT_MIN_ACTIVE
-        )
-    except (TypeError, ValueError):
-        min_active = DEFAULT_MIN_ACTIVE
-
-    return BackupConfig(
-        sm_location=sm_location,
-        collections=discover_collections(sm_location, smtk),
-        min_active_seconds=max(min_active, 0),
-    )
-
-
-# ============================================================================
-# file lock (进程内)
-# ============================================================================
-
-_K32 = None
-
-
-def _kernel32():
-    """懒初始化 kernel32 DLL 绑定。"""
-    global _K32
-    if _K32 is None:
-        _K32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        _K32.CreateFileW.restype = ctypes.c_void_p
-        _K32.CreateFileW.argtypes = [
-            ctypes.c_wchar_p,
-            ctypes.c_uint32,
-            ctypes.c_uint32,
-            ctypes.c_void_p,
-            ctypes.c_uint32,
-            ctypes.c_uint32,
-            ctypes.c_void_p,
-        ]
-        _K32.CloseHandle.restype = ctypes.c_bool
-        _K32.CloseHandle.argtypes = [ctypes.c_void_p]
-    return _K32
-
-
-def is_file_locked(path: Path) -> bool:
-    """检测文件是否被独占锁定（SuperMemo 打开集合时会锁定 .kno）。"""
-    path = Path(path)
-    if not path.exists():
-        return False
-    if sys.platform == "win32":
-        k32 = _kernel32()
-        # Windows API 常量
-        GENERIC_READ = 0x80000000
-        FILE_SHARE_READ = 0x1
-        FILE_SHARE_WRITE = 0x2
-        OPEN_EXISTING = 3
-        h = k32.CreateFileW(
-            str(path),
-            GENERIC_READ,
-            FILE_SHARE_READ | FILE_SHARE_WRITE,
-            None,
-            OPEN_EXISTING,
-            0,
-            None,
-        )
-        INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
-        # c_void_p restype 返回 int，比较时用 .value 取整数值；
-        # 某些 ctypes 版本可能返回 -1，所以同时判断
-        if h in (None, 0, -1, INVALID_HANDLE_VALUE):
-            return True
-        k32.CloseHandle(ctypes.c_void_p(h))
-        return False
-    import fcntl
-
-    try:
-        with open(path, "rb") as f:
-            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            fcntl.flock(f, fcntl.LOCK_UN)
-        return False
-    except OSError:
-        return True
-
-
-def is_collection_active(coll: Collection) -> bool:
-    """集合是否正在激活（.kno 文件存在且被锁定）。"""
-    return coll.kno_path().exists() and is_file_locked(coll.kno_path())
-
-
-def activation_start_from_stats(coll: Collection) -> float | None:
-    """读取 stats/time.dat 的最后修改时间（只读 mtime，不参与 Watcher 激活判定）。
-
-    此函数是给外部调用方（如 smtk 的其他子命令）使用的公共 API，
-    Watcher 的激活判定只看 .kno 是否被锁定（is_collection_active），
-    不依赖本函数，也不依赖 stats/time.dat 的内容或存在性。
-
-    Returns:
-        stats/time.dat 的 mtime；文件不存在时返回 None。
-    """
-    sf = Path(coll.path) / "stats" / "time.dat"
-    if sf.exists():
-        return sf.stat().st_mtime
-    return None
-
-
 # ============================================================================
 # git helper
 # ============================================================================
 
 
-def _git_env() -> dict:
-    """构建 git 命令所需的环境变量（作者/提交者信息）。"""
+def _git_env(repo: Path) -> dict:
+    """构建 git 命令所需的环境变量。
+
+    - 作者/提交者信息
+    - GIT_CEILING_DIRECTORIES 设为 repo 的父目录，阻止 git 在 repo 没有 .git 时
+      向上 chdir 到祖先目录查找。避免误操作父仓库（如 systems/ 或 SuperMemo 根目录）。
+    """
     env = os.environ.copy()
     env.setdefault("GIT_AUTHOR_NAME", "time-rewind")
     env.setdefault("GIT_AUTHOR_EMAIL", "time-rewind@local")
     env.setdefault("GIT_COMMITTER_NAME", "time-rewind")
     env.setdefault("GIT_COMMITTER_EMAIL", "time-rewind@local")
+
+    # 阻止 git 向上查找祖先 .git（Windows 用分号分隔，POSIX 用冒号）
+    ceiling = str(repo.parent.resolve())
+    sep = ";" if sys.platform == "win32" else ":"
+    existing = env.get("GIT_CEILING_DIRECTORIES")
+    if existing:
+        env["GIT_CEILING_DIRECTORIES"] = f"{ceiling}{sep}{existing}"
+    else:
+        env["GIT_CEILING_DIRECTORIES"] = ceiling
     return env
 
 
 def git(repo: Path, *args, check: bool = True, text: bool = True):
-    """执行 git 命令。"""
+    """执行 git 命令。
+
+    使用 GIT_CEILING_DIRECTORIES 阻止 git 在 repo 缺少 .git 时向上查找祖先仓库。
+    repo 未初始化时，git 命令会返回非零而不是静默操作祖先仓库。
+    """
     cmd = ["git", "-C", str(repo)] + list(args)
     r = subprocess.run(
         cmd,
@@ -519,7 +448,7 @@ def git(repo: Path, *args, check: bool = True, text: bool = True):
         text=text,
         encoding="utf-8" if text else None,
         errors="replace" if text else None,
-        env=_git_env(),
+        env=_git_env(repo),
     )
     if check and r.returncode != 0:
         err = r.stderr if text else r.stderr.decode(errors="replace")
@@ -685,7 +614,7 @@ class CollectionRepo:
         """
         repo = self.repo_path
         repo.mkdir(parents=True, exist_ok=True)
-        if not (repo / ".git").exists():
+        if not self.is_initialized():
             git(repo, "init", "-q")
             gi = repo / ".gitignore"
             if not gi.exists():
@@ -712,7 +641,7 @@ class CollectionRepo:
             kno_rel = f"{self.name}.kno"
 
             # 检查集合是否正在激活（合并为一次调用，避免竞态）
-            locked = is_file_locked(kno_src)
+            locked = is_kno_locked(kno_src)
             if require_inactive and locked:
                 raise RuntimeError(f"{self.name}: 集合正在激活，拒绝运行时备份")
 
@@ -795,8 +724,12 @@ class CollectionRepo:
             kno_src = self.kno_path
             kno_rel = f"{self.name}.kno"
 
+            # 检查仓库是否已初始化
+            if not self.is_initialized():
+                raise RuntimeError(f"{self.name}: 仓库未初始化，无法恢复")
+
             # 检查集合是否正在激活
-            if kno_src.exists() and is_file_locked(kno_src):
+            if kno_src.exists() and is_kno_locked(kno_src):
                 raise RuntimeError(f"{self.name}: 集合正在激活，请先关闭 SuperMemo")
 
             commit = rev_parse(repo, target)
@@ -857,7 +790,7 @@ class CollectionRepo:
         """
         with GIT_LOCK:
             repo = self.repo_path
-            if not (repo / ".git").exists():
+            if not self.is_initialized():
                 return CompactResult(
                     dry_run=dry_run,
                     deleted_refs=[],
@@ -968,7 +901,7 @@ class CollectionRepo:
             SnapshotData 对象
         """
         repo = self.repo_path
-        if not (repo / ".git").exists():
+        if not self.is_initialized():
             return None
 
         data = SnapshotData(
@@ -1020,14 +953,14 @@ class CollectionRepo:
 
     def is_active(self) -> bool:
         """集合是否正在激活。"""
-        return is_collection_active(self._coll)
+        return is_collection_active(self._coll.kno_path())
 
     def activation_start(self) -> float | None:
         """读取 stats/time.dat 的 mtime（只读，不参与 Watcher 激活判定）。
 
-        见 activation_start_from_stats 的说明。
+        见 get_mtime_of_timedat 的说明。
         """
-        return activation_start_from_stats(self._coll)
+        return get_mtime_of_timedat(self._coll)
 
 
 # ============================================================================
@@ -1392,7 +1325,7 @@ class Watcher:
         # 初始化上一轮激活状态，避免启动时误报"刚被打开"
         last_active: dict[str, bool] = {}
         for c in self._config.collections:
-            active = is_collection_active(c)
+            active = is_collection_active(c.kno_path())
             last_active[c.name] = active
             if active:
                 # 启动时集合已激活，记录 tracker 并显示 active 状态
@@ -1409,7 +1342,7 @@ class Watcher:
 
             # 轮询集合激活状态，检测"刚打开"/"刚关闭"的转换
             for c in self._config.collections:
-                active = is_collection_active(c)
+                active = is_collection_active(c.kno_path())
                 prev = last_active.get(c.name, False)
                 if active and not prev:
                     with self._pending_lock:
@@ -1442,14 +1375,17 @@ class Watcher:
                     self._handle_collection_state_change(coll, current_now)
 
     def _handle_collection_state_change(self, c: Collection, now: float) -> None:
-        """处理单个集合的状态变化（激活/退出），执行备份逻辑。
+        """处理单个集合的状态变化（激活/退出）。
+
+        退出时按激活时长分流：
+          - < min_active 秒：视为误开，重置工作区到 HEAD，不保留任何改动
+          - >= min_active 秒：冷备份 + compact
 
         激活判定只看 .kno 是否被锁定（is_collection_active）；
-        stats/time.dat 不参与"是否处理该集合"的判断，仅作为工具函数
-        activation_start_from_stats 读取"最后写入时间"的用途保留。
+        stats/time.dat 不参与判定。
         """
         name = c.name
-        active_now = is_collection_active(c)
+        active_now = is_collection_active(c.kno_path())
         min_active = self._config.min_active_seconds
 
         if active_now:
@@ -1459,29 +1395,42 @@ class Watcher:
             self._update_icon("active", name)
             return
 
-        # 集合已退出。只看 .kno 是否曾被锁定（tracker 是否有记录），不看 time.dat
+        # 集合已退出。只看 .kno 是否曾被锁定（tracker 是否有记录）
         with self._pending_lock:
             activation_start = self._activation_tracker.get(name)
         if activation_start is None:
             log.debug(f"{name}: 未检测到激活记录，跳过")
             return
 
-        # min_active 检查（防止短激活误备份）
-        if min_active > 0:
-            active_duration = now - activation_start
-            if active_duration < min_active:
-                log.info(
-                    f"{name}: 激活时长仅 {active_duration:.0f}s（< {min_active}s），跳过备份"
-                )
-                with self._pending_lock:
-                    self._activation_tracker.pop(name, None)
-                return
+        active_duration = now - activation_start
 
+        # 短激活：视为误开，重置工作区到 HEAD，不保留任何改动
+        if min_active > 0 and active_duration < min_active:
+            log.info(
+                f"{name}: 激活时长仅 {active_duration:.0f}s（< {min_active}s），视为误开"
+            )
+            # 等解锁瞬间的最终写入落盘
+            _time.sleep(2)
+            # 二次确认集合已退出
+            if is_collection_active(c.kno_path()):
+                log.info(f"{name}: 二次检查发现仍在激活，跳过重置")
+                self._update_icon("active", name)
+                return
+            try:
+                self._reset_short_activation(c)
+            except Exception as e:
+                log.error(f"{name}: 短激活重置失败: {e}")
+                self._update_icon("error", f"{name} 重置失败")
+            with self._pending_lock:
+                self._activation_tracker.pop(name, None)
+            return
+
+        # 正常退出：冷备份
         # 等待解锁瞬间的最终写入落盘
         _time.sleep(2)
 
         # 二次确认集合已退出（防止竞态条件：可能在等待期间重新激活）
-        if is_collection_active(c):
+        if is_collection_active(c.kno_path()):
             log.info(f"{name}: 二次检查发现仍在激活，跳过")
             self._update_icon("active", name)
             return
@@ -1504,6 +1453,50 @@ class Watcher:
             self._update_icon("error", f"{name} 压缩失败")
             return
         self._update_icon("done", f"{name} 已备份")
+
+    def _reset_short_activation(self, c: Collection) -> bool:
+        """短激活重置：工作区回到 HEAD，外部 .kno 从 HEAD 的备份副本恢复。
+
+        用于 < min_active 秒的误开场景。不创建 safety 快照（什么都不保留）。
+        重置后工作区、index、外部 .kno 都回到上一次备份（HEAD）的状态。
+
+        Returns:
+            True 表示实际执行了重置；
+            False 表示未处理（仓库未初始化或没有 HEAD），调用方不需要额外处理，
+                  日志已在此方法内打出。
+        """
+        name = c.name
+        repo = c.repo_path()
+        kno_src = c.kno_path()
+        kno_rel = f"{name}.kno"
+
+        # 防御性检查：集合必须已退出
+        if is_collection_active(c.kno_path()):
+            raise RuntimeError(f"{name}: 集合仍在激活，拒绝重置")
+
+        # 未初始化的集合无法重置（没有 HEAD 可回退），提示并跳过
+        if not CollectionRepo(c).is_initialized():
+            log.debug(
+                f"{name}: 仓库未初始化，跳过重置（首次长激活时会自动初始化并备份）"
+            )
+            return False
+
+        # 空仓库（git init 后从未提交）没有 HEAD 可回退
+        head = git(repo, "rev-parse", "--verify", "--quiet", "HEAD", check=False)
+        if head.returncode != 0:
+            log.debug(f"{name}: 仓库无 HEAD（从未备份），跳过重置")
+            return False
+        head_commit = head.stdout.strip()
+
+        # 1. 丢弃 tracked 文件的工作区/index 改动，回到 HEAD
+        git(repo, "read-tree", "-u", "--reset", head_commit)
+        # 2. 清理 untracked 文件（不改 .gitignore 里的 ignored 文件）
+        git(repo, "clean", "-fd", check=False)
+        # 3. 外部 .kno 从 HEAD 的备份副本恢复（原子写 + SHA-256 校验）
+        _restore_kno_from_store(repo, head_commit, kno_src, kno_rel, name)
+
+        log.info(f"{name}: 短激活重置完成 -> {head_commit[:8]}")
+        return True
 
     def _update_icon(self, state: str, detail: str = "") -> None:
         """更新托盘图标。"""
@@ -1562,7 +1555,7 @@ class Watcher:
         """托盘菜单：打开配置目录。"""
         try:
             if sys.platform == "win32":
-                os.startfile(str(_config_dir()))
+                os.startfile(str(config_dir()))
             else:
                 log.warning("打开配置目录仅支持 Windows 平台")
         except Exception as e:
@@ -1898,13 +1891,7 @@ __all__ = [
     # 高级 API
     "SuperMemoBackup",
     "Watcher",
-    "activation_start_from_stats",
-    "discover_collections",
-    "is_collection_active",
-    # 工具
-    "is_file_locked",
     # 配置
-    "load_config",
     "setup_logging",
 ]
 
@@ -1937,7 +1924,7 @@ if __name__ == "__main__":
             log.info(f"backup: {r}")
     elif MODE == "list":
         # 打印所有集合快照
-        for c in sm.config.collections:
+        for c in sm.initialized_collections():
             sm.list_snapshots(c.name)
     elif MODE == "compact":
         # 先 dry_run 预览
