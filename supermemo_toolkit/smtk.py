@@ -701,7 +701,7 @@ main.add_command(time_cmd)
 
 
 def _load_time_backup():
-    """延迟导入 time_backup，避免 smtk 启动时因可选依赖（pystray/watchdog/Pillow）失败。"""
+    """延迟导入 time_backup，避免 smtk 启动时因可选依赖（pystray/Pillow）失败。"""
     try:
         from supermemo_toolkit.time_rewind.time_rewind import (
             GitError,
@@ -711,7 +711,7 @@ def _load_time_backup():
     except ImportError as e:
         raise click.ClickException(
             f"无法导入 time_backup 模块：{e}\n"
-            "请确认 time_backup.py 位于 PYTHONPATH 中，并已安装 pystray、watchdog、Pillow。"
+            "请确认 time_backup.py 位于 PYTHONPATH 中，并已安装 pystray、Pillow。"
         )
     return SuperMemoBackup, GitError, setup_logging
 
@@ -733,17 +733,16 @@ def _make_backup_manager():
     "--trigger",
     default="manual",
     show_default=True,
-    help="触发来源：manual/tray/shutdown/debug",
+    type=click.Choice(["manual", "shutdown", "tray", "debug"], case_sensitive=False),
+    help="触发来源",
 )
-@click.option(
-    "--allow-active",
-    is_flag=True,
-    help="允许激活中的集合也备份（默认拒绝，冷备份要求集合已关闭）",
-)
-def time_backup(collection, trigger, allow_active):
-    """冷备份集合（集合必须已关闭，除非 --allow-active）"""
+def time_backup(collection, trigger):
+    """冷备份集合（集合必须已关闭）
+
+    注意：如果集合处于激活状态（.kno 被锁定），备份将直接失败。
+    请先关闭 SuperMemo 中的对应集合再执行此命令。
+    """
     sm, GitError = _make_backup_manager()
-    require_inactive = not allow_active
     names = [collection] if collection else [c.name for c in sm.config.collections]
     if not names:
         raise click.ClickException(
@@ -752,7 +751,7 @@ def time_backup(collection, trigger, allow_active):
     failed = 0
     for name in names:
         try:
-            r = sm.collection(name).backup(trigger, require_inactive)
+            r = sm.backup(name, trigger=trigger)
         except KeyError:
             click.echo(f"{name}: 集合不存在", err=True)
             failed += 1
@@ -763,11 +762,14 @@ def time_backup(collection, trigger, allow_active):
             continue
         except RuntimeError as e:
             click.echo(f"{name}: 跳过（{e}）", err=True)
+            failed += 1
             continue
+
         if r.skipped:
-            click.echo(f"{name}: 无变更，跳过")
+            click.echo(f"{name}: 无变更，跳过 ({r.commit[:8] if r.commit else 'N/A'})")
         else:
-            click.echo(f"{name}: {r.commit[:8]} -> {r.branch} (locked={r.locked})")
+            click.echo(f"{name}: 已备份 {r.commit[:8]}")
+
     if failed:
         raise click.ClickException(f"{failed} 个集合备份失败")
 
@@ -775,60 +777,134 @@ def time_backup(collection, trigger, allow_active):
 @time_cmd.command(name="restore")
 @click.argument("collection")
 @click.argument("target")
-@click.option("--no-safety", is_flag=True, help="跳过恢复前安全快照")
-def time_restore(collection, target, no_safety):
-    """冷恢复集合到指定分支 / tag / commit"""
+def time_restore(collection, target):
+    """冷恢复集合到指定 commit / ref
+
+    TARGET 可以是完整 hash、短 hash 或 ref（如 refs/smtk/archive）。
+    恢复前会自动校验工作区干净及 .kno 一致性；失败时自动回滚。
+    """
     sm, GitError = _make_backup_manager()
     try:
-        r = sm.restore(collection, target, not no_safety)
+        r = sm.restore(collection, target)
     except KeyError:
         raise click.ClickException(f"集合不存在: {collection}")
     except (GitError, RuntimeError) as e:
         raise click.ClickException(str(e))
-    click.echo(f"已恢复 {collection} -> {r.target}")
-    if r.safety_ref:
-        click.echo(f"安全快照: {r.safety_ref}")
+
+    click.echo(f"已恢复 {collection} -> {r.target[:8] if r.target else r.target}")
+    if r.old_head:
+        click.echo(f"恢复前 HEAD: {r.old_head[:8]}")
 
 
 @time_cmd.command(name="compact")
 @click.option("--collection", "-c", default=None, help="集合名，默认全部")
-@click.option("--dry-run", is_flag=True, help="只预览折叠计划，不实际执行")
-def time_compact(collection, dry_run):
-    """压缩历史：天折叠 + 月/季/年粗粒度折叠 + gc"""
+def time_compact(collection):
+    """压缩历史：将 hot tip 折叠为 archive snapshot
+
+    此操作由用户手动触发，不会自动执行。
+    折叠后旧 hot commit 变为 dangling，2 周内可通过 git fsck --lost-found 找回。
+    """
     sm, GitError = _make_backup_manager()
     names = [collection] if collection else [c.name for c in sm.config.collections]
     if not names:
         raise click.ClickException("没有发现任何集合。")
+
+    failed = 0
     for name in names:
         try:
-            r = sm.collection(name).compact(dry_run=dry_run)
+            r = sm.compact(name)
         except KeyError:
             click.echo(f"{name}: 集合不存在", err=True)
+            failed += 1
             continue
-        except GitError as e:
-            click.echo(f"{name}: git 错误: {e}", err=True)
+        except (GitError, RuntimeError) as e:
+            click.echo(f"{name}: 错误: {e}", err=True)
+            failed += 1
             continue
-        prefix = "[dry-run] " if dry_run else ""
-        click.echo(f"{prefix}{name}: {r.message}")
+
+        status = "✓" if r.folded else "·"
+        click.echo(f"{status} {name}: {r.message}")
+
+    if failed:
+        raise click.ClickException(f"{failed} 个集合压缩失败")
 
 
 @time_cmd.command(name="list")
 @click.argument("collection", required=False)
 def time_list(collection):
-    """列出集合的快照（分支 / tag / 安全 ref）"""
+    """列出集合的快照历史（archive + hot 链）"""
     sm, _ = _make_backup_manager()
     if collection:
-        sm.list_snapshots(collection)
+        try:
+            sm.list_snapshots(collection)
+        except KeyError:
+            raise click.ClickException(f"集合不存在: {collection}")
         return
-    for c in sm.initialized_collections():
+
+    initialized = sm.initialized_collections()
+    if not initialized:
+        click.echo("没有已初始化的集合。")
+        return
+    for c in initialized:
         sm.list_snapshots(c.name)
+        click.echo()  # 集合间空行
 
 
 @time_cmd.command(name="watch")
 def time_watch():
-    """启动托盘监控（阻塞，watchdog 事件驱动）"""
+    """启动托盘监控（阻塞，轮询 .kno 锁定状态）
+
+    检测到集合关闭后自动触发 backup(trigger='shutdown')。
+    压缩历史需通过托盘菜单手动触发。
+    """
     sm, _ = _make_backup_manager()
     sm.watch()
+
+
+@time_cmd.command(name="forget")
+@click.argument("collection")
+@click.option("--yes", "-y", is_flag=True, help="跳过确认")
+def time_forget(collection, yes):
+    """让指定集合遗忘 Git 历史：删除 .git 目录，保留工作区数据
+
+    卸载前会检查：
+      - 集合未激活
+      - tracked 文件无未提交改动
+      - 外部 .kno 与 HEAD 一致
+
+    检查通过后，从 HEAD 取 .kno 写回外部，保证数据库一致性，
+    然后删除 .git、.gitignore、.gitattributes。
+
+    只卸载一个集合，避免误操作批量删除。全部卸载请逐个执行。
+    """
+    sm, GitError = _make_backup_manager()
+
+    try:
+        _ = sm.get_collection(collection)
+    except KeyError:
+        raise click.ClickException(f"集合不存在: {collection}")
+
+    if not sm.collection(collection).is_initialized():
+        click.echo(f"{collection}: 无 .git，跳过")
+        return
+
+    if not yes:
+        click.confirm(
+            f"将卸载 {collection} 的 git 仓库，删除 .git 后历史将无法恢复。继续？",
+            abort=True,
+        )
+
+    try:
+        ok = sm.forget(collection)
+    except GitError as e:
+        raise click.ClickException(f"{collection}: git 错误: {e}")
+    except RuntimeError as e:
+        raise click.ClickException(f"{collection}: 拒绝卸载（{e}）")
+
+    if ok:
+        click.echo(f"{collection}: 已卸载")
+    else:
+        click.echo(f"{collection}: 无 .git，跳过")
 
 
 class Shell(cmd.Cmd):

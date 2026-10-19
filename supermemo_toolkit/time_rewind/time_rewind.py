@@ -1,48 +1,46 @@
 #!/usr/bin/env python3
-"""time - SuperMemo 集合冷备份工具（类 API + 轮询监控 + dry-run + safety）
+"""time - SuperMemo 集合冷备份工具（类 API + 轮询监控 + safety）
 
-主要 API（推荐）：
-    from time_backup import SuperMemoBackup, CollectionRepo, Watcher, FileLock
+单 hot 分支模型：
+    - refs/heads/hot      当前工作链，每次 backup append 一个 commit
+    - refs/heads/archive  历史快照链，compact 手动把 hot tip 折叠为 snapshot commit，
+                         hot 重置到该 snapshot
 
-    # 类式 API（推荐）
-    sm = SuperMemoBackup.from_config()
-    repo = sm.collection("Maths")
-    repo.init()
-    result = repo.backup()
-    plan = repo.compact(dry_run=True)  # 预览压缩计划
-    repo.restore("archive")
-    sm.watch()
+ref 名不含时间。时间只出现在 commit message 里，仅供人阅读，
+不参与任何结构、折叠决策、恢复行为。
 
-    # 直接类式调用
-    from time_backup import CollectionRepo, Collection
-    coll = Collection(name="Maths", path="D:/SuperMemo/systems/Maths")
-    repo = CollectionRepo(coll)
-    repo.backup()
-    repo.compact(dry_run=True)
+一致性原则（任何前提不满足直接 raise，禁止降级）：
+    - .kno 不是文件、被锁定、复制后 SHA-256 不一致
+    - 目标 commit 缺 kno_rel、hot tip 缺 kno_rel
+    - 工作区不干净、HEAD 不存在
+    - 以上任一情况均 raise，不警告后继续
 
-    # 跨进程锁
-    with FileLock(repo.repo_path / ".git" / "backup.lock"):
-        repo.backup()
+不自动 compact；崩溃不自动备份；不主动 gc。
+.kno 锁定即拒绝一切写操作。
+所有写方法内部强制 FileLock(<repo>.smtk.lock, timeout=360)。
+setup_logging 是破坏性的，仅供 CLI 入口调用。
 
-    # Watcher（轮询 .kno 锁定状态，不依赖 stats/ 事件）
-    from time_backup import Watcher, load_config
-    cfg = load_config()
-    watcher = Watcher(cfg)
-    watcher.start()
+backup 的 trigger 合法值：manual / shutdown / tray / debug。
+非法值只影响 commit message，不 raise。
 
-配置复用 ~/.config/supermemo_toolkit/conf.json：
-    program              SM 根目录
-    knos                 离散集合列表
-    backup_min_active    激活不足此秒数整体跳过（默认 45）
+backup 执行 git add -A，集合目录下所有未忽略文件都会被提交。
+用户应把临时文件放入 .gitignore 或 temp/、reports/、html/。
 
-.kno 位置：集合目录的父目录下，与集合目录同名。
-  systems/Maths/        ← 集合目录 = Git 仓库
-  systems/Maths.kno     ← SuperMemo 实际锁文件（仓库外）
-工作区内的 systems/Maths/Maths.kno 是 Git 跟踪的备份副本，SuperMemo 不读它。
+restore 不删除 untracked 文件；如果 untracked 文件与目标 commit 的
+tracked 文件冲突，restore 失败并回滚，用户需手动处理冲突文件。
 
-策略：完全冷备份。集合激活期间不写 Git，退出后一次性快照。
-激活判定只看 .kno 是否被锁定，stats/time.dat 不参与判定。
-启动一刻 .kno 只是被独占锁住，内容没动，所以 mtime 不变
+已知限制：
+    - 崩溃 / 强杀 / 断电时，本次会话不自动备份；下次打开后关闭会正常备份，
+      但崩溃前的数据不在仓库中。
+    - 自动 compact 已移除；折叠是用户通过托盘菜单手动触发的操作。
+    - hot 分支被 compact 重置后，旧 commit 变 dangling，默认由 git 的
+      2 周 unreachable 保留期管理。compact 日志记录旧 hot tip 的短 hash，
+      2 周内可 git fsck --lost-found 找回。
+    - 轮询线程在 backup 期间暂停；多集合同时关闭时第二个集合的备份延迟到
+      第一个完成之后。
+    - CLI 与 Watcher 同时运行时，FileLock(<repo>.smtk.lock) 保证跨进程互斥。
+    - 系统时钟只影响 commit message 的时间戳，不影响任何结构、折叠决策、
+      恢复行为。时钟错了，git log 显示的时间不准，仅此而已。
 """
 
 from __future__ import annotations
@@ -56,7 +54,7 @@ import sys
 import threading
 import time as _time
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import NamedTuple
 
@@ -65,33 +63,35 @@ from PIL import Image, ImageDraw
 from typing_extensions import Self
 
 from supermemo_toolkit.utilscripts.config import config_dir, read_smtk_conf
-from supermemo_toolkit.utilscripts.ulils import is_collection_active, is_kno_locked
+from supermemo_toolkit.utilscripts.ulils import is_kno_locked
 
 log = logging.getLogger("time")
 
-if os.path.exists(config_dir()):
-    LOG_FILE = os.path.join(config_dir(), "time.log")
-elif not os.path.exists(config_dir()):
-    os.makedirs(config_dir())
-    LOG_FILE = os.path.join(config_dir(), "time.log")
+# 日志路径延迟到首次使用时初始化：模块导入阶段不碰磁盘，
+# 避免 config_dir 不可写 / 权限不足导致 import 直接崩溃。
+_LOG_FILE: str | None = None
+
+
+def _get_log_file() -> str:
+    """惰性返回日志文件路径，必要时创建配置目录。"""
+    global _LOG_FILE
+    if _LOG_FILE is None:
+        cfg = config_dir()
+        os.makedirs(cfg, exist_ok=True)
+        _LOG_FILE = os.path.join(cfg, "time.log")
+    return _LOG_FILE
+
 
 GIT_LOCK = threading.RLock()
-DEFAULT_MIN_ACTIVE = 45
-QUIET_SECONDS = 2.0  # 防抖静默窗口
+
+# 就这两个 ref。没有 HOT_PREFIX，没有周辅助函数。
+ARCHIVE_REF = "refs/heads/archive"
+HOT_REF = "refs/heads/hot"
 
 
 # ============================================================================
 # 类型定义（公共 API 类型，调用方可直接引用）
 # ============================================================================
-
-# Snapshot = (tree_hash, kind, period)
-#   kind  ∈ {"day", "month", "quarter", "year"}
-#   period 格式取决于 kind：
-#     "day"    → "2024-09-15"
-#     "month"  → "2024-09"
-#     "quarter"→ "2024-Q3"
-#     "year"   → "2024"
-Snapshot = tuple[str, str, str]
 
 
 @dataclass(frozen=True)
@@ -99,18 +99,35 @@ class Collection:
     """SuperMemo 集合描述。
 
     Attributes:
-        name:     集合名称（也是 Git 仓库名）
+        name:     集合名称（用于展示，不直接参与 ref 名）
         path:     集合目录的绝对路径（即 Git 工作区根）
         kno:      可选。覆盖默认的 .kno 文件路径；不设置时自动计算为 <path.parent>/<name>.kno
+
+    I5 不变式：kno 为 None 时，name 必须等于目录名；否则需显式提供 kno。
     """
 
     name: str
     path: str
     kno: str | None = None
 
+    def __post_init__(self) -> None:
+        path = str(Path(self.path).resolve())
+        object.__setattr__(self, "path", path)
+        if self.kno is not None:
+            object.__setattr__(self, "kno", str(Path(self.kno).resolve()))
+        if self.kno is None and self.name != Path(path).name:
+            raise ValueError(
+                f"collection name {self.name!r} != directory name {Path(path).name!r}; "
+                f"set kno explicitly to allow different names"
+            )
+
     def repo_path(self) -> Path:
         """Git 仓库工作区路径。"""
         return Path(self.path)
+
+    def dir_name(self) -> str:
+        """目录名。"""
+        return Path(self.path).name
 
     def kno_path(self) -> Path:
         """SuperMemo 实际使用的 .kno 文件路径（在仓库外部）。"""
@@ -120,8 +137,22 @@ class Collection:
         return p.parent / f"{p.name}.kno"
 
     def kno_store_path(self) -> Path:
-        """仓库内备份副本路径：<repo_root>/<name>.kno"""
-        return Path(self.path) / f"{self.name}.kno"
+        """仓库内备份副本路径：<repo_root>/<dir_name>.kno"""
+        return Path(self.path) / f"{self.dir_name()}.kno"
+
+    def kno_rel(self) -> str:
+        """仓库内 .kno 的相对路径（仓库根下）。"""
+        return f"{self.dir_name()}.kno"
+
+    def smtk_lock_path(self) -> Path:
+        """写锁路径：仓库父目录下的 .<name>.smtk.lock。"""
+        p = Path(self.path)
+        return p.parent / f".{p.name}.smtk.lock"
+
+    def init_lock_path(self) -> Path:
+        """init 锁路径：仓库父目录下的 .<name>.init.lock。"""
+        p = Path(self.path)
+        return p.parent / f".{p.name}.init.lock"
 
 
 @dataclass(frozen=True)
@@ -131,12 +162,12 @@ class BackupConfig:
     Attributes:
         sm_location:        SuperMemo 安装根目录
         collections:        发现的集合列表
-        min_active_seconds: 激活必须持续超过此秒数才触发备份（默认 45）
+
+    配置里存在 backup_min_active 时忽略，不报错。
     """
 
     sm_location: str
     collections: list[Collection]
-    min_active_seconds: int
 
     def get_collection(self, name: str) -> Collection:
         """按名称查找集合。"""
@@ -147,54 +178,51 @@ class BackupConfig:
 
 
 class BackupResult(NamedTuple):
-    """backup_collection 的返回值。
+    """backup 的返回值。
 
     Attributes:
-        commit:  提交 hash（8 字符短哈希）
-        branch:  分支名（如 "hot-20240915"），跳过时为空
-        locked:  True 表示 .kno 文件被锁定（备份可能使用旧数据）
+        commit:  成功时为完整 commit hash（40 字符）；skipped 时为当前 tip；
+                 失败时为 None。
         skipped: True 表示无变更已跳过
     """
 
-    commit: str
-    branch: str | None = None
-    locked: bool = False
+    commit: str | None
     skipped: bool = False
 
 
 @dataclass
 class SnapshotData:
-    """get_snapshots 的返回值。"""
+    """get_snapshots 的返回值。
+
+    Attributes:
+        name:    集合名称
+        kno:     外部 .kno 路径
+        store:   仓库内 .kno 副本路径
+        archive: archive 链上每行 "%h %s"，按 git log 顺序（新→旧）
+        hot:     hot 链上每行 "%h %s"，按 git log 顺序（新→旧）；无 hot 时为空列表
+    """
 
     name: str
     kno: str
     store: str
     archive: list[str]
-    hot: dict[str, list[str]]
-    safety_refs: list[str]
+    hot: list[str]
 
 
 @dataclass(frozen=True)
 class CompactResult:
-    """compact 的返回值，方便 dry_run 后做二次判断。
+    """compact 的返回值。
 
     Attributes:
-        dry_run:         True 表示仅打印计划未执行
-        deleted_refs:    将被/已被删除的 ref 列表
-        kept_refs:       将被/已被保留的 ref 列表
-        day_folds:       将被/已被折叠的 hot 分支列表
-        coarse_fold:     是否会发生/已发生月/季/年粗粒度折叠
-        deleted_commits: 将被/已被折叠的 hot 分支数（非提交数，仅供参考）
-        message:         人类可读的描述信息
+        folded:           True 表示 hot 被重置（无论是否创建新 snapshot）
+        created_snapshot: True 表示创建了新 snapshot commit
+        message:          "folded" / "nothing to fold" / "no repo" / "empty tree" /
+                          "failed: <原因>"（批量模式下失败集合）
     """
 
-    dry_run: bool
-    deleted_refs: list[str]
-    kept_refs: list[str]
-    day_folds: list[str]
-    coarse_fold: bool
-    deleted_commits: int
-    message: str
+    folded: bool
+    created_snapshot: bool = False
+    message: str = ""
 
 
 @dataclass(frozen=True)
@@ -202,14 +230,14 @@ class RestoreResult:
     """restore 的返回值。
 
     Attributes:
-        safety_ref:  恢复前创建的安全提交 ref（格式 refs/backup/safety/workdir-<ts>），失败时为空
-        target:      恢复目标
-        restored:    是否成功恢复
+        target:   恢复目标
+        restored: 当前实现总是 True
+        old_head: restore 前的 HEAD，供用户回滚或审计
     """
 
-    safety_ref: str | None
     target: str
     restored: bool
+    old_head: str | None = None
 
 
 # ============================================================================
@@ -239,12 +267,7 @@ class FileLock:
     """
 
     def __init__(self, lock_path: Path, timeout: float = 60.0) -> None:
-        """用锁文件路径创建 FileLock。
-
-        Args:
-            lock_path: 锁文件路径（不要求文件已存在，会自动创建）
-            timeout:   最大等待秒数，超时抛 TimeoutError
-        """
+        """用锁文件路径创建 FileLock。"""
         self._lock_path = Path(lock_path)
         self._timeout = timeout
         self._fd = None
@@ -257,24 +280,26 @@ class FileLock:
         self.release()
 
     def acquire(self) -> None:
-        """获取锁，阻塞直到拿到或超时。"""
+        """获取锁，阻塞直到拿到或超时。
+
+        每次重试前重新 seek(0)，修复 Windows 重试锁错位置的问题。
+        """
         deadline = _time.time() + self._timeout
-        # 确保父目录存在
         self._lock_path.parent.mkdir(parents=True, exist_ok=True)
-        # 只 open 一次并复用 fd，避免每次重试都泄漏旧句柄
-        self._fd = open(self._lock_path, "a+b")  # noqa: SIM115
-        self._fd.seek(0)  # 确保锁的是 [0, 1)，不依赖文件长度
+        fd = open(self._lock_path, "a+b")  # noqa: SIM115
         try:
             while True:
                 try:
+                    fd.seek(0)
                     if sys.platform == "win32":
                         import msvcrt
 
-                        msvcrt.locking(self._fd.fileno(), msvcrt.LK_NBLCK, 1)
+                        msvcrt.locking(fd.fileno(), msvcrt.LK_NBLCK, 1)
                     else:
                         import fcntl
 
-                        fcntl.flock(self._fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    self._fd = fd
                     return
                 except OSError:
                     if _time.time() >= deadline:
@@ -284,9 +309,10 @@ class FileLock:
                         )
                     _time.sleep(0.5)
         except Exception:
-            # 如果锁定失败（非超时），确保关闭 fd
-            self._fd.close()
-            self._fd = None
+            try:
+                fd.close()
+            except OSError:
+                pass
             raise
 
     def release(self) -> None:
@@ -299,7 +325,7 @@ class FileLock:
             if sys.platform == "win32":
                 import msvcrt
 
-                fd.seek(0)  # 与 acquire 的 seek(0) 对称
+                fd.seek(0)
                 msvcrt.locking(fd.fileno(), msvcrt.LK_UNLCK, 1)
             else:
                 import fcntl
@@ -320,13 +346,15 @@ class FileLock:
 
 
 def setup_logging(verbose: bool = False) -> None:
-    handlers = [logging.FileHandler(LOG_FILE, encoding="utf-8")]
+    """初始化日志。破坏性，仅供 CLI 入口调用。"""
+    handlers = [logging.FileHandler(_get_log_file(), encoding="utf-8")]
     if sys.stderr is not None and hasattr(sys.stderr, "isatty") and sys.stderr.isatty():
         handlers.append(logging.StreamHandler(sys.stderr))
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
         handlers=handlers,
+        force=True,
     )
 
 
@@ -336,72 +364,70 @@ def setup_logging(verbose: bool = False) -> None:
 
 
 def load_config() -> BackupConfig:
-    """加载配置并自动发现集合。
-
-    返回 BackupConfig 对象，包含 sm_location、collections 列表和备份配置。
-    """
+    """加载配置并自动发现集合。"""
     smtk = read_smtk_conf()
     sm_location = (smtk.get("program") or "").strip()
     if not sm_location or sm_location.lower() == "null":
         raise SystemExit(
             "请先设置 smtk 配置：smtk config set program <SuperMemo 根目录>"
         )
-    # 用 `is not None` 代替 `or`，避免 0 被吞掉（0 是有效值，表示禁用短激活重置）
-    min_active_raw = smtk.get("backup_min_active")
-    try:
-        min_active = (
-            int(min_active_raw) if min_active_raw is not None else DEFAULT_MIN_ACTIVE
-        )
-    except (TypeError, ValueError):
-        min_active = DEFAULT_MIN_ACTIVE
-
     return BackupConfig(
         sm_location=sm_location,
         collections=discover_collections(sm_location, smtk),
-        min_active_seconds=max(min_active, 0),
     )
 
 
-def get_mtime_of_timedat(coll: Collection) -> float | None:
-    """读取 stats/time.dat 的最后修改时间（只读 mtime，不参与 Watcher 激活判定）。
-
-    此函数是给外部调用方（如 smtk 的其他子命令）使用的公共 API，
-    Watcher 的激活判定只看 .kno 是否被锁定（is_collection_active），
-    不依赖本函数，也不依赖 stats/time.dat 的内容或存在性。
-
-    Returns:
-        stats/time.dat 的 mtime；文件不存在时返回 None。
-    """
-    sf = Path(coll.path) / "stats" / "time.dat"
-    if sf.exists():
-        return sf.stat().st_mtime
-    return None
+def _looks_like_collection(p: Path) -> bool:
+    """检查目录是否含 SuperMemo 集合特征文件。"""
+    return (
+        (p / "info.dat").exists() or (p / "elements").is_dir() or (p / "stats").is_dir()
+    )
 
 
 def discover_collections(sm_location: str, smtk: dict) -> list[Collection]:
     """从 smtk 配置和 SM 文件系统自动发现集合。
 
-    返回 Collection 列表，每个集合包含 name、path 和可选的 kno 覆盖路径。
-    如果同一集合名出现多次，后出现的覆盖先出现的。
+    systems/ 下只发现含 info.dat、elements/、stats/ 之一的目录，
+    避免把 systems/backup/ 等非集合目录当作集合。
+    knos 配置项不做特征检查（用户显式配置，信任用户）。
     """
-    # 用 dict 按 name 去重，后出现的覆盖先出现的
     by_name: dict[str, Collection] = {}
     systems = Path(sm_location) / "systems"
     if systems.is_dir():
         for p in sorted(systems.iterdir()):
             if p.is_dir() and p.name != ".git":
-                by_name[p.name] = Collection(name=p.name, path=str(p.resolve()))
+                if not _looks_like_collection(p):
+                    log.debug(
+                        f"跳过 {p}: 无集合特征文件 (info.dat / elements/ / stats/)"
+                    )
+                    continue
+                try:
+                    by_name[p.name] = Collection(name=p.name, path=str(p.resolve()))
+                except ValueError as e:
+                    log.warning(f"跳过 {p}: {e}")
 
     for item in smtk.get("knos") or []:
+        if not isinstance(item, dict):
+            log.warning(f"knos 配置项非 dict，跳过: {item!r}")
+            continue
         for name, val in item.items():
-            if isinstance(val, dict):
-                by_name[name] = Collection(
-                    name=name,
-                    path=str(Path(val["path"]).resolve()),
-                    kno=val.get("kno"),
-                )
-            else:
-                by_name[name] = Collection(name=name, path=str(Path(val).resolve()))
+            try:
+                if isinstance(val, dict):
+                    raw_path = val.get("path")
+                    if not raw_path:
+                        log.warning(f"knos[{name}] 缺 path，跳过")
+                        continue
+                    by_name[name] = Collection(
+                        name=name,
+                        path=str(Path(raw_path).resolve()),
+                        kno=val.get("kno"),
+                    )
+                elif isinstance(val, str):
+                    by_name[name] = Collection(name=name, path=str(Path(val).resolve()))
+                else:
+                    log.warning(f"knos[{name}] 类型不支持: {type(val).__name__}，跳过")
+            except ValueError as e:
+                log.warning(f"knos[{name}] 配置错误，跳过: {e}")
     return list(by_name.values())
 
 
@@ -413,18 +439,28 @@ def discover_collections(sm_location: str, smtk: dict) -> list[Collection]:
 def _git_env(repo: Path) -> dict:
     """构建 git 命令所需的环境变量。
 
+    - 清除外部 GIT_* 变量，避免误操作其他仓库
     - 作者/提交者信息
-    - GIT_CEILING_DIRECTORIES 设为 repo 的父目录，阻止 git 在 repo 没有 .git 时
-      向上 chdir 到祖先目录查找。避免误操作父仓库（如 systems/ 或 SuperMemo 根目录）。
+    - GIT_CEILING_DIRECTORIES 阻止 git 在 repo 没有 .git 时向上查找祖先仓库
     """
     env = os.environ.copy()
+    for var in (
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_COMMON_DIR",
+        "GIT_NAMESPACE",
+    ):
+        env.pop(var, None)
+
     env.setdefault("GIT_AUTHOR_NAME", "time-rewind")
     env.setdefault("GIT_AUTHOR_EMAIL", "time-rewind@local")
     env.setdefault("GIT_COMMITTER_NAME", "time-rewind")
     env.setdefault("GIT_COMMITTER_EMAIL", "time-rewind@local")
 
-    # 阻止 git 向上查找祖先 .git（Windows 用分号分隔，POSIX 用冒号）
-    ceiling = str(repo.parent.resolve())
+    ceiling = os.path.normcase(str(repo.parent.resolve()))
     sep = ";" if sys.platform == "win32" else ":"
     existing = env.get("GIT_CEILING_DIRECTORIES")
     if existing:
@@ -434,11 +470,17 @@ def _git_env(repo: Path) -> dict:
     return env
 
 
-def git(repo: Path, *args, check: bool = True, text: bool = True):
+def git(
+    repo: Path,
+    *args,
+    check: bool = True,
+    text: bool = True,
+    input: str | None = None,
+):
     """执行 git 命令。
 
-    使用 GIT_CEILING_DIRECTORIES 阻止 git 在 repo 缺少 .git 时向上查找祖先仓库。
-    repo 未初始化时，git 命令会返回非零而不是静默操作祖先仓库。
+    input 参数用于 git update-ref --stdin。
+    TimeoutExpired 不捕获，向上抛。
     """
     cmd = ["git", "-C", str(repo)] + list(args)
     r = subprocess.run(
@@ -446,9 +488,11 @@ def git(repo: Path, *args, check: bool = True, text: bool = True):
         check=False,
         capture_output=True,
         text=text,
+        input=input,
         encoding="utf-8" if text else None,
         errors="replace" if text else None,
         env=_git_env(repo),
+        timeout=300,
     )
     if check and r.returncode != 0:
         err = r.stderr if text else r.stderr.decode(errors="replace")
@@ -468,9 +512,17 @@ def ref_exists(repo: Path, ref: str) -> bool:
     )
 
 
-def rev_parse(repo: Path, ref: str) -> str:
-    """解析 ref 为 commit hash。"""
-    return git_out(repo, "rev-parse", ref)
+def rev_parse(repo: Path, expr: str) -> str:
+    """解析 rev 表达式为 commit hash。失败时抛 GitError。"""
+    try:
+        return git_out(repo, "rev-parse", "--verify", expr)
+    except GitError as e:
+        raise GitError(f"无法解析 rev {expr!r}: {e}") from e
+
+
+def rev_parse_commit(repo: Path, ref: str) -> str:
+    """解析 ref 为 commit hash（解除 tag 引用）。"""
+    return rev_parse(repo, f"{ref}^{{commit}}")
 
 
 def commit_tree(repo: Path, tree: str, parent: str | None, msg: str) -> str:
@@ -481,12 +533,26 @@ def commit_tree(repo: Path, tree: str, parent: str | None, msg: str) -> str:
 
 
 # ============================================================================
-# .kno 校验与恢复
+# 哈希辅助
 # ============================================================================
 
 
 def _sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def _sha256_file(path: Path) -> str:
+    """分块读取文件计算 SHA-256，不整体加载。"""
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+# ============================================================================
+# .kno 读取 / 写回
+# ============================================================================
 
 
 def _commit_kno_bytes(repo: Path, commit: str, kno_rel: str) -> bytes | None:
@@ -497,54 +563,97 @@ def _commit_kno_bytes(repo: Path, commit: str, kno_rel: str) -> bytes | None:
     return r.stdout
 
 
-def verify_kno_against_commit(
-    repo: Path,
-    commit: str,
-    kno_src: Path,
-    kno_rel: str,
-    name: str,
-    must_exist: bool = False,
-):
-    """验证磁盘上的 .kno 文件与 git commit 中的内容一致。"""
-    data = _commit_kno_bytes(repo, commit, kno_rel)
-    if data is None:
-        if must_exist:
-            raise RuntimeError(f"{name}: commit {commit[:8]} 中无 {kno_rel}")
-        return
-    if not kno_src.exists():
-        raise RuntimeError(f"{name}: 磁盘 .kno 不存在，无法比对")
-    actual = _sha256_bytes(kno_src.read_bytes())
-    committed = _sha256_bytes(data)
-    if actual != committed:
-        raise RuntimeError(f"{name}: .kno 与 commit {commit[:8]} 不一致")
+def _restore_kno_store_to_head(repo: Path, kno_store: Path, kno_rel: str) -> None:
+    """把 kno_store 恢复到 HEAD 版本（tracked）或删除（untracked），保持工作区干净。"""
+    r = git(repo, "cat-file", "-e", f"HEAD:{kno_rel}", check=False)
+    if r.returncode == 0:
+        git(repo, "checkout", "HEAD", "--", kno_rel, check=False)
+    else:
+        kno_store.unlink(missing_ok=True)
 
 
-def _restore_kno_from_store(
-    repo: Path, commit: str, kno_src: Path, kno_rel: str, name: str
-) -> bool:
-    """从 commit 里的 <name>.kno 原子写回外部 .kno 文件。"""
-    data = _commit_kno_bytes(repo, commit, kno_rel)
-    if data is None:
-        log.warning(f"{name}: commit {commit[:8]} 无 {kno_rel}，跳过 .kno 恢复")
-        return False
-
-    tmp = kno_src.with_suffix(kno_src.suffix + ".restore-tmp")
+def _write_kno_atomic(kno_src: Path, data: bytes) -> None:
+    """原子写回 .kno，写后 SHA-256 校验。"""
+    tmp = kno_src.with_suffix(kno_src.suffix + ".smtk-tmp")
     tmp.write_bytes(data)
     try:
         os.replace(tmp, kno_src)
     except OSError as e:
-        log.error(f"{name}: .kno 写回失败 (os.replace): {e}")
-        # 清理临时文件
-        try:
-            tmp.unlink(missing_ok=True)
-        except OSError:
-            pass
-        raise RuntimeError(f"{name}: .kno 恢复失败，文件可能被 SuperMemo 占用") from e
+        tmp.unlink(missing_ok=True)
+        raise RuntimeError(f"写回 {kno_src} 失败: {e}") from e
+    if _sha256_file(kno_src) != _sha256_bytes(data):
+        raise RuntimeError(f"{kno_src} 写回后 SHA-256 不一致")
 
-    if _sha256_bytes(data) != _sha256_bytes(kno_src.read_bytes()):
-        raise RuntimeError(f"{name}: .kno 恢复后哈希不一致")
-    log.info(f"{name}: .kno 已写回 {kno_src}（{len(data)} 字节）")
-    return True
+
+def _try_rollback(
+    repo: Path,
+    old_head: str,
+    old_kno: bytes,
+    kno_src: Path,
+    name: str,
+    primary_error: Exception,
+) -> None:
+    """回滚到 restore 前状态。成功则返回；失败则 raise 汇总异常。"""
+    failed: list[str] = []
+    try:
+        git(repo, "read-tree", "-u", "--reset", old_head)
+    except GitError as e:
+        failed.append(f"read-tree: {e}")
+    try:
+        git(repo, "update-ref", HOT_REF, old_head)
+        git(repo, "symbolic-ref", "HEAD", HOT_REF)
+    except GitError as e:
+        failed.append(f"ref: {e}")
+    try:
+        _write_kno_atomic(kno_src, old_kno)
+    except Exception as e:
+        failed.append(f".kno: {e}")
+    if failed:
+        raise RuntimeError(
+            f"{name}: 操作失败且回滚失败，仓库/文件可能处于不一致状态。\n"
+            f"原始错误: {primary_error}\n"
+            f"回滚失败项:\n" + "\n".join(f"  - {f}" for f in failed)
+        ) from primary_error
+
+
+# ============================================================================
+# gitignore / gitattributes
+# ============================================================================
+
+
+def _ensure_gitignore(repo: Path) -> None:
+    """确保 .gitignore 含全部必需行；存在时仅追加缺失行，不覆盖用户自定义行。"""
+    required = [
+        "temp/unused_im/*",
+        "temp/*",
+        "reports/*",
+        "html/*",
+        "*.tmp",
+        "*.restore-tmp",
+        "*.uninit-tmp",
+        "*.kno.tmp",
+        "*.smtk-tmp",
+    ]
+    gi = repo / ".gitignore"
+    if not gi.exists():
+        gi.write_text("\n".join(required) + "\n", encoding="utf-8")
+        return
+    content = gi.read_text(encoding="utf-8")
+    existing = {line.strip() for line in content.splitlines()}
+    missing = [line for line in required if line not in existing]
+    if not missing:
+        return
+    if content and not content.endswith("\n"):
+        content += "\n"
+    content += "\n".join(missing) + "\n"
+    gi.write_text(content, encoding="utf-8")
+
+
+def _ensure_gitattributes(repo: Path) -> None:
+    """确保 .gitattributes 存在；存在则不修改。"""
+    ga = repo / ".gitattributes"
+    if not ga.exists():
+        ga.write_text("* -text\n", encoding="utf-8")
 
 
 # ============================================================================
@@ -555,351 +664,469 @@ def _restore_kno_from_store(
 class CollectionRepo:
     """封装单个 SuperMemo 集合的 Git 仓库操作。
 
-    这是工具的核心操作类。每个集合对应一个 CollectionRepo 实例，
-    提供 init/backup/restore/compact/snapshots 等操作。
-
     使用示例：
         >>> from time_backup import CollectionRepo, Collection
         >>> coll = Collection(name="Maths", path="D:/SuperMemo/systems/Maths")
         >>> repo = CollectionRepo(coll)
         >>> repo.init()
         >>> result = repo.backup()
-        >>> plan = repo.compact(dry_run=True)  # 预览压缩计划
-        >>> repo.restore("archive")
         >>> repo.compact()
+        >>> repo.restore("refs/heads/archive")
     """
 
     def __init__(self, coll: Collection) -> None:
-        """用 Collection 对象创建仓库操作实例。
-
-        Args:
-            coll: Collection 对象，描述要操作的集合
-        """
         self._coll = coll
 
     @property
     def collection(self) -> Collection:
-        """底层 Collection 对象。"""
         return self._coll
 
     @property
     def name(self) -> str:
-        """集合名称。"""
         return self._coll.name
 
     @property
     def repo_path(self) -> Path:
-        """Git 仓库工作区路径。"""
         return self._coll.repo_path()
 
     @property
     def kno_path(self) -> Path:
-        """SuperMemo 实际使用的 .kno 文件路径（在仓库外部）。"""
         return self._coll.kno_path()
 
     @property
     def kno_store_path(self) -> Path:
-        """仓库内备份副本路径。"""
         return self._coll.kno_store_path()
+
+    def kno_rel(self) -> str:
+        return self._coll.kno_rel()
 
     def is_initialized(self) -> bool:
         """集合的 Git 仓库是否已初始化。"""
-        return (self.repo_path / ".git").exists()
+        return (
+            git(self.repo_path, "rev-parse", "--git-dir", check=False).returncode == 0
+        )
+
+    def is_active(self) -> bool:
+        """集合是否正在激活（.kno 存在且被锁定）。"""
+        return self.kno_path.is_file() and is_kno_locked(self.kno_path)
 
     def init(self) -> Path:
         """初始化集合的 Git 仓库（如果尚未初始化）。
 
-        Returns:
-            仓库路径
+        锁：GIT_LOCK + FileLock(init_lock_path)（默认 timeout=60）。
         """
-        repo = self.repo_path
-        repo.mkdir(parents=True, exist_ok=True)
-        if not self.is_initialized():
-            git(repo, "init", "-q")
-            gi = repo / ".gitignore"
-            if not gi.exists():
-                gi.write_text("*.tmp\n~$*\n*.bak\n*.TMP\ntemp/\n", encoding="utf-8")
-            log.info(f"initialized repo: {repo}")
-        return repo
+        with GIT_LOCK:
+            with FileLock(self._coll.init_lock_path()):
+                repo = self.repo_path
+                repo.mkdir(parents=True, exist_ok=True)
+                if not self.is_initialized():
+                    git(repo, "init", "-q")
+                _ensure_gitignore(repo)
+                _ensure_gitattributes(repo)
+                return repo
 
-    def backup(
-        self, trigger: str = "manual", require_inactive: bool = True
-    ) -> BackupResult:
+    def backup(self, trigger: str = "manual") -> BackupResult:
         """冷备份：集合必须已关闭。外部 .kno 复制进工作区根，然后提交。
 
-        Args:
-            trigger:           触发来源（"manual"/"tray"/"shutdown"/"debug"）
-            require_inactive:  True 时如果集合正在激活则直接抛异常
+        锁：GIT_LOCK + FileLock(smtk_lock_path, timeout=360)。
 
-        Returns:
-            BackupResult 对象
+        Raises:
+            RuntimeError: 集合目录不存在、.kno 不是文件、.kno 被锁定、
+                复制后 SHA-256 不一致、复制期间集合被重新激活、
+                提交前集合被重新激活、提交前 SHA-256 不一致。
+            GitError: git 操作失败。
         """
         with GIT_LOCK:
-            repo = self.init()
-            kno_src = self.kno_path
-            kno_store = self.kno_store_path
-            kno_rel = f"{self.name}.kno"
+            with FileLock(self._coll.smtk_lock_path(), timeout=360):
+                # 1. 集合目录必须已存在
+                if not self.repo_path.exists():
+                    raise RuntimeError(f"{self.name}: 集合目录不存在: {self.repo_path}")
+                # 2. 确保仓库已初始化
+                repo = self.init()
+                kno_src = self.kno_path
+                kno_store = self.kno_store_path
+                kno_rel = self.kno_rel()
 
-            # 检查集合是否正在激活（合并为一次调用，避免竞态）
-            locked = is_kno_locked(kno_src)
-            if require_inactive and locked:
-                raise RuntimeError(f"{self.name}: 集合正在激活，拒绝运行时备份")
+                # 4. .kno 是文件检查
+                if not kno_src.is_file():
+                    raise RuntimeError(
+                        f"{self.name}: {kno_src} 不是文件或不存在，拒绝备份（集合数据不完整）"
+                    )
+                # 5. .kno 锁定检查
+                if is_kno_locked(kno_src):
+                    raise RuntimeError(f"{self.name}: 集合正在激活，拒绝备份")
 
-            # 尝试复制 .kno（如果未被锁定）
-            if not locked and kno_src.exists():
+                # 6. 复制到临时文件
+                tmp = kno_store.with_suffix(kno_store.suffix + ".smtk-tmp")
                 try:
-                    shutil.copy2(kno_src, kno_store)
+                    shutil.copy2(kno_src, tmp)
                 except OSError as e:
-                    log.warning(f"{self.name}: 复制 .kno 失败，当作锁定处理: {e}")
-                    locked = True
+                    tmp.unlink(missing_ok=True)
+                    raise GitError(f"{self.name}: 复制 .kno 失败: {e}") from e
 
-            # 检查 .kno 是否存在
-            if not kno_src.exists():
-                log.warning(f"{self.name}: .kno 文件不存在，备份将不包含集合数据")
+                # 7. SHA-256 校验
+                if _sha256_file(kno_src) != _sha256_file(tmp):
+                    tmp.unlink(missing_ok=True)
+                    raise GitError(f"{self.name}: .kno 复制后 SHA-256 不一致")
 
-            # 提交工作区快照
-            git(repo, "add", "-A")
-            tree = git_out(repo, "write-tree")
-            today = datetime.now().strftime("%Y%m%d")
-            hot = f"hot-{today}"
+                # 8. 复制后二次锁定检查
+                if is_kno_locked(kno_src):
+                    tmp.unlink(missing_ok=True)
+                    raise RuntimeError(
+                        f"{self.name}: 复制期间集合被重新激活，放弃本次备份"
+                    )
 
-            # 确定父提交
-            parent = None
-            if ref_exists(repo, f"refs/heads/{hot}"):
-                parent = rev_parse(repo, f"refs/heads/{hot}")
-            elif ref_exists(repo, "refs/heads/archive"):
-                parent = rev_parse(repo, "refs/heads/archive")
-
-            # 检查是否有实际变更
-            if parent:
-                parent_tree = rev_parse(repo, f"{parent}^{{tree}}")
-                if parent_tree == tree:
-                    log.debug(f"{self.name}: no change, skip")
-                    # 确保 hot 分支存在再设置 HEAD（parent 可能来自 archive 而非 hot）
-                    if not ref_exists(repo, f"refs/heads/{hot}"):
-                        git(repo, "update-ref", f"refs/heads/{hot}", parent)
-                    git(repo, "symbolic-ref", "HEAD", f"refs/heads/{hot}")
-                    return BackupResult(commit=parent, skipped=True)
-
-            # 创建提交
-            msg = f"hot: {datetime.now().isoformat(timespec='seconds')} [{trigger}]"
-            commit = commit_tree(repo, tree, parent, msg)
-
-            # 验证 .kno 一致性（仅在未锁定时）
-            # 将 verify_kno_against_commit 的 RuntimeError 包装为 GitError，
-            # 避免被 _do_backup 的 except RuntimeError 误捕获为"集合激活"；
-            # GitError 先 raise 保留原始错误，避免二次包装
-            if not locked and kno_src.exists():
+                # 9. 原子替换
                 try:
-                    verify_kno_against_commit(repo, commit, kno_src, kno_rel, self.name)
-                except GitError:
-                    raise  # git 命令失败，保留原始错误
-                except RuntimeError as e:
-                    raise GitError(f"{self.name}: .kno 校验失败: {e}") from e
+                    os.replace(tmp, kno_store)
+                except OSError as e:
+                    tmp.unlink(missing_ok=True)
+                    raise GitError(f"{self.name}: .kno 原子替换失败: {e}") from e
 
-            # 更新分支引用
-            git(repo, "update-ref", f"refs/heads/{hot}", commit)
-            git(repo, "symbolic-ref", "HEAD", f"refs/heads/{hot}")
+                # 10-17 整体包 try/except：任何一步失败都恢复 kno_store，
+                # 保持工作区干净，否则后续 restore 的工作区干净检查会卡死用户。
+                try:
+                    # 10. 提交前最终校验
+                    if is_kno_locked(kno_src):
+                        raise RuntimeError(
+                            f"{self.name}: 提交前集合被重新激活，放弃本次备份"
+                        )
+                    if _sha256_file(kno_src) != _sha256_file(kno_store):
+                        raise GitError(
+                            f"{self.name}: 提交前 .kno 与 kno_store SHA-256 不一致"
+                        )
 
-            log.info(
-                f"{self.name}: backup {commit[:8]} (locked={locked}, trigger={trigger})"
-            )
-            return BackupResult(commit=commit, branch=hot, locked=locked)
+                    # 11-12. 暂存并写 tree
+                    git(repo, "add", "-A")
+                    tree = git_out(repo, "write-tree")
 
-    def restore(self, target: str, safety: bool = True) -> RestoreResult:
-        """冷恢复：集合必须已关闭。
+                    # 13. parent 选择（三行）
+                    if ref_exists(repo, HOT_REF):
+                        parent = rev_parse_commit(repo, HOT_REF)
+                    elif ref_exists(repo, ARCHIVE_REF):
+                        parent = rev_parse_commit(repo, ARCHIVE_REF)
+                    else:
+                        parent = None
 
-        恢复前会自动在 refs/backup/safety/ 下创建一个安全提交，
-        记录当前工作区状态，以便恢复出错时回退。
+                    # 14. 无变更跳过
+                    if (
+                        parent is not None
+                        and rev_parse(repo, f"{parent}^{{tree}}") == tree
+                    ):
+                        created = not ref_exists(repo, HOT_REF)
+                        if created:
+                            git(repo, "update-ref", HOT_REF, parent)
+                        try:
+                            git(repo, "symbolic-ref", "HEAD", HOT_REF)
+                        except GitError:
+                            if created:
+                                git(repo, "update-ref", "-d", HOT_REF, check=False)
+                            raise
+                        return BackupResult(commit=parent, skipped=True)
 
-        Args:
-            target: 恢复目标（分支名/tag/commit hash）
-            safety: 是否在恢复前创建安全快照（默认 True）
+                    # 15-16. 创建提交
+                    msg = f"hot: {datetime.now().isoformat(timespec='seconds')} [{trigger}]"
+                    commit = commit_tree(repo, tree, parent, msg)
 
-        Returns:
-            RestoreResult 对象
+                    # 17. 更新 hot 引用，symbolic-ref 失败时回滚
+                    git(repo, "update-ref", HOT_REF, commit)
+                    try:
+                        git(repo, "symbolic-ref", "HEAD", HOT_REF)
+                    except GitError:
+                        git(repo, "update-ref", "-d", HOT_REF, check=False)
+                        raise
+
+                    log.info(f"{self.name}: backup {commit[:8]} (trigger={trigger})")
+                    return BackupResult(commit=commit, skipped=False)
+                except Exception as primary:
+                    # 回滚 kno_store 到 HEAD，保持工作区干净。
+                    # 回滚本身失败不覆盖原始异常：backup 的回滚只是清理工作区，
+                    # 不涉及数据恢复（kno_store 最坏是新内容，下次 backup 会重试），
+                    # 所以 log.error 记录回滚失败即可，原始异常继续向上抛。
+                    try:
+                        _restore_kno_store_to_head(repo, kno_store, kno_rel)
+                    except Exception as rb_err:
+                        log.error(
+                            f"{self.name}: 回滚 kno_store 失败: {rb_err}"
+                            f"（原始错误: {primary}）"
+                        )
+                    raise
+
+    def compact(self) -> CompactResult:
+        """压缩仓库历史：把 hot tip 的 tree 折叠为 archive 的一条 snapshot commit。
+
+        由用户通过托盘菜单显式触发，Watcher 不调用。
+        锁：GIT_LOCK + FileLock(smtk_lock_path, timeout=360)。
         """
         with GIT_LOCK:
-            repo = self.repo_path
-            kno_src = self.kno_path
-            kno_rel = f"{self.name}.kno"
+            with FileLock(self._coll.smtk_lock_path(), timeout=360):
+                repo = self.repo_path
 
-            # 检查仓库是否已初始化
-            if not self.is_initialized():
-                raise RuntimeError(f"{self.name}: 仓库未初始化，无法恢复")
+                if not self.is_initialized():
+                    return CompactResult(folded=False, message="no repo")
 
-            # 检查集合是否正在激活
-            if kno_src.exists() and is_kno_locked(kno_src):
-                raise RuntimeError(f"{self.name}: 集合正在激活，请先关闭 SuperMemo")
+                # 集合激活时拒绝压缩
+                kno_src = self.kno_path
+                if kno_src.is_file() and is_kno_locked(kno_src):
+                    raise RuntimeError(f"{self.name}: 集合正在激活，拒绝压缩")
 
-            commit = rev_parse(repo, target)
-            today = datetime.now().strftime("%Y%m%d")
-            hot = f"hot-{today}"
+                if not ref_exists(repo, HOT_REF):
+                    return CompactResult(folded=False, message="nothing to fold")
 
-            # 创建安全快照（备份当前 hot 分支状态）
-            safety_ref: str | None = None
-            if safety:
-                safety_ref = self._create_safety_snapshot(repo, hot)
+                # 校验 archive tip 的 subject（不变式 I2）
+                if ref_exists(repo, ARCHIVE_REF):
+                    archive_tip = rev_parse_commit(repo, ARCHIVE_REF)
+                    msg = git_out(repo, "log", "-1", "--format=%s", archive_tip)
+                    if not msg.startswith("snapshot: "):
+                        raise GitError(
+                            f"{self.name}: archive tip 不是 snapshot 条目: {msg!r}"
+                        )
+                else:
+                    archive_tip = None
 
-            # 全量恢复路径
-            git(repo, "read-tree", "-u", "--reset", commit)
-            git(repo, "symbolic-ref", "HEAD", f"refs/heads/{hot}")
-            git(repo, "update-ref", f"refs/heads/{hot}", commit)
+                hot_tip = rev_parse_commit(repo, HOT_REF)
 
-            _restore_kno_from_store(repo, commit, kno_src, kno_rel, self.name)
+                # 校验 hot tip 含 kno_rel（不变式 I11）
+                kno_rel = self.kno_rel()
+                if _commit_kno_bytes(repo, hot_tip, kno_rel) is None:
+                    raise RuntimeError(
+                        f"{self.name}: hot tip {hot_tip[:8]} 中无 {kno_rel}，拒绝折叠（集合数据不完整）"
+                    )
 
-            log.info(f"{self.name}: restored to {commit[:8]}")
-            return RestoreResult(safety_ref=safety_ref, target=target, restored=True)
+                tree = rev_parse(repo, f"{hot_tip}^{{tree}}")
 
-    def _create_safety_snapshot(self, repo: Path, hot: str) -> str | None:
-        """在 refs/backup/safety/ 下创建当前工作区的安全提交。
+                # 空 tree：不创建空 snapshot，hot 重置到 archive tip
+                if (
+                    archive_tip is not None
+                    and rev_parse(repo, f"{archive_tip}^{{tree}}") == tree
+                ):
+                    git(repo, "update-ref", HOT_REF, archive_tip)
+                    git(repo, "symbolic-ref", "HEAD", HOT_REF)
+                    log.info(
+                        f"{self.name}: compacted {hot_tip[:8]} -> {archive_tip[:8]} "
+                        f"(empty tree, 旧 hot tip 变 dangling)"
+                    )
+                    return CompactResult(
+                        folded=True, created_snapshot=False, message="empty tree"
+                    )
 
-        如果创建失败只打 warning 不中断恢复。
-        """
-        try:
-            # 先暂存当前工作区的所有文件
-            git(repo, "add", "-A")
-            tree = git_out(repo, "write-tree")
-            # 获取当前 hot 分支的父提交作为新提交的父级
-            parent = None
-            if ref_exists(repo, f"refs/heads/{hot}"):
-                parent = rev_parse(repo, f"refs/heads/{hot}")
-            ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-            safety_ref = f"refs/backup/safety/workdir-{ts}"
-            safety_commit = commit_tree(
-                repo, tree, parent, f"safety: pre-restore snapshot {ts}"
-            )
-            git(repo, "update-ref", safety_ref, safety_commit)
-            log.info(f"{self.name}: safety snapshot created -> {safety_ref}")
-            return safety_ref
-        except Exception as e:
-            log.warning(f"{self.name}: 无法创建 safety snapshot: {e}")
-            return None
+                # 创建 snapshot commit
+                msg = f"snapshot: {datetime.now().isoformat(timespec='seconds')}"
+                new = commit_tree(repo, tree, archive_tip, msg)
 
-    def compact(
-        self, today: date | None = None, dry_run: bool = False
-    ) -> CompactResult:
-        """压缩仓库历史：天折叠 + 月/季/年粗粒度折叠 + gc。
+                # 原子更新 archive 和 hot（不变式 I12）
+                # 必须传 bytes：subprocess 在 Windows 文本模式下会把 \n 转成 \r\n，
+                # git update-ref --stdin 的行协议不容忍 CRLF，会报 "expected SP but got: ?"。
+                git(
+                    repo,
+                    "update-ref",
+                    "--stdin",
+                    text=False,
+                    input=(  # noqa: UP012
+                        f"update {ARCHIVE_REF} {new}\nupdate {HOT_REF} {new}\n"
+                    ).encode("utf-8"),
+                )
 
-        Args:
-            today:   可选。用于测试的日期（默认 date.today()）
-            dry_run: 如果为 True，只打印计划不执行实际操作。
+                git(repo, "symbolic-ref", "HEAD", HOT_REF)
 
-        Returns:
-            CompactResult 对象
+                log.info(
+                    f"{self.name}: compacted {hot_tip[:8]} -> {new[:8]} "
+                    f"(旧 hot tip 变 dangling，2 周内可 git fsck --lost-found 找回)"
+                )
+                return CompactResult(
+                    folded=True, created_snapshot=True, message="folded"
+                )
+
+    def restore(self, target: str) -> RestoreResult:
+        """冷恢复：集合必须已关闭。全有或全无语义。
+
+        锁：GIT_LOCK + FileLock(smtk_lock_path, timeout=360)。
         """
         with GIT_LOCK:
-            repo = self.repo_path
-            if not self.is_initialized():
-                return CompactResult(
-                    dry_run=dry_run,
-                    deleted_refs=[],
-                    kept_refs=[],
-                    day_folds=[],
-                    coarse_fold=False,
-                    deleted_commits=0,
-                    message="no repo",
+            with FileLock(self._coll.smtk_lock_path(), timeout=360):
+                repo = self.repo_path
+                kno_src = self.kno_path
+                kno_rel = self.kno_rel()
+
+                if not self.is_initialized():
+                    raise RuntimeError(f"{self.name}: 仓库未初始化")
+
+                # .kno 路径类型检查（存在但不是普通文件 → 配置错误）
+                if kno_src.exists() and not kno_src.is_file():
+                    raise RuntimeError(
+                        f"{self.name}: {kno_src} 不是普通文件，拒绝恢复（配置错误）"
+                    )
+
+                # .kno 锁定检查（.kno 可不存在，restore 会从 commit 重建）
+                if kno_src.is_file() and is_kno_locked(kno_src):
+                    raise RuntimeError(f"{self.name}: 集合正在激活")
+
+                # 工作区干净检查
+                status = git_out(repo, "status", "--porcelain", "--untracked-files=no")
+                if status:
+                    raise RuntimeError(
+                        f"{self.name}: 工作区有未提交改动，请先 backup():\n{status}"
+                    )
+
+                commit = rev_parse_commit(repo, target)
+
+                # 目标 commit 含 kno_rel 检查
+                target_kno = _commit_kno_bytes(repo, commit, kno_rel)
+                if target_kno is None:
+                    raise RuntimeError(
+                        f"{self.name}: 目标 commit {commit[:8]} 中无 {kno_rel}，拒绝恢复（数据不完整）"
+                    )
+
+                # 旧 HEAD 存在性检查（空仓库无 HEAD）
+                head_r = git(
+                    repo, "rev-parse", "--verify", "--quiet", "HEAD", check=False
                 )
+                if head_r.returncode != 0:
+                    raise RuntimeError(
+                        f"{self.name}: 仓库无 HEAD（从未 backup），拒绝恢复"
+                    )
+                old_head = head_r.stdout.strip()
 
-            today = today or date.today()
+                # 旧 HEAD 含 kno_rel 检查
+                old_kno = _commit_kno_bytes(repo, old_head, kno_rel)
+                if old_kno is None:
+                    raise RuntimeError(
+                        f"{self.name}: 旧 HEAD {old_head[:8]} 中无 {kno_rel}，拒绝恢复（无法回滚）"
+                    )
 
-            # 收集将被折叠的 hot 分支和将被删除的 ref
-            hot_branches_to_fold: list[str] = []
-            all_hot_refs: list[str] = []
+                log.info(f"{self.name}: restoring {old_head[:8]} -> {commit[:8]}")
 
-            for b in git_out(repo, "branch", "--list", "hot-*").splitlines():
-                b = b.strip().lstrip("* ").strip()
-                if not b.startswith("hot-"):
-                    continue
-                all_hot_refs.append(b)
                 try:
-                    hd = datetime.strptime(b[4:], "%Y%m%d").date()
-                except ValueError:
-                    continue
-                if hd < today:
-                    hot_branches_to_fold.append(b)
+                    git(repo, "read-tree", "-u", "--reset", commit)
+                    git(repo, "update-ref", HOT_REF, commit)
+                    git(repo, "symbolic-ref", "HEAD", HOT_REF)
+                except GitError as e:
+                    _try_rollback(repo, old_head, old_kno, kno_src, self.name, e)
+                    raise RuntimeError(
+                        f"{self.name}: 恢复失败（git 操作），已回滚，请检查 {repo}"
+                    ) from e
 
-            # 读取 archive 历史来估算粗粒度折叠
-            coarse_fold = False
-            if ref_exists(repo, "refs/heads/archive"):
-                snaps = _read_archive_history(repo)
-                if snaps:
-                    days, months, quarters, years = _categorize_snaps(snaps)
-                    cm = today.strftime("%Y-%m")
-                    cq = _month_to_quarter(cm)
-                    cy = str(today.year)
-                    coarse_fold |= _fold_days_to_months(days, months, cm)
-                    coarse_fold |= _fold_months_to_quarters(months, quarters, cq)
-                    coarse_fold |= _fold_quarters_to_years(quarters, years, cy)
-
-            # dry_run 模式：直接返回计划
-            if dry_run:
-                kept = [r for r in all_hot_refs if r not in hot_branches_to_fold]
-                deleted = list(hot_branches_to_fold)
-                msg_parts = []
-                msg_parts.append(f"将删除 {len(deleted)} 个 hot 分支")
-                if deleted:
-                    msg_parts.append(f"待删: {', '.join(deleted)}")
-                msg_parts.append(f"保留 {len(kept)} 个 hot 分支")
-                if coarse_fold:
-                    msg_parts.append("将执行月/季/年粗粒度折叠")
-                msg_parts.append("（未实际执行）")
-                return CompactResult(
-                    dry_run=True,
-                    deleted_refs=deleted,
-                    kept_refs=kept,
-                    day_folds=hot_branches_to_fold,
-                    coarse_fold=coarse_fold,
-                    deleted_commits=len(hot_branches_to_fold),
-                    message="; ".join(msg_parts),
-                )
-
-            # 实际执行天折叠
-            for b in hot_branches_to_fold:
                 try:
-                    hd = datetime.strptime(b[4:], "%Y%m%d").date()
-                    fold_hot_to_day(repo, b, hd)
+                    _write_kno_atomic(kno_src, target_kno)
                 except Exception as e:
-                    log.warning(f"{self.name}: fold {b} failed: {e}")
+                    _try_rollback(repo, old_head, old_kno, kno_src, self.name, e)
+                    raise RuntimeError(
+                        f"{self.name}: 恢复失败（.kno 写回），已回滚，请检查 {repo} 和 {kno_src}"
+                    ) from e
 
-            # 月/季/年粗粒度折叠
-            coarse_done = False
-            if ref_exists(repo, "refs/heads/archive"):
-                coarse_done = normalize_archive(repo, today)
+                return RestoreResult(target=target, restored=True, old_head=old_head)
 
-            # 清理安全标签
-            _cleanup_safety_refs(repo)
+    def forget(self) -> bool:
+        """让集合遗忘 Git 历史：删除 .git 目录。
 
-            # 只有粗粒度折叠才 gc
-            if coarse_done:
-                git(repo, "reflog", "expire", "--expire=now", "--all", check=False)
-                git(repo, "gc", "--prune=now", "--quiet", check=False)
-                log.info(f"{self.name}: compacted (月/季/年折叠 + gc)")
-            else:
-                log.info(f"{self.name}: compacted (仅天折叠，跳过 gc)")
+        锁：GIT_LOCK + FileLock(smtk_lock_path, timeout=360)。
 
-            # 构建返回结果
-            remaining_hots = [
-                b.strip().lstrip("* ").strip()
-                for b in git_out(repo, "branch", "--list", "hot-*").splitlines()
-                if b.strip().lstrip("* ").strip().startswith("hot-")
-            ]
-            return CompactResult(
-                dry_run=False,
-                deleted_refs=hot_branches_to_fold,
-                kept_refs=remaining_hots,
-                day_folds=hot_branches_to_fold,
-                coarse_fold=coarse_done or coarse_fold,
-                deleted_commits=len(hot_branches_to_fold),
-                message=f"compacted: {len(hot_branches_to_fold)} hot folded, coarse={coarse_done}",
-            )
+        Raises:
+            RuntimeError: .kno 不是文件、被锁定、工作区有未提交改动、
+                HEAD 不存在、HEAD 缺 kno_rel、.kno 与 HEAD 不一致、删除 .git 失败。
+        """
+        with GIT_LOCK:
+            with FileLock(self._coll.smtk_lock_path(), timeout=360):
+                kno_src = self.kno_path
+                kno_rel = self.kno_rel()
+                kno_store = self.kno_store_path
+                repo = self.repo_path
+                name = self.name
+
+                # 1. .kno 是文件检查
+                if not kno_src.is_file():
+                    raise RuntimeError(
+                        f"{name}: {kno_src} 不是文件或不存在，拒绝卸载（集合数据不完整）"
+                    )
+
+                # 2. .kno 锁定检查
+                if is_kno_locked(kno_src):
+                    raise RuntimeError(f"{name}: 集合正在激活，请先关闭 SuperMemo")
+
+                # 3. 未初始化 → 无需卸载
+                if not self.is_initialized():
+                    log.debug(f"{name}: 无 .git 目录，跳过卸载")
+                    return False
+
+                # 4. 工作区干净检查（tracked 无改动）
+                status = git_out(repo, "status", "--porcelain", "--untracked-files=no")
+                if status:
+                    raise RuntimeError(
+                        f"{name}: tracked 文件有未提交改动，拒绝卸载。"
+                        f"请先 backup() 后再试。\n{status}"
+                    )
+
+                # 5. HEAD 存在性检查
+                head = git(
+                    repo, "rev-parse", "--verify", "--quiet", "HEAD", check=False
+                )
+                if head.returncode != 0:
+                    raise RuntimeError(
+                        f"{name}: 仓库无 HEAD，拒绝卸载（无法校验 .kno 一致性）"
+                    )
+                head_commit = head.stdout.strip()
+
+                # 6. HEAD 含 kno_rel 检查
+                data = _commit_kno_bytes(repo, head_commit, kno_rel)
+                if data is None:
+                    raise RuntimeError(
+                        f"{name}: HEAD 中无 {kno_rel}，拒绝卸载（无法校验 .kno 一致性）"
+                    )
+
+                # 7. 外部 .kno 与 HEAD 字节一致检查
+                if _sha256_file(kno_src) != _sha256_bytes(data):
+                    raise RuntimeError(
+                        f"{name}: 外部 .kno 与 HEAD 不一致，"
+                        f"SuperMemo 关闭后可能还没备份。请先 backup() 后再试。"
+                    )
+
+                # 8. 原子写回外部 .kno（幂等，防御不完整写入）
+                _write_kno_atomic(kno_src, data)
+                log.info(f"{name}: .kno 已从 HEAD {head_commit[:8]} 写回外部")
+
+                # 9. 删除 .git（核心操作，失败 raise，.git 还在可重试）
+                git_dir = repo / ".git"
+
+                def _on_error(func, path, exc_info):
+                    try:
+                        os.chmod(path, 0o700)
+                        func(path)
+                    except OSError:
+                        raise
+
+                try:
+                    if sys.version_info >= (3, 12):
+                        shutil.rmtree(git_dir, onexc=_on_error)
+                    else:
+                        shutil.rmtree(git_dir, onerror=_on_error)
+                except OSError as e:
+                    raise RuntimeError(f"{name}: 删除 .git 失败: {e}") from e
+
+                # 10. 删除 .gitignore / .gitattributes（次要清理，失败 log.warning）
+                for fname in (".gitignore", ".gitattributes"):
+                    p = repo / fname
+                    if p.exists():
+                        try:
+                            p.unlink()
+                        except OSError as e:
+                            log.warning(f"{name}: 删除 {fname} 失败: {e}")
+
+                # 11. 删除工作区 kno_store（恢复初始化前结构）
+                #     失败时 .git 已删，无法回滚；错误消息说明手动删除
+                if kno_store.exists():
+                    try:
+                        kno_store.unlink()
+                    except OSError as e:
+                        raise RuntimeError(
+                            f"{name}: .git 已删除，但工作区 {kno_store} 删除失败: {e}。"
+                            f"请手动删除 {kno_store} 以完成 forget。"
+                        ) from e
+
+                log.info(f"{name}: 已卸载 git 仓库 ({repo})，工作区已恢复初始化前结构")
+                return True
 
     def snapshots(self) -> SnapshotData | None:
-        """返回集合快照数据；仓库不存在返回 None。
-
-        Returns:
-            SnapshotData 对象
-        """
+        """返回集合快照数据；仓库不存在返回 None。"""
         repo = self.repo_path
         if not self.is_initialized():
             return None
@@ -907,27 +1134,19 @@ class CollectionRepo:
         data = SnapshotData(
             name=self.name,
             kno=str(self.kno_path),
-            store=f"{self.name}.kno",
+            store=self._coll.kno_store_path().name,
             archive=[],
-            hot={},
-            safety_refs=[],
+            hot=[],
         )
 
-        if ref_exists(repo, "refs/heads/archive"):
-            out = git_out(repo, "log", "--format=%h %s", "refs/heads/archive")
+        if ref_exists(repo, ARCHIVE_REF):
+            out = git_out(repo, "log", "--format=%h %s", ARCHIVE_REF)
             data.archive = out.splitlines() if out else []
 
-        for b in git_out(repo, "branch", "--list", "hot-*").splitlines():
-            b = b.strip().lstrip("* ").strip()
-            if b.startswith("hot-"):
-                out = git_out(repo, "log", "--format=%h %s", f"refs/heads/{b}")
-                data.hot[b] = out.splitlines() if out else []
+        if ref_exists(repo, HOT_REF):
+            out = git_out(repo, "log", "--format=%h %s", HOT_REF)
+            data.hot = out.splitlines() if out else []
 
-        # 列出 refs/backup/safety/ 下的安全快照 ref
-        safety_out = git_out(
-            repo, "for-each-ref", "--format=%(refname:short)", "refs/backup/safety/"
-        )
-        data.safety_refs = safety_out.splitlines() if safety_out else []
         return data
 
     def list_snapshots(self) -> None:
@@ -942,295 +1161,14 @@ class CollectionRepo:
             print("\n[archive]")
             for line in data.archive:
                 print(line)
-        for b, snap_lines in data.hot.items():
-            print(f"\n[{b}]")
-            for line in snap_lines:
-                print(line)
-        if data.safety_refs:
-            print("\n[safety refs]")
-            for t in data.safety_refs:
-                print(t)
-
-    def is_active(self) -> bool:
-        """集合是否正在激活。"""
-        return is_collection_active(self._coll.kno_path())
-
-    def activation_start(self) -> float | None:
-        """读取 stats/time.dat 的 mtime（只读，不参与 Watcher 激活判定）。
-
-        见 get_mtime_of_timedat 的说明。
-        """
-        return get_mtime_of_timedat(self._coll)
-
-
-# ============================================================================
-# compact - 时间辅助函数
-# ============================================================================
-
-
-def _month_to_quarter(m: str) -> str:
-    """将月份字符串 '2024-09' 转为季度字符串 '2024-Q3'。"""
-    y, mo = map(int, m.split("-"))
-    return f"{y}-Q{(mo - 1) // 3 + 1}"
-
-
-def _last_day(y: int, m: int) -> int:
-    """获取指定年月的最后一天日期。"""
-    return (date(y + (m == 12), (m % 12) + 1, 1) - timedelta(days=1)).day
-
-
-def _period_end(kind: str, p: str) -> date:
-    """将 (kind, period) 解析为 date 对象，用于排序。"""
-    if kind == "year":
-        return date(int(p), 12, 31)
-    if kind == "quarter":
-        y, q = p.split("-Q")
-        m = int(q) * 3
-        return date(int(y), m, _last_day(int(y), m))
-    if kind == "month":
-        y, m = map(int, p.split("-"))
-        return date(y, m, _last_day(y, m))
-    if kind == "day":
-        return datetime.strptime(p, "%Y-%m-%d").date()
-    raise ValueError(kind)
-
-
-def _pick_latest(items: list[tuple[str, str]]) -> tuple[str, str]:
-    """从 (tree_hash, period) 列表中取 period 最大的那条。"""
-    return max(items, key=lambda x: x[1])
-
-
-# ============================================================================
-# compact - 天级别折叠
-# ============================================================================
-
-
-def fold_hot_to_day(repo: Path, hot: str, d: date) -> str:
-    """将 hot 分支的当天提交折叠为 archive 的一个 day 条目。"""
-    tip = rev_parse(repo, f"refs/heads/{hot}")
-    tree = rev_parse(repo, f"{tip}^{{tree}}")
-    parent = (
-        rev_parse(repo, "refs/heads/archive")
-        if ref_exists(repo, "refs/heads/archive")
-        else None
-    )
-    new = commit_tree(repo, tree, parent, f"day: {d.isoformat()}")
-    git(repo, "update-ref", "refs/heads/archive", new)
-
-    # 如果 HEAD 正好指向被删除的 hot 分支，切回 archive
-    head_ref = git(repo, "symbolic-ref", "--quiet", "HEAD", check=False).stdout.strip()
-    if head_ref == f"refs/heads/{hot}":
-        git(repo, "symbolic-ref", "HEAD", "refs/heads/archive")
-    git(repo, "branch", "-D", hot, check=False)
-    log.info(f"fold {hot} -> archive@{new[:8]}")
-    return new
-
-
-# ============================================================================
-# compact - 月/季/年粗粒度折叠
-# ============================================================================
-
-
-def _read_archive_history(repo: Path) -> list[Snapshot]:
-    """从 archive 分支读取所有 commit，解析为 Snapshot 列表。"""
-    snaps: list[Snapshot] = []
-    cur = rev_parse(repo, "refs/heads/archive")
-    while True:
-        msg = git_out(repo, "log", "-1", "--format=%s", cur)
-        tree = rev_parse(repo, f"{cur}^{{tree}}")
-        kind, _, period = msg.partition(": ")
-        if kind in ("day", "month", "quarter", "year"):
-            snaps.append((tree, kind, period.strip()))
-        else:
-            log.warning(
-                f"archive: 未知提交类型 '{kind}' (commit {cur[:8]}: {msg}), 跳过"
-            )
-        parent = git(repo, "rev-parse", f"{cur}^", check=False).stdout.strip()
-        if not parent:
-            break
-        cur = parent
-    snaps.reverse()
-    return snaps
-
-
-def _categorize_snaps(
-    snaps: list[Snapshot],
-) -> tuple[
-    dict[str, list[tuple[str, str]]],  # days:    key=月份字符串 "2024-09"
-    dict[str, list[tuple[str, str]]],  # months:  key=季度字符串 "2024-Q3"
-    dict[str, list[tuple[str, str]]],  # quarters: key=年份字符串 "2024"
-    dict[str, str],  # years:   key=年份字符串 "2024", value=tree
-]:
-    """将 Snapshot 列表按粒度分类到 days/months/quarters/years 四个字典中。
-
-    返回值说明：
-      days:    key=月份字符串 "2024-09",    value=[(tree, 完整日期 "2024-09-15"), ...]
-      months:  key=季度字符串 "2024-Q3",    value=[(tree, 月份 "2024-09"), ...]
-      quarters: key=年份字符串 "2024",      value=[(tree, 季度 "2024-Q3"), ...]
-      years:   key=年份字符串 "2024",       value=tree
-    """
-    days: dict[str, list[tuple[str, str]]] = {}
-    months: dict[str, list[tuple[str, str]]] = {}
-    quarters: dict[str, list[tuple[str, str]]] = {}
-    years: dict[str, str] = {}
-
-    for t, k, p in snaps:
-        if k == "day":
-            days.setdefault(p[:7], []).append((t, p))
-        elif k == "month":
-            months.setdefault(_month_to_quarter(p), []).append((t, p))
-        elif k == "quarter":
-            quarters.setdefault(p[:4], []).append((t, p))
-        elif k == "year":
-            years[p] = t
-
-    return days, months, quarters, years
-
-
-def _fold_days_to_months(
-    days: dict[str, list[tuple[str, str]]],
-    months: dict[str, list[tuple[str, str]]],
-    current_month: str,
-) -> bool:
-    """将已过月份的日级提交合并为月级条目，返回是否发生了折叠。"""
-    coarse_fold = False
-    for month_key, items in list(days.items()):
-        if month_key < current_month:
-            coarse_fold = True
-            tree = _pick_latest(items)[0]
-            months.setdefault(_month_to_quarter(month_key), []).append(
-                (tree, month_key)
-            )
-    return coarse_fold
-
-
-def _fold_months_to_quarters(
-    months: dict[str, list[tuple[str, str]]],
-    quarters: dict[str, list[tuple[str, str]]],
-    current_quarter: str,
-) -> bool:
-    """将已过季度的月级条目合并为季度级条目，返回是否发生了折叠。"""
-    coarse_fold = False
-    for quarter_key, items in list(months.items()):
-        if quarter_key < current_quarter:
-            coarse_fold = True
-            tree = _pick_latest(items)[0]
-            year_from_quarter = quarter_key[:4]
-            quarters.setdefault(year_from_quarter, []).append((tree, quarter_key))
-    return coarse_fold
-
-
-def _fold_quarters_to_years(
-    quarters: dict[str, list[tuple[str, str]]],
-    years: dict[str, str],
-    current_year: str,
-) -> bool:
-    """将已过年份的季度条目合并为年度条目，返回是否发生了折叠。"""
-    coarse_fold = False
-    for year_key, items in list(quarters.items()):
-        if year_key < current_year:
-            coarse_fold = True
-            years[year_key] = _pick_latest(items)[0]
-    return coarse_fold
-
-
-def _build_archive_entries(
-    days: dict[str, list[tuple[str, str]]],
-    months: dict[str, list[tuple[str, str]]],
-    quarters: dict[str, list[tuple[str, str]]],
-    years: dict[str, str],
-    today: date,
-) -> list[Snapshot]:
-    """从分类后的数据构建最终的 archive 条目列表（按时间排序）。"""
-    cm = today.strftime("%Y-%m")
-    cq = _month_to_quarter(cm)
-    cy = str(today.year)
-    result: list[Snapshot] = []
-
-    # 年度条目（所有年份）
-    for y, t in years.items():
-        result.append((t, "year", y))
-    # 当前年度的季度条目（quarters 的 key 是年份字符串）
-    for year_key, items in quarters.items():
-        if year_key == cy:
-            result.extend((t, "quarter", p) for t, p in items)
-    # 当前季度的月度条目（months 的 key 是季度字符串）
-    for quarter_key, items in months.items():
-        if quarter_key == cq:
-            result.extend((t, "month", p) for t, p in items)
-    # 当月的日级条目
-    for month_key, items in days.items():
-        if month_key == cm:
-            result.extend((t, "day", p) for t, p in items)
-
-    result.sort(key=lambda x: _period_end(x[1], x[2]))
-    return result
-
-
-def _write_archive_refs(repo: Path, entries: list[Snapshot]) -> None:
-    """将条目列表写为连续的 commit 并更新 archive 引用。"""
-    parent = None
-    for t, k, p in entries:
-        parent = commit_tree(repo, t, parent, f"{k}: {p}")
-    if parent:
-        git(repo, "update-ref", "refs/heads/archive", parent)
-
-
-def normalize_archive(repo: Path, today: date) -> bool:
-    """执行月/季/年级别的粗粒度折叠，返回是否发生了折叠。
-
-    折叠策略：
-      day -> month（跨月）：把旧月份的日级提交合并为月级条目
-      month -> quarter（跨季）：把旧季度的月级条目合并为季度级条目
-      quarter -> year（跨年）：把旧年份的季度条目合并为年度条目
-    """
-    if not ref_exists(repo, "refs/heads/archive"):
-        return False
-
-    # 1. 读取 archive 历史
-    snaps = _read_archive_history(repo)
-    if not snaps:
-        return False
-
-    # 2. 按粒度分类
-    days, months, quarters, years = _categorize_snaps(snaps)
-
-    # 3. 自底向上折叠（日->月->季->年）
-    cm = today.strftime("%Y-%m")
-    cq = _month_to_quarter(cm)
-    cy = str(today.year)
-    coarse_fold = False
-    coarse_fold |= _fold_days_to_months(days, months, cm)
-    coarse_fold |= _fold_months_to_quarters(months, quarters, cq)
-    coarse_fold |= _fold_quarters_to_years(quarters, years, cy)
-
-    if not coarse_fold:
-        return False
-
-    # 4. 构建最终条目并写回
-    entries = _build_archive_entries(days, months, quarters, years, today)
-    _write_archive_refs(repo, entries)
-    return True
-
-
-# ============================================================================
-# compact - 安全标签清理
-# ============================================================================
-
-
-def _cleanup_safety_refs(repo: Path, keep: int = 30) -> None:
-    """清理 refs/backup/safety/ 下的安全提交 ref，只保留最近 N 个。"""
-    # 使用 for-each-ref 列出 refs/backup/safety/ 下的所有 ref
-    out = git_out(
-        repo,
-        "for-each-ref",
-        "--sort=-creatordate",
-        "--format=%(refname)",
-        "refs/backup/safety/",
-    ).splitlines()
-    refs = [r.strip() for r in out if r.strip()]
-    for r in refs[keep:]:
-        git(repo, "update-ref", "-d", r, check=False)
+        if data.hot:
+            print("\n[hot]")
+            for line in data.hot:
+                parts = line.split(" ", 1)
+                if len(parts) == 2 and parts[1].startswith("snapshot: "):
+                    print(f"{line}  (compact 后 hot 指向的 snapshot)")
+                else:
+                    print(line)
 
 
 # ============================================================================
@@ -1247,7 +1185,7 @@ def _make_tray_image(color, outline=(0, 0, 0, 255)):
 
 COLORS = {
     "running": (76, 175, 80, 255),
-    "active": (33, 150, 243, 255),  # 蓝色：集合已激活
+    "active": (33, 150, 243, 255),
     "done": (158, 158, 158, 255),
     "waiting": (255, 193, 7, 255),
     "error": (244, 67, 54, 255),
@@ -1284,224 +1222,94 @@ def _update_icon(holder: dict, state: str, detail: str = ""):
 class Watcher:
     """封装 SuperMemo 集合监控的完整生命周期。
 
-    使用 0.5 秒轮询 is_collection_active（.kno 是否被锁定）检测集合的
-    打开/关闭，不依赖 stats/ 目录的 watchdog 事件。激活时长用内存里的
-    _activation_tracker 记录，与 stats/time.dat 无关。
+    使用 0.5 秒轮询 is_kno_locked 检测集合的打开/关闭。
+    只 backup，不 compact。折叠由用户通过托盘菜单手动触发。
 
-    使用示例：
-        >>> from time_backup import Watcher, load_config
-        >>> cfg = load_config()
-        >>> watcher = Watcher(cfg)
-        >>> watcher.start()  # 阻塞直到退出
+    已知限制见模块文档字符串。
     """
 
     def __init__(self, config: BackupConfig) -> None:
-        """用配置对象创建监控器实例。
-
-        Args:
-            config: 由 load_config() 返回的 BackupConfig 对象
-        """
         self._config = config
         self._stop_event: threading.Event | None = None
         self._thread: threading.Thread | None = None
         self._holder: dict = {}
-        # 每个集合的最后触发时间（防抖）
-        self._pending: dict[str, float] = {}
-        self._pending_lock = threading.Lock()
-        # 记录每个集合最近一次检测到 active=True 的时间戳，用于 min_active 语义
-        self._activation_tracker: dict[str, float] = {}
+        self._inflight = 0
+        self._ops_lock = threading.Lock()
+        self._idle_event = threading.Event()
 
     @property
     def config(self) -> BackupConfig:
-        """底层配置对象。"""
         return self._config
 
-    def _debounce_checker(self) -> None:
-        """定期轮询集合激活状态，并对 _pending 中的集合做防抖处理。
+    def _track(self, fn) -> None:
+        """包装状态变更处理，维护 inflight 计数。"""
+        with self._ops_lock:
+            self._inflight += 1
+            self._idle_event.clear()
+        try:
+            fn()
+        finally:
+            with self._ops_lock:
+                self._inflight -= 1
+                if self._inflight == 0:
+                    self._idle_event.set()
 
-        激活判定只看 .kno 是否被锁定（is_collection_active），
-        不看 stats/time.dat 是否存在。
-        """
-        # 初始化上一轮激活状态，避免启动时误报"刚被打开"
-        last_active: dict[str, bool] = {}
+    def _backup_only(self, c: Collection) -> None:
+        """只 backup，不 compact。"""
+        try:
+            r = CollectionRepo(c).backup("shutdown")
+        except Exception as e:
+            log.error(f"{c.name}: backup failed: {e}")
+            self._update_icon("error", f"{c.name} 备份失败")
+            return
+        if r.skipped:
+            log.info(f"{c.name}: backup skipped (no change)")
+            self._update_icon("done", f"{c.name} 无变化")
+        else:
+            log.info(f"{c.name}: backup {r.commit[:8]}")
+            self._update_icon("done", f"{c.name} 已备份")
+
+    def _poll_loop(self) -> None:
+        """定期轮询集合激活状态，检测打开/关闭转换。"""
+        was_active: dict[str, bool] = {
+            c.name: c.kno_path().is_file() and is_kno_locked(c.kno_path())
+            for c in self._config.collections
+        }
         for c in self._config.collections:
-            active = is_collection_active(c.kno_path())
-            last_active[c.name] = active
-            if active:
-                # 启动时集合已激活，记录 tracker 并显示 active 状态
-                with self._pending_lock:
-                    self._activation_tracker.setdefault(c.name, _time.time())
+            if was_active[c.name]:
                 self._update_icon("active", c.name)
-                log.info(f"{c.name}: 启动时集合已激活")
-            else:
-                log.debug(f"{c.name}: 启动时集合未激活")
+
+        pending_close: dict[str, float] = {}
 
         while not self._stop_event.is_set():
             _time.sleep(0.5)
             now = _time.time()
 
-            # 轮询集合激活状态，检测"刚打开"/"刚关闭"的转换
             for c in self._config.collections:
-                active = is_collection_active(c.kno_path())
-                prev = last_active.get(c.name, False)
+                active = c.kno_path().is_file() and is_kno_locked(c.kno_path())
+                prev = was_active.get(c.name, False)
                 if active and not prev:
-                    with self._pending_lock:
-                        self._activation_tracker.setdefault(c.name, now)
                     self._update_icon("active", c.name)
                     log.info(f"{c.name}: 检测到集合被打开")
                 elif not active and prev:
-                    with self._pending_lock:
-                        self._pending[c.name] = now
+                    pending_close[c.name] = now + 1.0
                     self._update_icon("waiting")
                     log.info(f"{c.name}: 检测到集合被关闭")
-                last_active[c.name] = active
+                was_active[c.name] = active
 
-            # 防抖：静默满 QUIET_SECONDS 的集合交给 _handle_collection_state_change
-            to_process: list[str] = []
-            with self._pending_lock:
-                for name, last_time in list(self._pending.items()):
-                    if now - last_time >= QUIET_SECONDS:
-                        to_process.append(name)
-                for name in to_process:
-                    self._pending.pop(name, None)
-            for name in to_process:
-                current_now = _time.time()
-                coll = None
-                for c in self._config.collections:
-                    if c.name == name:
-                        coll = c
-                        break
-                if coll is not None:
-                    self._handle_collection_state_change(coll, current_now)
-
-    def _handle_collection_state_change(self, c: Collection, now: float) -> None:
-        """处理单个集合的状态变化（激活/退出）。
-
-        退出时按激活时长分流：
-          - < min_active 秒：视为误开，重置工作区到 HEAD，不保留任何改动
-          - >= min_active 秒：冷备份 + compact
-
-        激活判定只看 .kno 是否被锁定（is_collection_active）；
-        stats/time.dat 不参与判定。
-        """
-        name = c.name
-        active_now = is_collection_active(c.kno_path())
-        min_active = self._config.min_active_seconds
-
-        if active_now:
-            # 集合仍在激活中，记录 tracker 并显示 active 状态
-            with self._pending_lock:
-                self._activation_tracker.setdefault(name, now)
-            self._update_icon("active", name)
-            return
-
-        # 集合已退出。只看 .kno 是否曾被锁定（tracker 是否有记录）
-        with self._pending_lock:
-            activation_start = self._activation_tracker.get(name)
-        if activation_start is None:
-            log.debug(f"{name}: 未检测到激活记录，跳过")
-            return
-
-        active_duration = now - activation_start
-
-        # 短激活：视为误开，重置工作区到 HEAD，不保留任何改动
-        if min_active > 0 and active_duration < min_active:
-            log.info(
-                f"{name}: 激活时长仅 {active_duration:.0f}s（< {min_active}s），视为误开"
-            )
-            # 等解锁瞬间的最终写入落盘
-            _time.sleep(2)
-            # 二次确认集合已退出
-            if is_collection_active(c.kno_path()):
-                log.info(f"{name}: 二次检查发现仍在激活，跳过重置")
-                self._update_icon("active", name)
-                return
-            try:
-                self._reset_short_activation(c)
-            except Exception as e:
-                log.error(f"{name}: 短激活重置失败: {e}")
-                self._update_icon("error", f"{name} 重置失败")
-            with self._pending_lock:
-                self._activation_tracker.pop(name, None)
-            return
-
-        # 正常退出：冷备份
-        # 等待解锁瞬间的最终写入落盘
-        _time.sleep(2)
-
-        # 二次确认集合已退出（防止竞态条件：可能在等待期间重新激活）
-        if is_collection_active(c.kno_path()):
-            log.info(f"{name}: 二次检查发现仍在激活，跳过")
-            self._update_icon("active", name)
-            return
-
-        with self._pending_lock:
-            self._activation_tracker.pop(name, None)
-
-        log.info(f"{name}: 检测到退出，做冷备份")
-        # 拆分 backup 和 compact 错误处理，避免 compact 失败时显示"备份失败"
-        try:
-            CollectionRepo(c).backup("shutdown", require_inactive=True)
-        except Exception as e:
-            log.error(f"{name}: backup failed: {e}")
-            self._update_icon("error", f"{name} 备份失败")
-            return
-        try:
-            CollectionRepo(c).compact()
-        except Exception as e:
-            log.error(f"{name}: compact failed: {e}")
-            self._update_icon("error", f"{name} 压缩失败")
-            return
-        self._update_icon("done", f"{name} 已备份")
-
-    def _reset_short_activation(self, c: Collection) -> bool:
-        """短激活重置：工作区回到 HEAD，外部 .kno 从 HEAD 的备份副本恢复。
-
-        用于 < min_active 秒的误开场景。不创建 safety 快照（什么都不保留）。
-        重置后工作区、index、外部 .kno 都回到上一次备份（HEAD）的状态。
-
-        Returns:
-            True 表示实际执行了重置；
-            False 表示未处理（仓库未初始化或没有 HEAD），调用方不需要额外处理，
-                  日志已在此方法内打出。
-        """
-        name = c.name
-        repo = c.repo_path()
-        kno_src = c.kno_path()
-        kno_rel = f"{name}.kno"
-
-        # 防御性检查：集合必须已退出
-        if is_collection_active(c.kno_path()):
-            raise RuntimeError(f"{name}: 集合仍在激活，拒绝重置")
-
-        # 未初始化的集合无法重置（没有 HEAD 可回退），提示并跳过
-        if not CollectionRepo(c).is_initialized():
-            log.debug(
-                f"{name}: 仓库未初始化，跳过重置（首次长激活时会自动初始化并备份）"
-            )
-            return False
-
-        # 空仓库（git init 后从未提交）没有 HEAD 可回退
-        head = git(repo, "rev-parse", "--verify", "--quiet", "HEAD", check=False)
-        if head.returncode != 0:
-            log.debug(f"{name}: 仓库无 HEAD（从未备份），跳过重置")
-            return False
-        head_commit = head.stdout.strip()
-
-        # 1. 丢弃 tracked 文件的工作区/index 改动，回到 HEAD
-        git(repo, "read-tree", "-u", "--reset", head_commit)
-        # 2. 清理 untracked 文件（不改 .gitignore 里的 ignored 文件）
-        git(repo, "clean", "-fd", check=False)
-        # 3. 外部 .kno 从 HEAD 的备份副本恢复（原子写 + SHA-256 校验）
-        _restore_kno_from_store(repo, head_commit, kno_src, kno_rel, name)
-
-        log.info(f"{name}: 短激活重置完成 -> {head_commit[:8]}")
-        return True
+            for name in list(pending_close):
+                if now < pending_close[name]:
+                    continue
+                del pending_close[name]
+                c = next((x for x in self._config.collections if x.name == name), None)
+                if c is None:
+                    continue
+                if c.kno_path().is_file() and is_kno_locked(c.kno_path()):
+                    self._update_icon("active", name)
+                    continue
+                self._track(lambda c=c: self._backup_only(c))
 
     def _update_icon(self, state: str, detail: str = "") -> None:
-        """更新托盘图标。"""
-        # 比较 (state, detail) 元组而非仅 state，避免 detail 丢失
-        # icon 未设置时不写 _last_icon_key，防止首次真实更新被跳过
         if self._holder.get("icon") is None:
             return
         key = (state, detail)
@@ -1511,45 +1319,32 @@ class Watcher:
         _update_icon(self._holder, state, detail)
 
     def _on_compact(self, icon, item) -> None:
-        """托盘菜单：压缩历史（后台执行，不阻塞托盘）。
+        """托盘菜单：压缩历史（后台执行，不阻塞托盘）。"""
 
-        注意：不在托盘回调中使用 input()，因为 pystray 回调运行在独立线程，
-        无控制台环境下 input() 会抛 EOFError 或永久阻塞。
-        用户主动点击菜单即视为确认，直接执行压缩。
-        """
-
-        # 在后台线程执行耗时操作，避免阻塞 pystray 回调线程
-        def _do_compact():
-            self._update_icon("running", "压缩中")
-            failed = []
-            for c in self._config.collections:
-                try:
-                    repo = CollectionRepo(c)
-                    # 先 dry_run 预览
-                    plan = repo.compact(dry_run=True)
-                    log.info(f"{c.name}: compact plan -> {plan.message}")
-                    # 同时检查 deleted_refs（天折叠），否则纯天折叠日永远不会执行
-                    if plan.coarse_fold or plan.deleted_refs:
-                        result = repo.compact()
-                        log.info(f"{c.name}: compacted -> {result.message}")
-                    else:
-                        log.info(f"{c.name}: 无折叠需要，跳过")
-                except Exception as e:
-                    failed.append(c.name)
-                    log.error(f"{c.name}: compact failed: {e}")
-            msg = (
-                f"压缩完成，以下集合失败: {', '.join(failed)}" if failed else "压缩完成"
-            )
+        def _do():
             try:
-                icon.notify(msg, "time")
-            except Exception:
-                pass
-            if failed:
-                self._update_icon("error", f"压缩失败: {', '.join(failed)}")
-            else:
-                self._update_icon("done", "压缩完成")
+                self._update_icon("running", "压缩中")
+                failed: list[str] = []
+                for c in self._config.collections:
+                    try:
+                        r = CollectionRepo(c).compact()
+                        log.info(f"{c.name}: compact -> {r.message}")
+                    except Exception as e:
+                        failed.append(c.name)
+                        log.error(f"{c.name}: compact failed: {e}")
+                msg = f"压缩完成，失败: {', '.join(failed)}" if failed else "压缩完成"
+                try:
+                    icon.notify(msg, "time")
+                except Exception:
+                    pass
+                if failed:
+                    self._update_icon("error", f"压缩失败: {', '.join(failed)}")
+                else:
+                    self._update_icon("done", "压缩完成")
+            except Exception as e:
+                log.error(f"compact background thread failed: {e}")
 
-        threading.Thread(target=_do_compact, daemon=True).start()
+        threading.Thread(target=lambda: self._track(_do), daemon=True).start()
 
     def _on_open_dir(self, icon, item) -> None:
         """托盘菜单：打开配置目录。"""
@@ -1565,7 +1360,7 @@ class Watcher:
         """托盘菜单：打开日志文件。"""
         try:
             if sys.platform == "win32":
-                os.startfile(str(LOG_FILE))
+                os.startfile(_get_log_file())
             else:
                 log.warning("打开日志文件仅支持 Windows 平台")
         except Exception as e:
@@ -1577,15 +1372,7 @@ class Watcher:
         icon.stop()
 
     def start(self) -> None:
-        """启动托盘监控（阻塞直到用户退出）。
-
-        在托盘图标中提供以下菜单项：
-          - 压缩历史：预览并执行所有集合的历史压缩（托盘点击即视为确认）
-          - 打开配置目录：在文件管理器中打开配置文件夹
-          - 打开日志：在默认编辑器中打开日志文件
-          - 退出：停止监控并退出
-        """
-        # 防止重复 start() 启动多个 debounce 线程
+        """启动托盘监控（阻塞直到用户退出）。"""
         if self._thread is not None and self._thread.is_alive():
             log.warning("Watcher 已在运行，忽略重复 start()")
             return
@@ -1595,9 +1382,11 @@ class Watcher:
             return
 
         self._stop_event = threading.Event()
+        self._idle_event = threading.Event()
+        self._idle_event.set()
+        self._inflight = 0
         self._holder = {}
 
-        # 构建托盘菜单
         menu = pystray.Menu(
             pystray.MenuItem("压缩历史", self._on_compact),
             pystray.Menu.SEPARATOR,
@@ -1613,26 +1402,26 @@ class Watcher:
             menu,
         )
         self._holder["icon"] = icon
-        self._thread = threading.Thread(target=self._debounce_checker, daemon=True)
+        self._thread = threading.Thread(target=self._poll_loop, daemon=True)
         self._thread.start()
         try:
             icon.run()
         except KeyboardInterrupt:
             log.info("interrupted")
-            self.stop()
         finally:
             self.stop()
             if self._thread is not None:
                 self._thread.join(timeout=10)
 
     def stop(self) -> None:
-        """停止监控。"""
+        """停止监控。
+
+        等待 inflight 操作归零（最多 300 秒），避免在 Git 操作中途退出。
+        """
         if self._stop_event is not None:
             self._stop_event.set()
-        # 清空 pending 和 tracker，防止重启 Watcher 时残留
-        with self._pending_lock:
-            self._pending.clear()
-            self._activation_tracker.clear()
+        if not self._idle_event.wait(timeout=300):
+            log.warning("stop: 等待 inflight 超时，可能有 git 操作未完成")
 
 
 # ============================================================================
@@ -1643,77 +1432,35 @@ class Watcher:
 class SuperMemoBackup:
     """SuperMemo 集合冷备份管理器（顶层编排器）。
 
-    这是工具的主要 API 入口。内部使用 CollectionRepo 管理单个集合操作，
-    使用 Watcher 管理托盘监控生命周期。
-
     使用示例：
         >>> from time_backup import SuperMemoBackup
         >>> sm = SuperMemoBackup.from_config()
         >>> sm.init_all()
         >>> result = sm.backup("Maths")
-        >>> sm.restore("Maths", "archive")
-        >>> sm.compact_all()
-        >>> sm.watch()  # 阻塞直到退出
+        >>> sm.restore("Maths", "refs/heads/archive")
+        >>> sm.compact()
+        >>> sm.watch()
     """
 
     def __init__(self, config: BackupConfig) -> None:
-        """用配置对象创建管理器实例。
-
-        Args:
-            config: 由 load_config() 返回的 BackupConfig 对象
-        """
         self.config = config
         self._watcher: Watcher | None = None
 
     @classmethod
     def from_config(cls) -> SuperMemoBackup:
-        """从配置文件加载并创建管理器实例。
-
-        这是最常用的创建方式。等价于：
-            sm = SuperMemoBackup(load_config())
-        """
+        """从配置文件加载并创建管理器实例。"""
         return cls(load_config())
 
     def get_collection(self, name: str) -> Collection:
-        """按名称查找集合。
-
-        Args:
-            name: 集合名称
-
-        Returns:
-            Collection 对象
-
-        Raises:
-            KeyError: 集合不存在
-        """
+        """按名称查找集合。"""
         return self.config.get_collection(name)
 
     def collection(self, name: str) -> CollectionRepo:
-        """获取指定集合的仓库操作对象。
-
-        这是推荐的使用方式：通过 CollectionRepo 操作单个集合。
-
-        Args:
-            name: 集合名称
-
-        Returns:
-            CollectionRepo 实例
-        """
+        """获取指定集合的仓库操作对象。"""
         return CollectionRepo(self.get_collection(name))
 
     def init(self, name: str | None = None) -> Path:
-        """初始化集合的 Git 仓库。
-
-        Args:
-            name: 集合名称。None 时初始化第一个集合。
-                  使用 init_all() 可初始化所有集合。
-
-        Returns:
-            初始化的仓库路径
-
-        Raises:
-            ValueError: 没有可初始化的集合
-        """
+        """初始化集合的 Git 仓库。"""
         if name is not None:
             return self.collection(name).init()
         if self.config.collections:
@@ -1721,132 +1468,59 @@ class SuperMemoBackup:
         raise ValueError("没有可初始化的集合")
 
     def init_all(self) -> list[Path]:
-        """初始化所有集合的 Git 仓库。
-
-        Returns:
-            初始化的仓库路径列表
-        """
+        """初始化所有集合的 Git 仓库。"""
         return [self.collection(c.name).init() for c in self.config.collections]
 
-    def backup(
-        self, name: str, trigger: str = "manual", require_inactive: bool = True
-    ) -> BackupResult:
-        """冷备份指定集合（集合必须已关闭）。
-
-        Args:
-            name: 集合名称
-            trigger: 触发来源 ("manual"/"tray"/"shutdown"/"debug")
-            require_inactive: True 时如果集合正在激活则直接抛异常
-
-        Returns:
-            BackupResult 对象
-        """
-        return self.collection(name).backup(trigger, require_inactive)
+    def backup(self, name: str, trigger: str = "manual") -> BackupResult:
+        """冷备份指定集合（集合必须已关闭）。"""
+        return self.collection(name).backup(trigger)
 
     def backup_all(self, trigger: str = "manual") -> list[BackupResult]:
         """冷备份所有集合（集合必须已关闭）。
 
-        任一集合备份失败不会中断其他集合的备份。
-
-        Args:
-            trigger: 触发来源
-
-        Returns:
-            BackupResult 列表（每个集合一个）
+        任一集合备份失败不中断其他集合的备份。
         """
         results: list[BackupResult] = []
         for c in self.config.collections:
             try:
-                r = self.collection(c.name).backup(trigger, require_inactive=True)
-                results.append(r)
-            except GitError as e:
-                log.error(f"{c.name}: git error: {e}")
-                results.append(
-                    BackupResult(commit="", branch=None, locked=False, skipped=False)
-                )
-            except RuntimeError as e:
-                log.warning(f"{c.name}: {e}")
-                results.append(
-                    BackupResult(commit="", branch=None, locked=True, skipped=False)
-                )
+                results.append(self.collection(c.name).backup(trigger))
             except Exception as e:
-                log.error(f"{c.name}: {e}")
-                results.append(
-                    BackupResult(commit="", branch=None, locked=False, skipped=False)
-                )
+                log.error(f"{c.name}: backup failed: {e}")
+                results.append(BackupResult(commit=None, skipped=False))
         return results
 
-    def restore(
-        self,
-        name: str,
-        target: str,
-        safety: bool = True,
-    ) -> RestoreResult:
-        """冷恢复指定集合（集合必须已关闭）。
+    def restore(self, name: str, target: str) -> RestoreResult:
+        """冷恢复指定集合（集合必须已关闭）。"""
+        return self.collection(name).restore(target)
 
-        Args:
-            name: 集合名称
-            target: 恢复目标（分支名/tag/commit hash）
-            safety: 是否在恢复前创建安全快照（默认 True）
-
-        Returns:
-            RestoreResult 对象
-        """
-        return self.collection(name).restore(target, safety)
-
-    def compact(
-        self, name: str | None = None, today: date | None = None, dry_run: bool = False
-    ) -> CompactResult | None:
+    def compact(self, name: str | None = None) -> CompactResult | list[CompactResult]:
         """压缩集合历史。
 
-        Args:
-            name: 集合名称。None 时压缩所有集合。
-            today: 可选。用于测试的日期（默认 date.today()）
-            dry_run: 如果为 True，只打印计划不执行实际操作。
-
-        Returns:
-            如果 name 不为 None，返回 CompactResult；
-            如果 name 为 None（批量模式），返回最后一个集合的结果，其余打印日志。
+        name 不为 None 时返回 CompactResult；
+        name 为 None（批量模式）时返回每个集合的 CompactResult 列表。
+        批量模式下单个集合失败不中断其他集合，失败集合的
+        CompactResult.folded=False，message 以 "failed:" 开头。
         """
         if name is not None:
-            return self.collection(name).compact(today, dry_run)
-        else:
-            last_result: CompactResult | None = None
-            for c in self.config.collections:
-                result = self.collection(c.name).compact(today, dry_run)
-                log.info(f"{c.name}: compact -> {result.message}")
-                last_result = result
-            return last_result
-
-    def compact_all(
-        self, today: date | None = None, dry_run: bool = False
-    ) -> list[CompactResult]:
-        """压缩所有集合历史。
-
-        Args:
-            today: 可选。用于测试的日期（默认 date.today()）
-            dry_run: 如果为 True，只打印计划不执行实际操作。
-
-        Returns:
-            每个集合的 CompactResult 列表
-        """
+            return self.collection(name).compact()
         results: list[CompactResult] = []
         for c in self.config.collections:
-            result = self.collection(c.name).compact(today, dry_run)
-            results.append(result)
-            log.info(f"{c.name}: compact -> {result.message}")
+            try:
+                result = self.collection(c.name).compact()
+                log.info(f"{c.name}: compact -> {result.message}")
+                results.append(result)
+            except Exception as e:
+                log.error(f"{c.name}: compact failed: {e}")
+                results.append(CompactResult(folded=False, message=f"failed: {e}"))
         return results
 
     def snapshots(self, name: str) -> SnapshotData | None:
-        """获取指定集合的快照信息。
-
-        Args:
-            name: 集合名称
-
-        Returns:
-            SnapshotData 对象，仓库不存在时返回 None
-        """
+        """获取指定集合的快照信息。"""
         return self.collection(name).snapshots()
+
+    def list_snapshots(self, name: str) -> None:
+        """打印指定集合的快照信息。"""
+        self.collection(name).list_snapshots()
 
     def initialized_collections(self) -> list[Collection]:
         """返回已初始化 Git 仓库的集合列表。"""
@@ -1854,21 +1528,20 @@ class SuperMemoBackup:
             c for c in self.config.collections if CollectionRepo(c).is_initialized()
         ]
 
-    def list_snapshots(self, name: str) -> None:
-        """打印指定集合的快照信息。
-
-        Args:
-            name: 集合名称
-        """
-        self.collection(name).list_snapshots()
+    def forget(self, name: str) -> bool:
+        """让集合遗忘 Git 历史：删除 .git 目录。"""
+        return self.collection(name).forget()
 
     def watch(self) -> None:
         """启动托盘监控（阻塞直到用户退出）。"""
         if self._watcher is not None:
-            log.warning("SuperMemoBackup.watch() 已调用过，忽略重复调用")
+            log.warning("SuperMemoBackup.watch() 已在运行")
             return
         self._watcher = Watcher(self.config)
-        self._watcher.start()
+        try:
+            self._watcher.start()
+        finally:
+            self._watcher = None
 
 
 # ============================================================================
@@ -1886,7 +1559,6 @@ __all__ = [
     # 异常
     "GitError",
     "RestoreResult",
-    "Snapshot",
     "SnapshotData",
     # 高级 API
     "SuperMemoBackup",
@@ -1894,59 +1566,3 @@ __all__ = [
     # 配置
     "setup_logging",
 ]
-
-# ============================================================================
-# 命令行入口（测试/日常使用）
-# ============================================================================
-
-if __name__ == "__main__":
-    # 改这里切换测试动作
-    MODE = "backup"
-    # 可选：
-    #   "init"      初始化所有集合仓库
-    #   "backup"    冷备份所有集合（集合必须已关闭）
-    #   "list"      打印所有集合快照
-    #   "compact"   压缩所有集合历史
-    #   "restore"   冷恢复指定集合
-    #   "watch"     启动托盘监控（阻塞，放最后测）
-    RESTORE_TARGET = "archive"  # 分支/tag/commit
-    setup_logging(verbose=True)
-
-    # 使用 SuperMemoBackup 类（推荐方式）
-    sm = SuperMemoBackup.from_config()
-
-    if MODE == "init":
-        sm.init_all()
-    elif MODE == "backup":
-        # 备份所有集合
-        results = sm.backup_all(trigger="debug")
-        for r in results:
-            log.info(f"backup: {r}")
-    elif MODE == "list":
-        # 打印所有集合快照
-        for c in sm.initialized_collections():
-            sm.list_snapshots(c.name)
-    elif MODE == "compact":
-        # 先 dry_run 预览
-        plan = sm.compact(dry_run=True)
-        if plan:
-            log.info(f"compact plan: {plan.message}")
-            confirm = input("确认执行压缩? [y/N] ").strip().lower()
-            if confirm == "y":
-                sm.compact_all()
-                log.info("compact OK")
-            else:
-                log.info("用户取消")
-        else:
-            log.info("no collections to compact")
-    elif MODE == "restore":
-        # 恢复第一个集合
-        coll = sm.config.collections[0]
-        log.info(f"restore: {coll.name} <- {RESTORE_TARGET}")
-        result = sm.restore(coll.name, RESTORE_TARGET)
-        log.info(
-            f"restore result: safety_ref={result.safety_ref}, restored={result.restored}"
-        )
-        log.info("restore OK")
-    # elif MODE == "watch":
-    #     sm.watch()
