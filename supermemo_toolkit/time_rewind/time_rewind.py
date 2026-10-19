@@ -673,6 +673,10 @@ class CollectionRepo:
         """仓库内备份副本路径。"""
         return self._coll.kno_store_path()
 
+    def is_initialized(self) -> bool:
+        """集合的 Git 仓库是否已初始化。"""
+        return (self.repo_path / ".git").exists()
+
     def init(self) -> Path:
         """初始化集合的 Git 仓库（如果尚未初始化）。
 
@@ -1850,6 +1854,12 @@ class SuperMemoBackup:
             SnapshotData 对象，仓库不存在时返回 None
         """
         return self.collection(name).snapshots()
+
+    def initialized_collections(self) -> list[Collection]:
+        """返回已初始化 Git 仓库的集合列表。"""
+        return [
+            c for c in self.config.collections if CollectionRepo(c).is_initialized()
+        ]
 
     def list_snapshots(self, name: str) -> None:
         """打印指定集合的快照信息。

@@ -820,7 +820,7 @@ def time_list(collection):
     if collection:
         sm.list_snapshots(collection)
         return
-    for c in sm.config.collections:
+    for c in sm.initialized_collections():
         sm.list_snapshots(c.name)
 
 
