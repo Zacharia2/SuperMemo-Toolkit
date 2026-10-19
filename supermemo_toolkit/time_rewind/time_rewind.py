@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""time - SuperMemo 集合冷备份工具（类 API + watchdog + dry-run + safety）
+"""time - SuperMemo 集合冷备份工具（类 API + 轮询监控 + dry-run + safety）
 
 主要 API（推荐）：
     from time_backup import SuperMemoBackup, CollectionRepo, Watcher, FileLock
@@ -24,7 +24,7 @@
     with FileLock(repo.repo_path / ".git" / "backup.lock"):
         repo.backup()
 
-    # Watcher（event-driven，基于 watchdog）
+    # Watcher（轮询 .kno 锁定状态，不依赖 stats/ 事件）
     from time_backup import Watcher, load_config
     cfg = load_config()
     watcher = Watcher(cfg)
@@ -41,6 +41,8 @@
 工作区内的 systems/Maths/Maths.kno 是 Git 跟踪的备份副本，SuperMemo 不读它。
 
 策略：完全冷备份。集合激活期间不写 Git，退出后一次性快照。
+激活判定只看 .kno 是否被锁定，stats/time.dat 不参与判定。
+启动一刻 .kno 只是被独占锁住，内容没动，所以 mtime 不变
 """
 
 from __future__ import annotations
@@ -63,16 +65,20 @@ from typing import NamedTuple
 import pystray
 from PIL import Image, ImageDraw
 from typing_extensions import Self
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
+
+from supermemo_toolkit.utilscripts import config
 
 log = logging.getLogger("time")
-BASE_DIR = Path(__file__).resolve().parent
-LOG_FILE = BASE_DIR / "time.log"
+config_dir = config.get_config_dir()
+if os.path.exists(config_dir):
+    LOG_FILE = os.path.join(config_dir, "time.log")
+elif not os.path.exists(config_dir):
+    os.makedirs(config_dir)
+    LOG_FILE = os.path.join(config_dir, "time.log")
 
 GIT_LOCK = threading.RLock()
 DEFAULT_MIN_ACTIVE = 180
-QUIET_SECONDS = 2.0  # watchdog 防抖静默窗口
+QUIET_SECONDS = 2.0  # 防抖静默窗口
 
 
 # ============================================================================
@@ -263,7 +269,7 @@ class FileLock:
         self._lock_path.parent.mkdir(parents=True, exist_ok=True)
         # 只 open 一次并复用 fd，避免每次重试都泄漏旧句柄
         self._fd = open(self._lock_path, "a+b")  # noqa: SIM115
-        self._fd.seek(0)  # P3#5: 确保锁的是 [0, 1)，不依赖文件长度
+        self._fd.seek(0)  # 确保锁的是 [0, 1)，不依赖文件长度
         try:
             while True:
                 try:
@@ -299,7 +305,7 @@ class FileLock:
             if sys.platform == "win32":
                 import msvcrt
 
-                fd.seek(0)  # P3#5: 与 acquire 的 seek(0) 对称
+                fd.seek(0)  # 与 acquire 的 seek(0) 对称
                 msvcrt.locking(fd.fileno(), msvcrt.LK_UNLCK, 1)
             else:
                 import fcntl
@@ -385,7 +391,7 @@ def load_config() -> BackupConfig:
         raise SystemExit(
             "请先设置 smtk 配置：smtk config set program <SuperMemo 根目录>"
         )
-    # P1 修复: 用 `is not None` 代替 `or`，避免 0 被吞掉（0 是有效值，表示禁用短激活跳过）
+    # 用 `is not None` 代替 `or`，避免 0 被吞掉（0 是有效值，表示禁用短激活跳过）
     min_active_raw = smtk.get("backup_min_active")
     try:
         min_active = (
@@ -473,11 +479,14 @@ def is_collection_active(coll: Collection) -> bool:
 
 
 def activation_start_from_stats(coll: Collection) -> float | None:
-    """读取 stats/time.dat 的最后修改时间。
+    """读取 stats/time.dat 的最后修改时间（只读 mtime，不参与 Watcher 激活判定）。
 
-    注意：此值表示 stats 文件的最后写入时间戳，并非集合的"激活起始时间"。
-    如果 SuperMemo 在激活期间持续刷新该文件，mtime 仅反映最近一次写入时间。
-    如果文件不存在则返回 None。
+    此函数是给外部调用方（如 smtk 的其他子命令）使用的公共 API，
+    Watcher 的激活判定只看 .kno 是否被锁定（is_collection_active），
+    不依赖本函数，也不依赖 stats/time.dat 的内容或存在性。
+
+    Returns:
+        stats/time.dat 的 mtime；文件不存在时返回 None。
     """
     sf = Path(coll.path) / "stats" / "time.dat"
     if sf.exists():
@@ -493,10 +502,10 @@ def activation_start_from_stats(coll: Collection) -> float | None:
 def _git_env() -> dict:
     """构建 git 命令所需的环境变量（作者/提交者信息）。"""
     env = os.environ.copy()
-    env.setdefault("GIT_AUTHOR_NAME", "time-backup")
-    env.setdefault("GIT_AUTHOR_EMAIL", "time-backup@local")
-    env.setdefault("GIT_COMMITTER_NAME", "time-backup")
-    env.setdefault("GIT_COMMITTER_EMAIL", "time-backup@local")
+    env.setdefault("GIT_AUTHOR_NAME", "time-rewind")
+    env.setdefault("GIT_AUTHOR_EMAIL", "time-rewind@local")
+    env.setdefault("GIT_COMMITTER_NAME", "time-rewind")
+    env.setdefault("GIT_COMMITTER_EMAIL", "time-rewind@local")
     return env
 
 
@@ -744,9 +753,9 @@ class CollectionRepo:
             commit = commit_tree(repo, tree, parent, msg)
 
             # 验证 .kno 一致性（仅在未锁定时）
-            # P2 修复: 将 verify_kno_against_commit 的 RuntimeError 包装为 GitError，
-            # 避免被 _do_backup 的 except RuntimeError 误捕获为"集合激活"
-            # P3#2 修复: GitError 先 raise 保留原始错误，避免二次包装
+            # 将 verify_kno_against_commit 的 RuntimeError 包装为 GitError，
+            # 避免被 _do_backup 的 except RuntimeError 误捕获为"集合激活"；
+            # GitError 先 raise 保留原始错误，避免二次包装
             if not locked and kno_src.exists():
                 try:
                     verify_kno_against_commit(repo, commit, kno_src, kno_rel, self.name)
@@ -764,9 +773,7 @@ class CollectionRepo:
             )
             return BackupResult(commit=commit, branch=hot, locked=locked)
 
-    def restore(
-        self, target: str, paths: list[str] | None = None, safety: bool = True
-    ) -> RestoreResult:
+    def restore(self, target: str, safety: bool = True) -> RestoreResult:
         """冷恢复：集合必须已关闭。
 
         恢复前会自动在 refs/backup/safety/ 下创建一个安全提交，
@@ -774,8 +781,6 @@ class CollectionRepo:
 
         Args:
             target: 恢复目标（分支名/tag/commit hash）
-            paths:  可选。指定恢复的文件路径列表（git tree path）。
-                    None 表示全量恢复；指定路径列表表示部分恢复。
             safety: 是否在恢复前创建安全快照（默认 True）
 
         Returns:
@@ -798,14 +803,6 @@ class CollectionRepo:
             safety_ref: str | None = None
             if safety:
                 safety_ref = self._create_safety_snapshot(repo, hot)
-
-            if paths:
-                self._restore_with_paths(
-                    repo, commit, kno_src, kno_rel, self.name, paths, hot
-                )
-                return RestoreResult(
-                    safety_ref=safety_ref, target=target, restored=True
-                )
 
             # 全量恢复路径
             git(repo, "read-tree", "-u", "--reset", commit)
@@ -1022,44 +1019,11 @@ class CollectionRepo:
         return is_collection_active(self._coll)
 
     def activation_start(self) -> float | None:
-        """读取 stats/time.dat 的修改时间作为集合激活起始时间。"""
-        return activation_start_from_stats(self._coll)
+        """读取 stats/time.dat 的 mtime（只读，不参与 Watcher 激活判定）。
 
-    def _restore_with_paths(
-        self,
-        repo: Path,
-        commit: str,
-        kno_src: Path,
-        kno_rel: str,
-        name: str,
-        paths: list[str],
-        hot: str,
-    ) -> None:
-        """部分恢复：只恢复指定的文件路径。
-
-        注意：部分恢复不移动 hot 分支指针，仅更新工作区文件。
-        这是因为只恢复部分文件时，index 和工作区处于混合状态，
-        移动分支指针会导致下一次 backup 把未恢复的旧文件重新写回。
-        如需将部分恢复纳入版本历史，请手动创建 commit。
+        见 activation_start_from_stats 的说明。
         """
-        posix_paths = [Path(p).as_posix() for p in paths]
-
-        # 逐个 checkout 指定文件（仅更新工作区和对应路径的 index 条目）
-        for p in posix_paths:
-            git(repo, "checkout", commit, "--", p)
-        git(repo, "update-index", "--refresh", check=False)
-
-        # 如果 .kno 在恢复路径中，需要从 store 原子写回
-        if kno_rel in posix_paths:
-            _restore_kno_from_store(repo, commit, kno_src, kno_rel, name)
-
-        # 暂存恢复的文件（可选：如需纳入版本历史则取消注释下一行）
-        # for p in posix_paths:
-        #     git(repo, "add", "--", p)
-
-        # 不移动 hot 分支指针，保持 HEAD 不变
-        # 部分恢复后的混合状态不应被分支指针固化
-        log.info(f"{name}: restored {paths} from {commit[:8]} (HEAD unchanged)")
+        return activation_start_from_stats(self._coll)
 
 
 # ============================================================================
@@ -1317,7 +1281,7 @@ def normalize_archive(repo: Path, today: date) -> bool:
 # ============================================================================
 
 
-def _cleanup_safety_refs(repo: Path, keep: int = 10) -> None:
+def _cleanup_safety_refs(repo: Path, keep: int = 30) -> None:
     """清理 refs/backup/safety/ 下的安全提交 ref，只保留最近 N 个。"""
     # 使用 for-each-ref 列出 refs/backup/safety/ 下的所有 ref
     out = git_out(
@@ -1346,13 +1310,15 @@ def _make_tray_image(color, outline=(0, 0, 0, 255)):
 
 COLORS = {
     "running": (76, 175, 80, 255),
+    "active": (33, 150, 243, 255),  # 蓝色：集合已激活
     "done": (158, 158, 158, 255),
     "waiting": (255, 193, 7, 255),
     "error": (244, 67, 54, 255),
 }
 
 TITLES = {
-    "running": "SuperMemo 备份守护（备份中）",
+    "running": "SuperMemo 备份守护（处理中）",
+    "active": "SuperMemo 备份守护（集合已激活）",
     "done": "SuperMemo 备份守护（空闲）",
     "waiting": "SuperMemo 备份守护（等待激活）",
     "error": "SuperMemo 备份守护（错误）",
@@ -1374,15 +1340,16 @@ def _update_icon(holder: dict, state: str, detail: str = ""):
 
 
 # ============================================================================
-# Watcher - 托盘监控生命周期封装（watchdog 事件驱动）
+# Watcher - 托盘监控生命周期封装（轮询 .kno 锁定状态）
 # ============================================================================
 
 
 class Watcher:
-    """封装 SuperMemo 集合监控的完整生命周期（watchdog 事件驱动）。
+    """封装 SuperMemo 集合监控的完整生命周期。
 
-    使用 watchdog 监听集合目录的文件系统事件，替代原来的每秒轮询。
-    事件进来只记时间戳（防抖），静默满 QUIET_SECONDS 才触发判定。
+    使用 0.5 秒轮询 is_collection_active（.kno 是否被锁定）检测集合的
+    打开/关闭，不依赖 stats/ 目录的 watchdog 事件。激活时长用内存里的
+    _activation_tracker 记录，与 stats/time.dat 无关。
 
     使用示例：
         >>> from time_backup import Watcher, load_config
@@ -1401,7 +1368,6 @@ class Watcher:
         self._stop_event: threading.Event | None = None
         self._thread: threading.Thread | None = None
         self._holder: dict = {}
-        self._observer: Observer | None = None
         # 每个集合的最后触发时间（防抖）
         self._pending: dict[str, float] = {}
         self._pending_lock = threading.Lock()
@@ -1413,24 +1379,47 @@ class Watcher:
         """底层配置对象。"""
         return self._config
 
-    def _on_stats_change(self, coll: Collection) -> None:
-        """stats 目录有写事件时，记录时间戳（不做 IO）。
-
-        P1#4 修复: 同时记录首次 stats 活动时间作为集合激活起始时间，
-        用于后续 min_active 语义判断（短激活跳过）。
-        """
-        now = _time.time()
-        with self._pending_lock:
-            self._pending[coll.name] = now
-            # 记录首次检测到 stats 写入的时间（代表集合被打开）
-            # 使用 setdefault 确保只记录第一次，后续 stats 写入不覆盖
-            self._activation_tracker.setdefault(coll.name, now)
-
     def _debounce_checker(self) -> None:
-        """定期扫描 pending 字典，静默满 QUIET_SECONDS 的集合触发备份。"""
+        """定期轮询集合激活状态，并对 _pending 中的集合做防抖处理。
+
+        激活判定只看 .kno 是否被锁定（is_collection_active），
+        不看 stats/time.dat 是否存在。
+        """
+        # 初始化上一轮激活状态，避免启动时误报"刚被打开"
+        last_active: dict[str, bool] = {}
+        for c in self._config.collections:
+            active = is_collection_active(c)
+            last_active[c.name] = active
+            if active:
+                # 启动时集合已激活，记录 tracker 并显示 active 状态
+                with self._pending_lock:
+                    self._activation_tracker.setdefault(c.name, _time.time())
+                self._update_icon("active", c.name)
+                log.info(f"{c.name}: 启动时集合已激活")
+            else:
+                log.debug(f"{c.name}: 启动时集合未激活")
+
         while not self._stop_event.is_set():
-            _time.sleep(0.5)  # 每 0.5s 检查一次
+            _time.sleep(0.5)
             now = _time.time()
+
+            # 轮询集合激活状态，检测"刚打开"/"刚关闭"的转换
+            for c in self._config.collections:
+                active = is_collection_active(c)
+                prev = last_active.get(c.name, False)
+                if active and not prev:
+                    with self._pending_lock:
+                        self._activation_tracker.setdefault(c.name, now)
+                    self._update_icon("active", c.name)
+                    log.info(f"{c.name}: 检测到集合被打开")
+                elif not active and prev:
+                    with self._pending_lock:
+                        self._pending[c.name] = now
+                    self._update_icon("waiting")
+                    log.info(f"{c.name}: 检测到集合被关闭")
+                last_active[c.name] = active
+
+            # 防抖：静默满 QUIET_SECONDS 的集合交给 _handle_collection_state_change
             to_process: list[str] = []
             with self._pending_lock:
                 for name, last_time in list(self._pending.items()):
@@ -1438,10 +1427,8 @@ class Watcher:
                         to_process.append(name)
                 for name in to_process:
                     self._pending.pop(name, None)
-            # 处理逻辑移到锁外，避免持锁执行 IO 阻塞 watchdog 线程
-            # P2#7 修复: 在每个集合处理前刷新 now，避免长时间处理后时间戳过时
             for name in to_process:
-                current_now = _time.time()  # 每次处理前重新获取时间
+                current_now = _time.time()
                 coll = None
                 for c in self._config.collections:
                     if c.name == name:
@@ -1451,65 +1438,39 @@ class Watcher:
                     self._handle_collection_state_change(coll, current_now)
 
     def _handle_collection_state_change(self, c: Collection, now: float) -> None:
-        """处理单个集合的状态变化（激活/退出），执行备份逻辑。"""
+        """处理单个集合的状态变化（激活/退出），执行备份逻辑。
+
+        激活判定只看 .kno 是否被锁定（is_collection_active）；
+        stats/time.dat 不参与"是否处理该集合"的判断，仅作为工具函数
+        activation_start_from_stats 读取"最后写入时间"的用途保留。
+        """
         name = c.name
         active_now = is_collection_active(c)
         min_active = self._config.min_active_seconds
 
-        stats_file = Path(c.path) / "stats" / "time.dat"
-
         if active_now:
-            # 集合仍在激活中，更新托盘图标状态
-            # P2#6: 补充 tracker 记录，防止 _on_stats_change 漏事件导致 min_active 兜底失效
+            # 集合仍在激活中，记录 tracker 并显示 active 状态
             with self._pending_lock:
                 self._activation_tracker.setdefault(name, now)
-            self._update_icon("waiting")
+            self._update_icon("active", name)
             return
 
-        # 集合已退出。检查 stats 文件是否存在且不太旧
-        # （排除首次启动时检测到的旧文件，避免误备份）
-        if not stats_file.exists():
-            log.debug(f"{name}: stats 文件不存在，跳过")
-            return
-
-        # TOCTOU 保护：exists() 后文件可能被删除，stat() 需捕获异常
-        try:
-            stats_mtime = stats_file.stat().st_mtime
-        except OSError as e:
-            log.debug(f"{name}: stats 文件 stat 失败: {e}")
-            return
-        time_since_last_write = now - stats_mtime
-
-        # 如果 stats 很久没更新（超过 min_active 的 3 倍），可能是旧数据残留
-        # min_active=0 时跳过此检查（0*3=0，time_since_last_write>0 几乎恒真）
-        if min_active > 0 and time_since_last_write > min_active * 3:
-            log.info(f"{name}: stats 文件较旧（{time_since_last_write:.0f}s），跳过")
-            return
-
-        # P1#4 修复: 检查激活时长 - 集合必须激活超过 min_active 秒才触发备份
-        # （防止短激活（如误打开）也触发备份）
-        # 激活起始时间由 _on_stats_change 在首次检测到 stats 写入时记录
-        # P3: 加锁与 setdefault/pop 保持一致
+        # 集合已退出。只看 .kno 是否曾被锁定（tracker 是否有记录），不看 time.dat
         with self._pending_lock:
             activation_start = self._activation_tracker.get(name)
-        if min_active > 0 and activation_start is not None:
+        if activation_start is None:
+            log.debug(f"{name}: 未检测到激活记录，跳过")
+            return
+
+        # min_active 检查（防止短激活误备份）
+        if min_active > 0:
             active_duration = now - activation_start
             if active_duration < min_active:
                 log.info(
                     f"{name}: 激活时长仅 {active_duration:.0f}s（< {min_active}s），跳过备份"
                 )
-                # P0 v10: 清除 tracker，确保下次激活重新计时（防止两次短激活累积绕过）
-                # P2#3: 加锁与成功路径保持一致
                 with self._pending_lock:
                     self._activation_tracker.pop(name, None)
-                return
-        elif min_active > 0 and activation_start is None:
-            # 从未检测到 stats 写入（启动时已运行或 stats 目录不存在）
-            # 用 stats mtime 作为兜底近似
-            if time_since_last_write > min_active:
-                log.info(
-                    f"{name}: 未检测到激活起始，stats 距今 {time_since_last_write:.0f}s，跳过"
-                )
                 return
 
         # 等待解锁瞬间的最终写入落盘
@@ -1518,14 +1479,14 @@ class Watcher:
         # 二次确认集合已退出（防止竞态条件：可能在等待期间重新激活）
         if is_collection_active(c):
             log.info(f"{name}: 二次检查发现仍在激活，跳过")
+            self._update_icon("active", name)
             return
 
-        # P1#2: 用锁保护 pop，避免与 _on_stats_change 的 setdefault 竞态
         with self._pending_lock:
             self._activation_tracker.pop(name, None)
 
         log.info(f"{name}: 检测到退出，做冷备份")
-        # P2 修复: 拆分 backup 和 compact 错误处理，避免 compact 失败时显示"备份失败"
+        # 拆分 backup 和 compact 错误处理，避免 compact 失败时显示"备份失败"
         try:
             CollectionRepo(c).backup("shutdown", require_inactive=True)
         except Exception as e:
@@ -1542,8 +1503,8 @@ class Watcher:
 
     def _update_icon(self, state: str, detail: str = "") -> None:
         """更新托盘图标。"""
-        # P2: 比较 (state, detail) 元组而非仅 state，避免 detail 丢失
-        # P3: icon 未设置时不写 _last_icon_key，防止首次真实更新被跳过
+        # 比较 (state, detail) 元组而非仅 state，避免 detail 丢失
+        # icon 未设置时不写 _last_icon_key，防止首次真实更新被跳过
         if self._holder.get("icon") is None:
             return
         key = (state, detail)
@@ -1551,45 +1512,6 @@ class Watcher:
             return
         self._holder["_last_icon_key"] = key
         _update_icon(self._holder, state, detail)
-
-    def _on_backup(self, icon, item) -> None:
-        """托盘菜单：立即备份所有集合（后台执行，不阻塞托盘）。"""
-
-        # 在后台线程执行耗时操作，避免阻塞 pystray 回调线程
-        def _do_backup():
-            self._update_icon("running", "备份中")
-            skipped = []
-            failed = []
-            for c in self._config.collections:
-                try:
-                    CollectionRepo(c).backup("tray", require_inactive=True)
-                except GitError as e:
-                    failed.append(c.name)
-                    log.error(f"{c.name}: git error: {e}")
-                except RuntimeError as e:
-                    skipped.append(c.name)
-                    log.warning(str(e))
-                except Exception as e:
-                    failed.append(c.name)
-                    log.error(f"{c.name}: {e}")
-            parts = []
-            if skipped:
-                parts.append(f"跳过激活集合: {', '.join(skipped)}")
-            if failed:
-                parts.append(f"失败: {', '.join(failed)}")
-            msg = "; ".join(parts) if parts else "备份完成"
-            try:
-                icon.notify(msg, "time")
-            except Exception:
-                pass
-            if failed:
-                self._update_icon("error", f"备份失败: {', '.join(failed)}")
-            elif skipped:
-                self._update_icon("done", "部分集合在激活，已跳过")
-            else:
-                self._update_icon("done", "备份完成")
-
-        threading.Thread(target=_do_backup, daemon=True).start()
 
     def _on_compact(self, icon, item) -> None:
         """托盘菜单：压缩历史（后台执行，不阻塞托盘）。
@@ -1600,7 +1522,6 @@ class Watcher:
         """
 
         # 在后台线程执行耗时操作，避免阻塞 pystray 回调线程
-        # 同时避免 dry_run + compact 两次读取 archive history（P2 #11）
         def _do_compact():
             self._update_icon("running", "压缩中")
             failed = []
@@ -1610,8 +1531,7 @@ class Watcher:
                     # 先 dry_run 预览
                     plan = repo.compact(dry_run=True)
                     log.info(f"{c.name}: compact plan -> {plan.message}")
-                    # P0#1 修复: 同时检查 deleted_refs（天折叠），
-                    # 否则纯天折叠日永远不会执行
+                    # 同时检查 deleted_refs（天折叠），否则纯天折叠日永远不会执行
                     if plan.coarse_fold or plan.deleted_refs:
                         result = repo.compact()
                         log.info(f"{c.name}: compacted -> {result.message}")
@@ -1663,13 +1583,12 @@ class Watcher:
         """启动托盘监控（阻塞直到用户退出）。
 
         在托盘图标中提供以下菜单项：
-          - 立即备份：触发所有集合的冷备份
           - 压缩历史：预览并执行所有集合的历史压缩（托盘点击即视为确认）
           - 打开配置目录：在文件管理器中打开配置文件夹
           - 打开日志：在默认编辑器中打开日志文件
           - 退出：停止监控并退出
         """
-        # P3#3 修复: 防止重复 start() 启动多个 debounce 线程
+        # 防止重复 start() 启动多个 debounce 线程
         if self._thread is not None and self._thread.is_alive():
             log.warning("Watcher 已在运行，忽略重复 start()")
             return
@@ -1681,12 +1600,8 @@ class Watcher:
         self._stop_event = threading.Event()
         self._holder = {}
 
-        # 启动 watchdog 监听 + 防抖检查器
-        self._start_watchdog()
-
         # 构建托盘菜单
         menu = pystray.Menu(
-            pystray.MenuItem("立即备份", self._on_backup),
             pystray.MenuItem("压缩历史", self._on_compact),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("打开配置目录", self._on_open_dir),
@@ -1713,106 +1628,14 @@ class Watcher:
             if self._thread is not None:
                 self._thread.join(timeout=10)
 
-    def _start_watchdog(self) -> None:
-        """启动 watchdog 目录监听器。"""
-        self._observer = Observer()
-        handler = _StatsHandler(self)
-        for c in self._config.collections:
-            coll_dir = Path(c.path)
-            if coll_dir.exists():
-                self._observer.schedule(handler, str(coll_dir), recursive=True)
-                log.info(f"watchdog: watching {coll_dir}")
-            else:
-                log.warning(f"watchdog: directory not found: {coll_dir}")
-        self._observer.start()
-        log.info("watchdog: observer started")
-        # P2#4/P3: 启动时已运行的集合，用启动时间近似激活起始（加锁保护）
-        with self._pending_lock:
-            for c in self._config.collections:
-                if is_collection_active(c):
-                    self._activation_tracker.setdefault(c.name, _time.time())
-                    log.info(f"watchdog: pre-active collection {c.name}, tracker set")
-
     def stop(self) -> None:
         """停止监控。"""
         if self._stop_event is not None:
             self._stop_event.set()
-        if self._observer is not None:
-            try:
-                self._observer.stop()
-                self._observer.join(timeout=5)
-            except Exception:
-                pass
-        # P2#5: 清空 pending 和 tracker，防止重启 Watcher 时残留
+        # 清空 pending 和 tracker，防止重启 Watcher 时残留
         with self._pending_lock:
             self._pending.clear()
             self._activation_tracker.clear()
-
-
-class _StatsHandler(FileSystemEventHandler):
-    """watchdog 事件处理器：只关心 stats/ 目录下的文件变更。"""
-
-    def __init__(self, watcher: Watcher) -> None:
-        self._watcher = watcher
-
-    def _get_coll_name(self, event: object) -> str | None:
-        """从事件路径反推集合名（同时检查 src_path 和 dest_path，覆盖 moved-into-stats 场景）。"""
-        try:
-            # P0#2 修复: 同时检查 src_path 和 dest_path
-            # 文件从外部移动进 stats/ 时，src_path 不在 stats 下，只有 dest_path 在
-            for attr in ("src_path", "dest_path"):
-                raw = getattr(event, attr, None)
-                if not raw:
-                    continue
-                p = Path(raw)
-                # 找 stats 目录的父目录即集合目录
-                for parent in p.parents:
-                    if parent.name == "stats":
-                        return (
-                            parent.parent.name
-                        )  # stats 目录的父目录（集合目录）的名字
-            return None
-        except Exception:
-            return None
-
-    def on_any_event(self, event) -> None:
-        """所有文件系统事件统一处理。"""
-        # 忽略目录事件和 opened 事件（Linux inotify 下读取文件会触发 opened）
-        if event.is_directory:
-            return
-        # 过滤 opened 事件，避免无谓唤醒 debounce 线程
-        if getattr(event, "event_type", "") == "opened":
-            return
-        src = getattr(event, "src_path", "") or ""
-        dest = getattr(event, "dest_path", "") or ""
-        # 用 Path.parts 精确匹配目录名，避免路径中含 "stats" 子串误匹配
-        # 同时检查 src_path 和 dest_path（文件移动进 stats/ 时 src 不在 stats 下）
-        src_in_stats = src and "stats" in Path(src).parts
-        dest_in_stats = dest and "stats" in Path(dest).parts
-        if not src_in_stats and not dest_in_stats:
-            return
-        # P2#5 修复: 同时检查 src 和 dest 的 .tmp 扩展名
-        # 文件从 foo.tmp 移动到 stats/foo.dat 时 src 是 .tmp 应跳过；
-        # 从 foo.dat 移动到 stats/foo.tmp 时 dest 是 .tmp 也应跳过
-        if src.endswith((".tmp", ".TMP")) or dest.endswith((".tmp", ".TMP")):
-            return
-
-        name = self._get_coll_name(event)
-        if name is None:
-            return
-
-        # 找到对应的 Collection
-        config = self._watcher.config
-
-        coll = None
-        for c in config.collections:
-            if c.name == name:
-                coll = c
-                break
-        if coll is None:
-            return
-
-        self._watcher._on_stats_change(coll)
 
 
 # ============================================================================
@@ -1960,7 +1783,6 @@ class SuperMemoBackup:
         self,
         name: str,
         target: str,
-        paths: list[str] | None = None,
         safety: bool = True,
     ) -> RestoreResult:
         """冷恢复指定集合（集合必须已关闭）。
@@ -1968,13 +1790,12 @@ class SuperMemoBackup:
         Args:
             name: 集合名称
             target: 恢复目标（分支名/tag/commit hash）
-            paths: 可选。指定恢复的文件路径列表。None 表示全量恢复。
             safety: 是否在恢复前创建安全快照（默认 True）
 
         Returns:
             RestoreResult 对象
         """
-        return self.collection(name).restore(target, paths, safety)
+        return self.collection(name).restore(target, safety)
 
     def compact(
         self, name: str | None = None, today: date | None = None, dry_run: bool = False
@@ -2092,7 +1913,6 @@ if __name__ == "__main__":
     #   "restore"   冷恢复指定集合
     #   "watch"     启动托盘监控（阻塞，放最后测）
     RESTORE_TARGET = "archive"  # 分支/tag/commit
-    RESTORE_PATHS = None  # None=全量；["Reading-And-Review.kno"]=只恢复 .kno
     setup_logging(verbose=True)
 
     # 使用 SuperMemoBackup 类（推荐方式）
@@ -2125,8 +1945,8 @@ if __name__ == "__main__":
     elif MODE == "restore":
         # 恢复第一个集合
         coll = sm.config.collections[0]
-        log.info(f"restore: {coll.name} <- {RESTORE_TARGET} paths={RESTORE_PATHS}")
-        result = sm.restore(coll.name, RESTORE_TARGET, paths=RESTORE_PATHS)
+        log.info(f"restore: {coll.name} <- {RESTORE_TARGET}")
+        result = sm.restore(coll.name, RESTORE_TARGET)
         log.info(
             f"restore result: safety_ref={result.safety_ref}, restored={result.restored}"
         )

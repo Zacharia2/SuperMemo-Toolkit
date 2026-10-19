@@ -687,6 +687,150 @@ def imgfit(tracing, ignore, max_width):
         force_reload.detach()
 
 
+# ---------------------------------------------------------------------------
+# time: SuperMemo 集合冷备份（集成 time_backup 模块）
+# ---------------------------------------------------------------------------
+
+
+@click.group(name="time")
+def time_cmd():
+    """SuperMemo 集合冷备份工具（time_backup）"""
+
+
+main.add_command(time_cmd)
+
+
+def _load_time_backup():
+    """延迟导入 time_backup，避免 smtk 启动时因可选依赖（pystray/watchdog/Pillow）失败。"""
+    try:
+        from supermemo_toolkit.time_rewind.time_rewind import (
+            GitError,
+            SuperMemoBackup,
+            setup_logging,
+        )
+    except ImportError as e:
+        raise click.ClickException(
+            f"无法导入 time_backup 模块：{e}\n"
+            "请确认 time_backup.py 位于 PYTHONPATH 中，并已安装 pystray、watchdog、Pillow。"
+        )
+    return SuperMemoBackup, GitError, setup_logging
+
+
+def _make_backup_manager():
+    """创建 SuperMemoBackup 实例，并把配置错误转成 ClickException。"""
+    SuperMemoBackup, GitError, setup_logging = _load_time_backup()
+    setup_logging()
+    try:
+        sm = SuperMemoBackup.from_config()
+    except SystemExit as e:
+        raise click.ClickException(str(e))
+    return sm, GitError
+
+
+@time_cmd.command(name="backup")
+@click.option("--collection", "-c", default=None, help="集合名，默认全部集合")
+@click.option(
+    "--trigger",
+    default="manual",
+    show_default=True,
+    help="触发来源：manual/tray/shutdown/debug",
+)
+@click.option(
+    "--allow-active",
+    is_flag=True,
+    help="允许激活中的集合也备份（默认拒绝，冷备份要求集合已关闭）",
+)
+def time_backup(collection, trigger, allow_active):
+    """冷备份集合（集合必须已关闭，除非 --allow-active）"""
+    sm, GitError = _make_backup_manager()
+    require_inactive = not allow_active
+    names = [collection] if collection else [c.name for c in sm.config.collections]
+    if not names:
+        raise click.ClickException(
+            "没有发现任何集合，请检查 smtk config 的 program / knos 设置。"
+        )
+    failed = 0
+    for name in names:
+        try:
+            r = sm.collection(name).backup(trigger, require_inactive)
+        except KeyError:
+            click.echo(f"{name}: 集合不存在", err=True)
+            failed += 1
+            continue
+        except GitError as e:
+            click.echo(f"{name}: git 错误: {e}", err=True)
+            failed += 1
+            continue
+        except RuntimeError as e:
+            click.echo(f"{name}: 跳过（{e}）", err=True)
+            continue
+        if r.skipped:
+            click.echo(f"{name}: 无变更，跳过")
+        else:
+            click.echo(f"{name}: {r.commit[:8]} -> {r.branch} (locked={r.locked})")
+    if failed:
+        raise click.ClickException(f"{failed} 个集合备份失败")
+
+
+@time_cmd.command(name="restore")
+@click.argument("collection")
+@click.argument("target")
+@click.option("--no-safety", is_flag=True, help="跳过恢复前安全快照")
+def time_restore(collection, target, no_safety):
+    """冷恢复集合到指定分支 / tag / commit"""
+    sm, GitError = _make_backup_manager()
+    try:
+        r = sm.restore(collection, target, not no_safety)
+    except KeyError:
+        raise click.ClickException(f"集合不存在: {collection}")
+    except (GitError, RuntimeError) as e:
+        raise click.ClickException(str(e))
+    click.echo(f"已恢复 {collection} -> {r.target}")
+    if r.safety_ref:
+        click.echo(f"安全快照: {r.safety_ref}")
+
+
+@time_cmd.command(name="compact")
+@click.option("--collection", "-c", default=None, help="集合名，默认全部")
+@click.option("--dry-run", is_flag=True, help="只预览折叠计划，不实际执行")
+def time_compact(collection, dry_run):
+    """压缩历史：天折叠 + 月/季/年粗粒度折叠 + gc"""
+    sm, GitError = _make_backup_manager()
+    names = [collection] if collection else [c.name for c in sm.config.collections]
+    if not names:
+        raise click.ClickException("没有发现任何集合。")
+    for name in names:
+        try:
+            r = sm.collection(name).compact(dry_run=dry_run)
+        except KeyError:
+            click.echo(f"{name}: 集合不存在", err=True)
+            continue
+        except GitError as e:
+            click.echo(f"{name}: git 错误: {e}", err=True)
+            continue
+        prefix = "[dry-run] " if dry_run else ""
+        click.echo(f"{prefix}{name}: {r.message}")
+
+
+@time_cmd.command(name="list")
+@click.argument("collection", required=False)
+def time_list(collection):
+    """列出集合的快照（分支 / tag / 安全 ref）"""
+    sm, _ = _make_backup_manager()
+    if collection:
+        sm.list_snapshots(collection)
+        return
+    for c in sm.config.collections:
+        sm.list_snapshots(c.name)
+
+
+@time_cmd.command(name="watch")
+def time_watch():
+    """启动托盘监控（阻塞，watchdog 事件驱动）"""
+    sm, _ = _make_backup_manager()
+    sm.watch()
+
+
 class Shell(cmd.Cmd):
     prompt = ">"
 
