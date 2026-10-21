@@ -145,14 +145,14 @@ class Collection:
         return f"{self.dir_name()}.kno"
 
     def smtk_lock_path(self) -> Path:
-        """写锁路径：仓库父目录下的 .<name>.smtk.lock。"""
+        """写锁路径：仓库目录下的 .<name>.smtk.lock。"""
         p = Path(self.path)
-        return p.parent / f".{p.name}.smtk.lock"
+        return p / f".{p.name}.smtk.lock"
 
     def init_lock_path(self) -> Path:
-        """init 锁路径：仓库父目录下的 .<name>.init.lock。"""
+        """init 锁路径：仓库目录下的 .<name>.init.lock。"""
         p = Path(self.path)
-        return p.parent / f".{p.name}.init.lock"
+        return p / f".{p.name}.init.lock"
 
 
 @dataclass(frozen=True)
@@ -288,9 +288,15 @@ class FileLock:
         self._lock_path.parent.mkdir(parents=True, exist_ok=True)
         fd = open(self._lock_path, "a+b")  # noqa: SIM115
         try:
+            if sys.platform == "win32":
+                fd.seek(0, os.SEEK_END)
+                if fd.tell() == 0:
+                    fd.write(b"\0")
+                    fd.flush()
+
             while True:
+                fd.seek(0)
                 try:
-                    fd.seek(0)
                     if sys.platform == "win32":
                         import msvcrt
 
@@ -299,8 +305,6 @@ class FileLock:
                         import fcntl
 
                         fcntl.flock(fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    self._fd = fd
-                    return
                 except OSError:
                     if _time.time() >= deadline:
                         raise TimeoutError(
@@ -308,6 +312,9 @@ class FileLock:
                             f"可能有其他进程正在操作同一仓库"
                         )
                     _time.sleep(0.5)
+                else:
+                    self._fd = fd
+                    return
         except Exception:
             try:
                 fd.close()
@@ -633,6 +640,7 @@ def _ensure_gitignore(repo: Path) -> None:
         "*.uninit-tmp",
         "*.kno.tmp",
         "*.smtk-tmp",
+        "*.lock",
     ]
     gi = repo / ".gitignore"
     if not gi.exists():
@@ -800,8 +808,9 @@ class CollectionRepo:
                     git(repo, "add", "-A")
                     tree = git_out(repo, "write-tree")
 
-                    # 13. parent 选择（三行）
-                    if ref_exists(repo, HOT_REF):
+                    # 13. parent 选择（三行），同时记录 backup 前 HOT_REF 是否存在
+                    had_hot = ref_exists(repo, HOT_REF)
+                    if had_hot:
                         parent = rev_parse_commit(repo, HOT_REF)
                     elif ref_exists(repo, ARCHIVE_REF):
                         parent = rev_parse_commit(repo, ARCHIVE_REF)
@@ -813,7 +822,7 @@ class CollectionRepo:
                         parent is not None
                         and rev_parse(repo, f"{parent}^{{tree}}") == tree
                     ):
-                        created = not ref_exists(repo, HOT_REF)
+                        created = not had_hot
                         if created:
                             git(repo, "update-ref", HOT_REF, parent)
                         try:
@@ -828,12 +837,20 @@ class CollectionRepo:
                     msg = f"hot: {datetime.now().isoformat(timespec='seconds')} [{trigger}]"
                     commit = commit_tree(repo, tree, parent, msg)
 
-                    # 17. 更新 hot 引用，symbolic-ref 失败时回滚
+                    # 17. 更新 hot 引用，symbolic-ref 失败时回滚到 backup 前的状态
                     git(repo, "update-ref", HOT_REF, commit)
                     try:
                         git(repo, "symbolic-ref", "HEAD", HOT_REF)
                     except GitError:
-                        git(repo, "update-ref", "-d", HOT_REF, check=False)
+                        # 修复：had_hot 为 True 时恢复旧 hot tip（parent），
+                        # 不删除 HOT_REF。删除会把 backup 前的整个 hot 链
+                        # 变成 dangling，下次 backup 可能 fallback 到 archive
+                        # 重新起链，导致 hot 分叉、用户看到历史"消失"。
+                        # had_hot 为 False 时本次刚创建 HOT_REF，删除即回滚。
+                        if had_hot and parent is not None:
+                            git(repo, "update-ref", HOT_REF, parent, check=False)
+                        else:
+                            git(repo, "update-ref", "-d", HOT_REF, check=False)
                         raise
 
                     log.info(f"{self.name}: backup {commit[:8]} (trigger={trigger})")
@@ -893,15 +910,27 @@ class CollectionRepo:
                         f"{self.name}: hot tip {hot_tip[:8]} 中无 {kno_rel}，拒绝折叠（集合数据不完整）"
                     )
 
+                # 修复：hot 已指向 archive tip（上次 compact 后无新 backup），
+                # 此时既没有新内容可折叠，也没有旧 commit 会变 dangling，
+                # 直接返回 nothing to fold，不再落入 empty tree 分支误报 folded=True。
+                if archive_tip is not None and hot_tip == archive_tip:
+                    log.info(f"{self.name}: hot == archive tip，无需折叠")
+                    return CompactResult(folded=False, message="nothing to fold")
+
                 tree = rev_parse(repo, f"{hot_tip}^{{tree}}")
 
                 # 空 tree：不创建空 snapshot，hot 重置到 archive tip
+                # （此时 hot_tip != archive_tip，即 hot 链上确实有
+                #  tree 与 archive 相同的冗余 commit，折叠是真实操作）
                 if (
                     archive_tip is not None
                     and rev_parse(repo, f"{archive_tip}^{{tree}}") == tree
                 ):
-                    git(repo, "update-ref", HOT_REF, archive_tip)
+                    # 修复：先 symbolic-ref 再 update-ref，symbolic-ref 失败时
+                    # refs 未动，干净退出；update-ref 失败时 HEAD 已指向 hot
+                    # （hot 仍是旧值，良性），异常同样干净抛出。
                     git(repo, "symbolic-ref", "HEAD", HOT_REF)
+                    git(repo, "update-ref", HOT_REF, archive_tip)
                     log.info(
                         f"{self.name}: compacted {hot_tip[:8]} -> {archive_tip[:8]} "
                         f"(empty tree, 旧 hot tip 变 dangling)"
@@ -913,6 +942,13 @@ class CollectionRepo:
                 # 创建 snapshot commit
                 msg = f"snapshot: {datetime.now().isoformat(timespec='seconds')}"
                 new = commit_tree(repo, tree, archive_tip, msg)
+
+                # 修复：先 symbolic-ref 再 update-ref。
+                # 原顺序（先 update-ref 后 symbolic-ref）在 symbolic-ref 失败时
+                # archive/hot 已折叠但 HEAD 未指向 hot，调用方收到"失败"实际
+                # 已成功，日志里 dangling 提示也没打出来。交换后两行都满足
+                # "失败即 refs 未动或只动 benign 的 HEAD"。
+                git(repo, "symbolic-ref", "HEAD", HOT_REF)
 
                 # 原子更新 archive 和 hot（不变式 I12）
                 # 必须传 bytes：subprocess 在 Windows 文本模式下会把 \n 转成 \r\n，
@@ -926,8 +962,6 @@ class CollectionRepo:
                         f"update {ARCHIVE_REF} {new}\nupdate {HOT_REF} {new}\n"
                     ).encode("utf-8"),
                 )
-
-                git(repo, "symbolic-ref", "HEAD", HOT_REF)
 
                 log.info(
                     f"{self.name}: compacted {hot_tip[:8]} -> {new[:8]} "
@@ -1236,6 +1270,9 @@ class Watcher:
         self._inflight = 0
         self._ops_lock = threading.Lock()
         self._idle_event = threading.Event()
+        # 修复：未 start 时没有 inflight 操作，stop() 不应等 300 秒。
+        # Event() 初始为 unset，wait() 会一直阻塞到超时。
+        self._idle_event.set()
 
     @property
     def config(self) -> BackupConfig:
@@ -1269,14 +1306,44 @@ class Watcher:
             log.info(f"{c.name}: backup {r.commit[:8]}")
             self._update_icon("done", f"{c.name} 已备份")
 
+    def _is_active_safe(self, c: Collection, err_state: dict[str, bool]) -> bool | None:
+        """探测集合是否激活。
+
+        返回 True/False 为确定状态；返回 None 表示探测失败，状态未知，
+        调用方必须跳过本轮状态转换判定并保留原 was_active。
+
+        同一集合连续失败只记录一次 error 日志和图标，恢复时记一条 info，
+        避免每 0.5 秒刷爆 time.log。
+        """
+        try:
+            result = c.kno_path().is_file() and is_kno_locked(c.kno_path())
+        except Exception as e:
+            if not err_state.get(c.name):
+                err_state[c.name] = True
+                log.error(f"{c.name}: 探测激活状态失败: {e}")
+                self._update_icon("error", f"{c.name} 状态探测失败")
+            return None
+        if err_state.pop(c.name, False):
+            log.info(f"{c.name}: 激活状态探测已恢复")
+        return result
+
     def _poll_loop(self) -> None:
-        """定期轮询集合激活状态，检测打开/关闭转换。"""
-        was_active: dict[str, bool] = {
-            c.name: c.kno_path().is_file() and is_kno_locked(c.kno_path())
-            for c in self._config.collections
-        }
+        """定期轮询集合激活状态，检测打开/关闭转换。
+
+        单集合探测失败只影响该集合本轮判定（状态未知则跳过、保留原状态），
+        不会终止轮询线程，其他集合的监控和自动备份不受影响。
+        """
+        err_state: dict[str, bool] = {}
+        was_active: dict[str, bool] = {}
+
+        # 初始化逐集合 try：任一集合探测失败不阻塞其余集合，
+        # 也不会因初始化 comprehensions 抛异常导致线程启动即死。
         for c in self._config.collections:
-            if was_active[c.name]:
+            active = self._is_active_safe(c, err_state)
+            if active is None:
+                continue
+            was_active[c.name] = active
+            if active:
                 self._update_icon("active", c.name)
 
         pending_close: dict[str, float] = {}
@@ -1286,7 +1353,10 @@ class Watcher:
             now = _time.time()
 
             for c in self._config.collections:
-                active = c.kno_path().is_file() and is_kno_locked(c.kno_path())
+                active = self._is_active_safe(c, err_state)
+                if active is None:
+                    # 状态未知：不改 was_active，不触发打开/关闭事件
+                    continue
                 prev = was_active.get(c.name, False)
                 if active and not prev:
                     self._update_icon("active", c.name)
@@ -1304,7 +1374,12 @@ class Watcher:
                 c = next((x for x in self._config.collections if x.name == name), None)
                 if c is None:
                     continue
-                if c.kno_path().is_file() and is_kno_locked(c.kno_path()):
+                active = self._is_active_safe(c, err_state)
+                if active is None:
+                    # 探测失败：放弃本次关闭备份，was_active 仍为 True，
+                    # 恢复探测后下一轮会重新检测到关闭转换并备份。
+                    continue
+                if active:
                     self._update_icon("active", name)
                     continue
                 self._track(lambda c=c: self._backup_only(c))
@@ -1367,9 +1442,34 @@ class Watcher:
             log.error(f"open log: {e}")
 
     def _on_quit(self, icon, item) -> None:
-        """托盘菜单：退出。"""
-        self.stop()
-        icon.stop()
+        """托盘菜单：退出。
+
+        不在 pystray 回调线程里同步等待 inflight 备份，避免托盘假死：
+        回调只更新图标、给出提示、启动后台停止线程后立即返回。
+        真正的等待发生在 start() 的 finally（icon.run() 返回后），
+        由主线程完成，保证不中断正在执行的 git 子进程。
+        """
+        self._update_icon("running", "正在退出…")
+        try:
+            icon.notify("正在完成当前备份后退出…", "time")
+        except Exception:
+            pass
+        threading.Thread(target=self._shutdown, args=(icon,), daemon=True).start()
+
+    def _shutdown(self, icon) -> None:
+        """后台执行 stop + icon.stop，让 icon.run() 返回。
+
+        stop() 内部仍按 300s 等 inflight 归零；start() 的 finally 会再调一次
+        stop()（幂等）并 join 轮询线程，两处等待共享同一个 _idle_event，
+        等价于只等一次，不会叠加 600s。
+        """
+        try:
+            self.stop()
+        finally:
+            try:
+                icon.stop()
+            except Exception as e:
+                log.debug(f"icon.stop: {e}")
 
     def start(self) -> None:
         """启动托盘监控（阻塞直到用户退出）。"""
@@ -1417,9 +1517,14 @@ class Watcher:
         """停止监控。
 
         等待 inflight 操作归零（最多 300 秒），避免在 Git 操作中途退出。
+        从未 start() 时直接返回，不阻塞。
         """
-        if self._stop_event is not None:
-            self._stop_event.set()
+        # 修复：_stop_event 为 None 说明从未 start()，无事可停。
+        # 此时 _idle_event 已在 __init__ 中 set，wait() 会立即返回，
+        # 但显式早退更清晰，也防御 _idle_event 意外被 clear 的情况。
+        if self._stop_event is None:
+            return
+        self._stop_event.set()
         if not self._idle_event.wait(timeout=300):
             log.warning("stop: 等待 inflight 超时，可能有 git 操作未完成")
 
