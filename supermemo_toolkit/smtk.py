@@ -1052,6 +1052,9 @@ def is_launched_from_gui():
     if os.name != "nt":
         return False
 
+    # 有命令行参数 → 命令行调用，不是 GUI 双击
+    if len(sys.argv) > 1:
+        return False
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     # 创建一个长度为1的数组，API会返回实际连接的总进程数
     process_array = (ctypes.c_uint * 1)()

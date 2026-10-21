@@ -11,6 +11,14 @@ class WinGUI(Tk):
         self.tk_button_miileno7 = self.__tk_button_miileno7(self)
         self.tk_button_mipjikfh = self.__tk_button_mipjikfh(self)
 
+        # 【修复】先保持不透明，等窗口完全加载后，延迟 100ms 再应用透明度。
+        # 防止与其他 Tkinter 窗口（如 Launcher）发生启动渲染冲突。
+        self.attributes("-alpha", 1.0)
+        self.after(100, self._apply_alpha)
+
+    def _apply_alpha(self):
+        self.attributes("-alpha", 0.6)
+
     def __win(self):
         self.title("AutoTTS")
         # 设置窗口大小、居中
@@ -31,7 +39,6 @@ class WinGUI(Tk):
         self.overrideredirect(True)
         # self.attributes("-toolwindow", True)
         self.attributes("-topmost", True)
-        self.attributes("-alpha", 0.6)
         self.resizable(False, False)
 
         def on_drag_start(event):
@@ -143,4 +150,7 @@ class WinGUI(Tk):
         return btn
 
     def update_lable_text(self, mtext):
-        self.tk_label_miik3tat.config(text=mtext)
+        # 【修复】增加文本比对拦截：如果传进来的文字和当前显示一样，直接跳过，
+        # 极大地减少系统重绘次数，防止窗口暗闪。
+        if self.tk_label_miik3tat.cget("text") != mtext:
+            self.tk_label_miik3tat.config(text=mtext)
