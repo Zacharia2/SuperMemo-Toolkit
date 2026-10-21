@@ -37,16 +37,20 @@ __version__ = "0.2.7"
 
 @click.group(
     no_args_is_help=True,
-    help=f"SuperMemo 增强工具(CLI命令行)。 Ver:{__version__}\n\n包含图链整理、EPUB图书转换、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS卡片朗读、SplitLine快捷分割当前元素、imgfit调整当前元素图片大小、time时间梯度备份(实验期)等。",
+    help=f"SuperMemo 增强工具(CLI命令行)。 Ver:{__version__}\n包含集合管理、内容处理、复习导出、公式渲染、冷备份等模块。",
 )
 @click.version_option(version=__version__)
 def main():
     pass
 
 
+# ==========================================
+# config
+# ==========================================
 @click.group()
 def config():
-    """设置 smtk 配置文件"""
+    """管理 smtk 配置文件"""
+    pass
 
 
 main.add_command(config)
@@ -56,7 +60,7 @@ main.add_command(config)
 @click.argument("key")
 @click.argument("value")
 def config_set(key: str, value: str):
-    """设置配置文件, 例如: Key Value"""
+    """设置配置文件 (例如: smtk config set program D:/SuperMemo)"""
     conf_dict = smtk_config.read_config(smtk_config_file_path)
     conf_list = [
         smtk_config.PROGRAM,
@@ -78,7 +82,7 @@ def config_set(key: str, value: str):
 @config.command(name="unset")
 @click.argument("key")
 def config_unset(key: str):
-    """取消某个配置"""
+    """取消某个配置项"""
     conf_dict = smtk_config.read_config(smtk_config_file_path)
     if key in conf_dict:
         del conf_dict[key]
@@ -106,7 +110,7 @@ async def _print_voices() -> None:
 @click.option("--voices", is_flag=True, help="打印所有可用语音模型")
 @click.option("--recommend", is_flag=True, help="打印推荐可用语音模型")
 def config_list(voices, recommend):
-    """列出当前所有配置"""
+    """列出当前所有配置项"""
     if recommend:
         headers = ["Name", "Gender", "ContentCategories", "VoicePersonalities"]
         table_data = [
@@ -130,9 +134,13 @@ def config_list(voices, recommend):
         return
 
 
+# ==========================================
+# kno
+# ==========================================
 @click.group()
 def kno():
     """管理 SuperMemo KNO 知识集合"""
+    pass
 
 
 main.add_command(kno)
@@ -140,7 +148,7 @@ main.add_command(kno)
 
 @kno.command(name="list")
 def kno_list():
-    """列出所有集合"""
+    """列出所有系统集合与离散集合"""
     if sm_location == "null":
         click.secho("Please set program location! config::program is null!", fg="red")
         return
@@ -162,7 +170,7 @@ def kno_list():
 @kno.command(name="add")
 @click.argument("kno_path")
 def kno_add(kno_path):
-    """添加集合"""
+    """添加离散集合"""
     conf_dict = smtk_config.read_config(smtk_config_file_path)
     if not os.path.basename(kno_path).lower().endswith(".kno"):
         click.echo("无效的集合文件路径，请提供有效的集合路径：'path/file.kno'。")
@@ -197,7 +205,7 @@ def kno_add(kno_path):
 @kno.command(name="remove")
 @click.argument("kno_name")
 def kno_remove(kno_name):
-    """删除集合"""
+    """移除离散集合"""
     conf_dict = smtk_config.read_config(smtk_config_file_path)
     if smtk_config.KNOS in conf_dict and any(
         kno_name in x for x in conf_dict[smtk_config.KNOS]
@@ -239,20 +247,23 @@ def get_elements_path(col_name: str, kno=False):
     return os.path.normpath(elements_path)
 
 
+# ==========================================
+# e2sm
+# ==========================================
 @main.command()
 @click.argument("epub_path")
 @click.argument("target_folder")
 @click.option("--toc", is_flag=True, help="根据目录结构转换")
 @click.option("--seq", is_flag=True, help="根据线性阅读顺序转换")
-@click.option("--topic", is_flag=True, help="转换为一篇Topic文章")
-@click.option("--limit", type=int, help="topic分片长度")
-@click.option("--prep", is_flag=True, help="预处理epub，转换为纯ASCII字符集（可选）")
+@click.option("--topic", is_flag=True, help="转换为一篇 Topic 文章")
+@click.option("--limit", type=int, help="Topic 分片长度限制")
+@click.option("--prep", is_flag=True, help="预处理 epub，转换为纯 ASCII 字符集")
 @click.option(
-    "--kno-name", type=str, default=None, help="将转换好后的图片文件夹放到目标KNO集合中"
+    "--kno-name", type=str, default=None, help="将转换后的图片放入目标 KNO 集合"
 )
-@click.option("--kno", is_flag=True, help="离散的 KNO 集合 (非系统集合)")
+@click.option("--kno", is_flag=True, help="目标为离散 KNO 集合 (非系统集合)")
 def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep, kno_name, kno):
-    """转换 EPUB 格式图书为 XML 格式图书、预处理 EPUB 为纯 ASCII 字符集"""
+    """转换 EPUB 格式图书或预处理为纯 ASCII"""
     if toc:
         if kno_name:
             epub_convert.start_with_toc(
@@ -314,7 +325,10 @@ def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep, kno_name, kno):
         return
 
 
-@main.command()
+# ==========================================
+# pathpix
+# ==========================================
+@main.group(invoke_without_command=True)
 @click.argument("col_name", required=False)
 @click.option("--clean", is_flag=True, help="清理集合中未使用图片")
 @click.option(
@@ -325,61 +339,156 @@ def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep, kno_name, kno):
     help="整理单个HTML文件(component menu(Alt+F12) >> FIle >> Copy path)",
 )
 @click.option("--gui", is_flag=True, help="运行图形窗口")
-@click.option("--least-col", is_flag=True, help="整理最后使用的集合 (最后关闭的集合) ")
-@click.option("--kno", is_flag=True, help="离散的 KNO 集合 (非系统集合)")
-def pathpix(col_name, clean, fullpath, least_col, gui, kno):
+@click.option("--least-col", is_flag=True, help="整理最后使用的集合 (最后关闭的集合)")
+@click.option("--kno", is_flag=True, help="离散 KNO 集合 (非系统集合)")
+@click.pass_context
+def pathpix(ctx, col_name, clean, fullpath, least_col, gui, kno):
     """整理集合图片: 本地图片->相对路径化、网络图片->本地化"""
-    if sm_location == "null":
-        click.secho("Please set program location! config::program is null!", fg="red")
-        return
-    click.secho("smtk is working on: " + sm_location, fg="green")
-    if least_col:
-        sm_system1 = smtk_config.read_sm_system1(sm_location)
-        least_used_col = smtk_config.get_collection_primaryStorage(
-            sm_location, sm_system1
-        )
-        im_sort_out.start(least_used_col)
-        return
-    elif col_name:
-        elements_path = get_elements_path(col_name, kno)
-        if clean:
-            im_sort_out.organize_unused_im(elements_path)
+    if ctx.invoked_subcommand is None:
+        if sm_location == "null":
+            click.secho(
+                "Please set program location! config::program is null!", fg="red"
+            )
+            return
+        click.secho("smtk is working on: " + sm_location, fg="green")
+        if least_col:
+            sm_system1 = smtk_config.read_sm_system1(sm_location)
+            least_used_col = smtk_config.get_collection_primaryStorage(
+                sm_location, sm_system1
+            )
+            im_sort_out.start(least_used_col)
+            return
+        elif col_name:
+            elements_path = get_elements_path(col_name, kno)
+            if clean:
+                im_sort_out.organize_unused_im(elements_path)
+            else:
+                im_sort_out.start(elements_path)
+            return
+        elif fullpath:
+            im_sort_out.single_file(fullpath)
+            return
+        elif gui:
+            run_pathpix_ui()
+            return
         else:
-            im_sort_out.start(elements_path)
-        return
-    elif fullpath:
-        im_sort_out.single_file(fullpath)
-        return
-    elif gui:
-        run_pathpix_ui()
-        return
-    else:
-        # 如果没有提供任何选项，打印帮助信息
-        ctx = click.get_current_context()
-        click.echo(ctx.get_help())
-        return
+            click.echo(ctx.get_help())
+            return
 
 
-@main.command()
+@pathpix.command(name="transfer")
 @click.argument("src_kno")
 @click.argument("dst_kno")
-@click.option("--kno", is_flag=True, help="离散的 KNO 集合 (非系统集合)")
-def transfer(src_kno, dst_kno, kno):
-    """转移知识树分支或合并集合后, 在两个集合之间, 转移 pathpix 管理的图片"""
-    click.echo(f"转移集合中web和local文件夹图片: 从 {src_kno} 到 {dst_kno}")
+@click.option("--kno", is_flag=True, help="离散 KNO 集合 (非系统集合)")
+def pathpix_transfer(src_kno, dst_kno, kno):
+    """在两个集合之间转移由 PathPix 管理的图片"""
+    click.echo(f"转移集合中 web 和 local 文件夹图片: 从 {src_kno} 到 {dst_kno}")
     im_sort_out.transfer_images(
         get_elements_path(src_kno, kno), get_elements_path(dst_kno, kno)
     )
     click.echo("图片转移完成")
 
 
+# ==========================================
+# imgfit
+# ==========================================
+@main.command()
+@click.option(
+    "--trace",
+    "tracing",
+    is_flag=True,
+    default=False,
+    help="追踪当前元素进行处理并标记",
+)
+@click.option("--ignore", "ignore", is_flag=True, help="忽略已处理标记, 重新处理一次")
+@click.option(
+    "--max-width",
+    "max_width",
+    type=int,
+    default=1200,
+    help="设置图片最大宽度 (px)",
+)
+def imgfit(tracing, ignore, max_width):
+    """调整当前元素中图片的尺寸，使其排版更合适"""
+    CONTINUE = not tracing
+
+    def work(text_reg: TextRegistry) -> bool:
+        if text_reg is None or text_reg.eId == None:
+            return CONTINUE
+        path = text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
+        if path == "":
+            return CONTINUE
+        try:
+            url = Path(path).resolve().as_uri()
+        except Exception:
+            url = path  # 如果本来就是 URL，就直接用
+
+        IMG_RE = regex.compile(
+            r"""(?isx)
+            <!--.*?-->                                         (*SKIP)(*F)
+            | <(?:script|style)\b[^>]*>.*?</(?:script|style)>  (*SKIP)(*F)
+            | <(?:img|image)(?=[\s/>])(?:"[^"]*"|'[^']*'|[^>"'])*>
+            """
+        )
+        IMG_RE_CLASS = regex.compile(
+            rf"\b(?:{'|'.join([f'smtk-{x}' for x in img_fitter.style])})\b"
+        )
+
+        with open(path, "r", encoding="utf-8") as fs:
+            htm = fs.read()
+
+        progress_count = len(IMG_RE_CLASS.findall(htm))
+        has_progress = progress_count > 0
+        if has_progress and not ignore:
+            click.echo(
+                f"[No. {text_reg.eId}] [跳过] 已存在 {progress_count} 个标记，无需重复处理。"
+            )
+            return CONTINUE
+
+        count = len(IMG_RE.findall(htm))
+        if count > 0:
+            click.echo(f"[No. {text_reg.eId}] [Title: {text_reg.eTitle[:12].strip()}]")
+            if tracing:
+                hwnd = find_origin_window()
+                if hwnd is None:
+                    print(f"[No. {id}] 命令行程序未找到可聚焦的顶层窗口")
+                    return CONTINUE
+                activate_window(hwnd)
+                with force_reload:
+                    if not os.path.exists(path):
+                        click.echo(
+                            f"[No. {text_reg.eId}] [跳过] FileNotFoundError [Path: {make_link(path, url)}]"
+                        )
+                        return CONTINUE
+                    img_fitter.process_file(path)
+            else:
+                with force_reload:
+                    if not os.path.exists(path):
+                        click.echo(
+                            f"[No. {text_reg.eId}] [跳过] FileNotFoundError [Path: {make_link(path, url)}]"
+                        )
+                        return CONTINUE
+                    img_fitter.process_file(path)
+            click.echo(
+                f"[No. {text_reg.eId}] [图片尺寸适配完成] [Path: {make_link(path, url)}]"
+            )
+
+        return CONTINUE
+
+    force_reload = ForceReload()
+    trace = Trace()
+    img_fitter = EpubImageFit(page_width=max_width)
+    if force_reload.online_and_has_force_addr is not None:
+        trace.trace_with_mem(work)
+        force_reload.detach()
+
+
+# ==========================================
+# Other single commands
+# ==========================================
 @main.command()
 @click.argument("qafile")
-@click.option(
-    "--deckname",
-    type=str,
-    help="设置目标牌组名, SuperMemo Cards (默认)",
-)
+@click.option("--deckname", type=str, help="设置目标牌组名 (默认 SuperMemo Cards)")
 def sm2anki(qafile, deckname):
     """发送问答卡 (Item) 到 Anki"""
     if deckname:
@@ -393,12 +502,12 @@ def sm2anki(qafile, deckname):
 
 @main.command()
 @click.argument("htmtoc")
-@click.option("--node", type=str, help="设置NodeAsText文件路径")
-@click.option("--xml", type=str, help="设置XMl文件路径")
+@click.option("--node", type=str, help="设置 NodeAsText 文件路径")
+@click.option("--xml", type=str, help="设置 XML 文件路径")
 def comptitle(htmtoc: str, node: str, xml: str):
-    """修补导出的 NodeAsText 、XMl 中的标题"""
+    """修补导出的 NodeAsText / XML 中的标题乱码"""
     if not node and not xml:
-        print("需要输入待修复的文件路径(NodeAsText OR XMl)")
+        print("需要输入待修复的文件路径 (NodeAsText OR XML)")
         return
     elif node and not xml:
         complete_title.comp_node_title(nodefile=node, tocfile=htmtoc)
@@ -417,7 +526,7 @@ def autotts(onlyat):
 
 @main.command()
 @click.option("--mem", is_flag=True, help="通过扫描内存追踪当前元素")
-@click.option("--his", is_flag=True, help="打印浏览过的历史id")
+@click.option("--his", is_flag=True, help="打印浏览过的历史 ID")
 def trace(mem, his):
     """追踪当前元素，并输出当前元素信息"""
     trace = Trace()
@@ -430,14 +539,15 @@ def trace(mem, his):
 @main.command()
 @click.option("--re", "pattern", type=str, help="根据正则条件插入水平分割线")
 @click.option(
-    "--n",
-    "limit",
-    type=int,
-    help="根据字数条件插入水平分割线, 推荐1000字",
+    "--n", "limit", type=int, help="根据字数条件插入水平分割线 (推荐 1000 字)"
 )
-@click.option("--id", "eid", type=int, help="根据元素id条件插入水平分割线")
+@click.option("--id", "eid", type=int, help="根据元素 ID 条件插入水平分割线")
 @click.option(
-    "--trace", "tracing", is_flag=True, default=False, help="清除文档分割符标记"
+    "--trace",
+    "tracing",
+    is_flag=True,
+    default=False,
+    help="追踪模式：持续处理切走的元素",
 )
 @click.option("--recover", is_flag=True, help="清除文档分割符标记")
 def splitline(pattern, limit, eid, tracing, recover):
@@ -448,8 +558,6 @@ def splitline(pattern, limit, eid, tracing, recover):
     def _atomic_write(
         path: str, content: str, force_reload: ForceReload, id: int, times: bool
     ):
-        """原子写入：写临时文件 → fsync → 替换，失败清理"""
-        # 返回 False就是继续 None就是停止
         CONTINUE = not times
         dir_name = os.path.dirname(os.path.abspath(path))
         fd, tmp = tempfile.mkstemp(prefix=".smtk_", suffix=".tmp", dir=dir_name)
@@ -484,7 +592,7 @@ def splitline(pattern, limit, eid, tracing, recover):
         try:
             url = Path(path).resolve().as_uri()
         except Exception:
-            url = path  # 如果本来就是 URL，就直接用
+            url = path
         click.echo(f"[No. {text_reg.eId}] [Title: {text_reg.eTitle[:12].strip()}]")
 
         with open(path, "r", encoding="utf-8") as fs:
@@ -583,112 +691,19 @@ def splitline(pattern, limit, eid, tracing, recover):
         force_reload.detach()
 
 
-@main.command()
-@click.option(
-    "--trace",
-    "tracing",
-    is_flag=True,
-    default=False,
-    help="追踪当前元素, 处理元素中的图片, 并标记",
-)
-@click.option("--ignore", "ignore", is_flag=True, help="忽略已处理标记, 重新处理一次")
-@click.option(
-    "--max-width",
-    "max_width",
-    type=int,
-    default=1200,
-    help="设置图片最大宽度, 默认1200px",
-)
-def imgfit(tracing, ignore, max_width):
-    """对当前元素中的图片尺寸做适当调整, 使看起来合适"""
-    CONTINUE = not tracing
-
-    def work(text_reg: TextRegistry) -> bool:
-        if text_reg is None or text_reg.eId == None:
-            return CONTINUE
-        path = text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
-        if path == "":
-            return CONTINUE
-        try:
-            url = Path(path).resolve().as_uri()
-        except Exception:
-            url = path  # 如果本来就是 URL，就直接用
-
-        IMG_RE = regex.compile(
-            r"""(?isx)
-            <!--.*?-->                                         (*SKIP)(*F)
-            | <(?:script|style)\b[^>]*>.*?</(?:script|style)>  (*SKIP)(*F)
-            | <(?:img|image)(?=[\s/>])(?:"[^"]*"|'[^']*'|[^>"'])*>
-            """
-        )
-        IMG_RE_CLASS = regex.compile(
-            rf"\b(?:{'|'.join([f'smtk-{x}' for x in imgfit.style])})\b"
-        )
-
-        with open(path, "r", encoding="utf-8") as fs:
-            htm = fs.read()
-
-        progress_count = len(IMG_RE_CLASS.findall(htm))
-        has_progress = progress_count > 0
-        if has_progress and not ignore:
-            click.echo(
-                f"[No. {text_reg.eId}] [跳过] 已存在 {progress_count} 个标记，无需重复处理。"
-            )
-            return CONTINUE
-
-        count = len(IMG_RE.findall(htm))
-        if count > 0:
-            click.echo(f"[No. {text_reg.eId}] [Title: {text_reg.eTitle[:12].strip()}]")
-            if tracing:
-                hwnd = find_origin_window()
-                if hwnd is None:
-                    print(f"[No. {id}] 命令行程序未找到可聚焦的顶层窗口")
-                    return CONTINUE
-                activate_window(hwnd)
-                with force_reload:
-                    if not os.path.exists(path):
-                        click.echo(
-                            f"[No. {text_reg.eId}] [跳过] FileNotFoundError [Path: {make_link(path, url)}]"
-                        )
-                        return CONTINUE
-                    imgfit.process_file(path)
-            else:
-                with force_reload:
-                    if not os.path.exists(path):
-                        click.echo(
-                            f"[No. {text_reg.eId}] [跳过] FileNotFoundError [Path: {make_link(path, url)}]"
-                        )
-                        return CONTINUE
-                    imgfit.process_file(path)
-            click.echo(
-                f"[No. {text_reg.eId}] [图片尺寸适配完成] [Path: {make_link(path, url)}]"
-            )
-
-        return CONTINUE
-
-    force_reload = ForceReload()
-    trace = Trace()
-    imgfit = EpubImageFit(page_width=max_width)
-    if force_reload.online_and_has_force_addr is not None:
-        trace.trace_with_mem(work)
-        force_reload.detach()
-
-
-# ---------------------------------------------------------------------------
-# time: SuperMemo 集合冷备份（集成 time_backup 模块）
-# ---------------------------------------------------------------------------
-
-
+# ==========================================
+# time
+# ==========================================
 @click.group(name="time")
 def time_cmd():
-    """SuperMemo 集合冷备份工具（time_backup）"""
+    """SuperMemo 集合冷备份 (实验期)"""
+    pass
 
 
 main.add_command(time_cmd)
 
 
 def _load_time_backup():
-    """延迟导入 time_backup，避免 smtk 启动时因可选依赖（pystray/Pillow）失败。"""
     try:
         from supermemo_toolkit.time_rewind.time_rewind import (
             GitError,
@@ -704,7 +719,6 @@ def _load_time_backup():
 
 
 def _make_backup_manager():
-    """创建 SuperMemoBackup 实例，并把配置错误转成 ClickException。"""
     SuperMemoBackup, GitError, setup_logging = _load_time_backup()
     setup_logging()
     try:
@@ -724,10 +738,9 @@ def _make_backup_manager():
     help="触发来源",
 )
 def time_backup(collection, trigger):
-    """冷备份集合（集合必须已关闭）
+    """冷备份集合 (集合必须已关闭)
 
-    注意：如果集合处于激活状态（.kno 被锁定），备份将直接失败。
-    请先关闭 SuperMemo 中的对应集合再执行此命令。
+    注意: 如果集合处于激活状态 (.kno 被锁定)，备份将直接失败。
     """
     sm, GitError = _make_backup_manager()
     names = [collection] if collection else [c.name for c in sm.config.collections]
@@ -767,7 +780,7 @@ def time_backup(collection, trigger):
 def time_restore(collection, target):
     """冷恢复集合到指定 commit / ref
 
-    TARGET 可以是完整 hash、短 hash 或 ref（如 refs/smtk/archive）。
+    TARGET 可以是完整 hash、短 hash 或 ref (如 refs/smtk/archive)。
     恢复前会自动校验工作区干净及 .kno 一致性；失败时自动回滚。
     """
     sm, GitError = _make_backup_manager()
@@ -819,7 +832,7 @@ def time_compact(collection):
 @time_cmd.command(name="list")
 @click.argument("collection", required=False)
 def time_list(collection):
-    """列出集合的快照历史（archive + hot 链）"""
+    """列出集合的快照历史 (archive + hot 链)"""
     sm, _ = _make_backup_manager()
     if collection:
         try:
@@ -834,15 +847,14 @@ def time_list(collection):
         return
     for c in initialized:
         sm.list_snapshots(c.name)
-        click.echo()  # 集合间空行
+        click.echo()
 
 
 @time_cmd.command(name="watch")
 def time_watch():
-    """启动托盘监控（阻塞，轮询 .kno 锁定状态）
+    """启动托盘监控 (阻塞，轮询 .kno 锁定状态)
 
     检测到集合关闭后自动触发 backup(trigger='shutdown')。
-    压缩历史需通过托盘菜单手动触发。
     """
     sm, _ = _make_backup_manager()
     sm.watch()
@@ -854,15 +866,7 @@ def time_watch():
 def time_forget(collection, yes):
     """让指定集合遗忘 Git 历史：删除 .git 目录，保留工作区数据
 
-    卸载前会检查：
-      - 集合未激活
-      - tracked 文件无未提交改动
-      - 外部 .kno 与 HEAD 一致
-
-    检查通过后，从 HEAD 取 .kno 写回外部，保证数据库一致性，
-    然后删除 .git、.gitignore、.gitattributes。
-
-    只卸载一个集合，避免误操作批量删除。全部卸载请逐个执行。
+    卸载前会检查：集合未激活、无未提交改动、外部 .kno 与 HEAD 一致。
     """
     sm, GitError = _make_backup_manager()
 
@@ -894,14 +898,13 @@ def time_forget(collection, yes):
         click.echo(f"{collection}: 无 .git，跳过")
 
 
-# ---------------------------------------------------------------------------
-# math: 数学公式处理工具
-# ---------------------------------------------------------------------------
-
-
+# ==========================================
+# math
+# ==========================================
 @click.group()
 def math():
-    """数学公式处理工具 (卡片渲染 / 单次转换)"""
+    """数学公式处理: 渲染当前卡片公式、单次生成公式图片"""
+    pass
 
 
 main.add_command(math)
@@ -913,11 +916,11 @@ main.add_command(math)
     "tracing",
     is_flag=True,
     default=False,
-    help="追踪当前元素，处理公式，并标记",
+    help="追踪模式：持续处理切走的元素",
 )
 @click.option("--ignore", "ignore", is_flag=True, help="忽略无变化检查，强制重跑")
 def math_card(tracing, ignore):
-    """对当前元素中的 $$公式$$ 进行渲染和就地编辑支持"""
+    """对当前元素中的 $$公式$$ 进行渲染，并支持就地编辑"""
     CONTINUE = not tracing
 
     def work(text_reg: TextRegistry) -> bool:
@@ -933,7 +936,6 @@ def math_card(tracing, ignore):
 
         base_dir = Path(path).parent
 
-        # 向上查找根 elements 目录
         elements_root = base_dir
         while (
             elements_root.name.lower() != "elements"
@@ -952,7 +954,6 @@ def math_card(tracing, ignore):
 
         click.echo(f"[No. {text_reg.eId}] [Title: {text_reg.eTitle[:12].strip()}]")
 
-        # 只传 elements 根目录，图片会自动集中存放到 elements/local_pic 下
         renderer = FormulaRenderer(elements_root)
 
         with open(path, "r", encoding="utf-8") as fs:
@@ -995,7 +996,7 @@ def math_card(tracing, ignore):
 @click.argument("formula_text")
 @click.argument("outpath")
 def math_imtex(formula_text, outpath):
-    """转换 LaTeX 公式到 png 图片 (单次渲染)"""
+    """单次转换 LaTeX 公式到 png 图片"""
     formula_to_png.latex2img_md(
         text=formula_text,
         size=48,
@@ -1032,7 +1033,7 @@ class Shell(cmd.Cmd):
             print(info)
         except SystemExit:
             pass
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             print(f"执行出错: {e}")
 
     def default(self, arg: str):
@@ -1076,9 +1077,9 @@ if __name__ == "__main__":
         try:
             import pyi_splash  # type: ignore
 
-            pyi_splash.close()  # 关闭闪屏
+            pyi_splash.close()
         except ImportError:
-            pass  # 在开发环境中，没有 pyi_splash 模块，直接跳过
+            pass
         Shell().cmdloop()
     else:
         try:
