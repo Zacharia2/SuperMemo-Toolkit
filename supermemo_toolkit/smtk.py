@@ -22,6 +22,7 @@ from supermemo_toolkit.database.trace import Trace, make_link
 from supermemo_toolkit.database.window_focus import activate_window
 from supermemo_toolkit.epub2sm import epub_convert, format_ascii
 from supermemo_toolkit.latex2img import formula_to_png
+from supermemo_toolkit.latex2img.renderer import FormulaRenderer
 from supermemo_toolkit.pathpix import im_sort_out
 from supermemo_toolkit.pathpix.epub_imgfit import EpubImageFit
 from supermemo_toolkit.pathpix.gui import run_pathpix_ui
@@ -314,19 +315,6 @@ def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep, kno_name, kno):
 
 
 @main.command()
-@click.argument("formula_text")
-@click.argument("outpath")
-def imtex(formula_text, outpath):
-    """转换 LaTeX 公式到 png 图片."""
-    formula_to_png.latex2img(
-        text=formula_text,
-        size=48,
-        color=(0.1, 0.8, 0.8),
-        out=outpath,
-    )
-
-
-@main.command()
 @click.argument("col_name", required=False)
 @click.option("--clean", is_flag=True, help="清理集合中未使用图片")
 @click.option(
@@ -394,7 +382,6 @@ def transfer(src_kno, dst_kno, kno):
 )
 def sm2anki(qafile, deckname):
     """发送问答卡 (Item) 到 Anki"""
-    # print(deckname)
     if deckname:
         ms2a = qa_to_anki(qafile)
         ms2a.setDeckName(deckname)
@@ -907,6 +894,116 @@ def time_forget(collection, yes):
         click.echo(f"{collection}: 无 .git，跳过")
 
 
+# ---------------------------------------------------------------------------
+# math: 数学公式处理工具
+# ---------------------------------------------------------------------------
+
+
+@click.group()
+def math():
+    """数学公式处理工具 (卡片渲染 / 单次转换)"""
+
+
+main.add_command(math)
+
+
+@math.command(name="card")
+@click.option(
+    "--trace",
+    "tracing",
+    is_flag=True,
+    default=False,
+    help="追踪当前元素，处理公式，并标记",
+)
+@click.option("--ignore", "ignore", is_flag=True, help="忽略无变化检查，强制重跑")
+def math_card(tracing, ignore):
+    """对当前元素中的 $$公式$$ 进行渲染和就地编辑支持"""
+    CONTINUE = not tracing
+
+    def work(text_reg: TextRegistry) -> bool:
+        if text_reg is None or text_reg.eId == None:
+            return CONTINUE
+        path = (
+            text_reg.eComponents[1].mPath
+            if text_reg.eComponents is not None and len(text_reg.eComponents) > 0
+            else ""
+        )
+        if path == "":
+            return CONTINUE
+
+        base_dir = Path(path).parent
+
+        # 向上查找根 elements 目录
+        elements_root = base_dir
+        while (
+            elements_root.name.lower() != "elements"
+            and elements_root.parent != elements_root
+        ):
+            elements_root = elements_root.parent
+
+        if elements_root.name.lower() != "elements":
+            click.echo(f"[No. {text_reg.eId}] [错误] 无法定位 elements 目录，跳过")
+            return CONTINUE
+
+        try:
+            url = Path(path).resolve().as_uri()
+        except Exception:
+            url = path
+
+        click.echo(f"[No. {text_reg.eId}] [Title: {text_reg.eTitle[:12].strip()}]")
+
+        # 只传 elements 根目录，图片会自动集中存放到 elements/local_pic 下
+        renderer = FormulaRenderer(elements_root)
+
+        with open(path, "r", encoding="utf-8") as fs:
+            htm = fs.read()
+
+        new_html = renderer.process_html(htm)
+        if new_html == htm and not ignore:
+            click.echo(f"[No. {text_reg.eId}] [跳过] 公式无变化")
+            return CONTINUE
+
+        if tracing:
+            hwnd = find_origin_window()
+            if hwnd is None:
+                print(f"[No. {text_reg.eId}] 命令行程序未找到可聚焦的顶层窗口")
+                return CONTINUE
+            activate_window(hwnd)
+            with force_reload:
+                if not os.path.exists(path):
+                    return CONTINUE
+                renderer.process_file(Path(path), new_html)
+        else:
+            with force_reload:
+                if not os.path.exists(path):
+                    return CONTINUE
+                renderer.process_file(Path(path), new_html)
+
+        click.echo(
+            f"[No. {text_reg.eId}] [公式渲染完成] [Path: {make_link(path, url)}]"
+        )
+        return CONTINUE
+
+    force_reload = ForceReload()
+    trace = Trace()
+    if force_reload.online_and_has_force_addr is not None:
+        trace.trace_with_mem(work)
+        force_reload.detach()
+
+
+@math.command(name="imtex")
+@click.argument("formula_text")
+@click.argument("outpath")
+def math_imtex(formula_text, outpath):
+    """转换 LaTeX 公式到 png 图片 (单次渲染)"""
+    formula_to_png.latex2img_md(
+        text=formula_text,
+        size=48,
+        color=(0.1, 0.8, 0.8),
+        out=outpath,
+    )
+
+
 class Shell(cmd.Cmd):
     prompt = ">"
 
@@ -973,6 +1070,7 @@ if __name__ == "__main__":
     #     ["--re", r'(?i)(?s)<p class="block">.*?</p>\s*\K<p>'], standalone_mode=False
     # )
     # main.commands["imgfit"](["--trace"], standalone_mode=False)
+    # main.commands["math"].commands["card"](standalone_mode=False)
     # main.commands["pathpix"](["Reading-And-Review", "--clean"], standalone_mode=False)
     if is_launched_from_gui():
         try:
