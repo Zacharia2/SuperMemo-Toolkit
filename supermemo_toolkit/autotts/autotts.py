@@ -12,6 +12,7 @@ import win32process
 from pywinauto.application import Application
 from pywinauto.findwindows import ElementNotFoundError
 
+from supermemo_toolkit.autotts.replace import normalize_text
 from supermemo_toolkit.autotts.switcher import AudioSwitcher
 from supermemo_toolkit.autotts.ui import WinGUI
 from supermemo_toolkit.database.element_no import compute_sm_ver
@@ -60,6 +61,7 @@ class AutoTTS:
         text = text_reg.eComponents[1].eText if len(text_reg.eComponents) != 0 else None
         print(self.show_title())
         if text is not None and text != "":
+            text = normalize_text(text)
             self.window.update_lable_text(self.show_title())
             self.switcher.play(text)
             # 保存到重播按钮
@@ -102,10 +104,6 @@ class AutoTTS:
     def set_autotts_window(self, window: WinGUI):
         self.window = window
 
-    def set_replace_list(self, replace_list: dict):
-        """设置替换列表，传入一个字典，键为要替换的文本，值为替换后的文本。"""
-        self.switcher.replace_list = replace_list
-
     def show_title(self) -> str:
         return f"[TTS] [No. {self.eid}] [Title: {self.title[:12].strip()}]"
 
@@ -126,7 +124,7 @@ class AutoTTS:
                 "TTabControl",
                 "TToolBar",
                 "TButton",
-                "TPage"
+                "TPage",
             ]
             focus_hwnd = win32gui.WindowFromPoint(win32gui.GetCursorPos())
             focusClassName = win32gui.GetClassName(focus_hwnd)
@@ -304,7 +302,6 @@ def run_auto_tts(onlyat: bool = False):
     autotts_window = Win(controller, onlyat, sm_ver)
     autotts = AutoTTS(onlyat)
     autotts.set_autotts_window(autotts_window)
-    autotts.set_replace_list({"[...]": "，什么，"})
     controller.set_autotts(autotts)
     if sm_ver not in ["sm15", "sm16"]:
         autotts.start_trace()  # 或 mode="o"

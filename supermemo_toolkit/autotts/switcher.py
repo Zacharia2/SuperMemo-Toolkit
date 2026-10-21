@@ -33,7 +33,6 @@ class AudioSwitcher:
         self.__audio_sample_rate = None
         self.__audio_channels = None
         self.__audio_queue = None
-        self.replace_list: dict = {}
 
     def _stream_decoded_sentences_with_rate(self, text):
         communicate = edge_tts.Communicate(
@@ -255,11 +254,6 @@ class AudioSwitcher:
     def play(self, text: str):
         # 停止播放
         self.stop()
-
-        # 自定义
-        if len(self.replace_list) > 0:
-            for k, v in self.replace_list.items():
-                text = text.replace(k, v)
 
         # 启动进程
         self.__producer_id = self.__thread_manager.thread(self.__producer, text)
