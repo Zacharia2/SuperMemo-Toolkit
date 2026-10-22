@@ -183,6 +183,9 @@ class Runner:
         env = os.environ.copy()
         env["PYTHONIOENCODING"] = "utf-8"
         env["PYTHONUNBUFFERED"] = "1"
+        # UI 模式：让 time_rewind.setup_logging 只往 stderr 写，
+        # 由 _read_output 读入 LOG 队列，显示到日志窗口。
+        env["SMTK_LOG_UI_ONLY"] = "1"
         try:
             self.proc = subprocess.Popen(
                 cmd,

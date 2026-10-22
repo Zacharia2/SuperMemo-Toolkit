@@ -422,10 +422,30 @@ class FileLock:
 
 
 def setup_logging(verbose: bool = False) -> None:
-    """初始化日志。破坏性，仅供 CLI 入口调用。"""
-    handlers = [logging.FileHandler(_get_log_file(), encoding="utf-8")]
-    if sys.stderr is not None and hasattr(sys.stderr, "isatty") and sys.stderr.isatty():
-        handlers.append(logging.StreamHandler(sys.stderr))
+    """初始化日志。破坏性，仅供 CLI 入口调用。
+
+    模式（由环境变量 SMTK_LOG_UI_ONLY 控制）：
+      - 设置 SMTK_LOG_UI_ONLY=1/true/yes：仅写 stderr，不写文件。
+        供 GUI 包装器（launcher）通过管道读取并显示到日志窗口。
+      - 未设置：写文件；stderr 是 tty 时额外写 stderr（原行为不变）。
+    """
+    ui_only = os.environ.get("SMTK_LOG_UI_ONLY", "").lower() in ("1", "true", "yes")
+    if ui_only:
+        # GUI 模式：只走 stderr。sys.stderr 为 None（pythonw）时退化为 NullHandler，
+        # 避免 StreamHandler(None) 在 logging 内部报错。
+        handlers: list[logging.Handler] = (
+            [logging.StreamHandler(sys.stderr)]
+            if sys.stderr is not None
+            else [logging.NullHandler()]
+        )
+    else:
+        handlers = [logging.FileHandler(_get_log_file(), encoding="utf-8")]
+        if (
+            sys.stderr is not None
+            and hasattr(sys.stderr, "isatty")
+            and sys.stderr.isatty()
+        ):
+            handlers.append(logging.StreamHandler(sys.stderr))
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
