@@ -1312,7 +1312,16 @@ class CollectionRepo:
                 # 目标 commit 里的文件（无论之前是 tracked、untracked 还是
                 # ignored）都会被识别为"被移除的 index entry"并删除。
                 try:
-                    git(repo, "add", "-A", "--force")
+                    git(
+                        repo,
+                        "add",
+                        "-A",
+                        "--force",
+                        "--",
+                        ".",
+                        ":(exclude,glob)**/*.lock",
+                        ":(exclude,glob)*.lock",
+                    )
                     snapshot_tree = git_out(repo, "write-tree")
                 except (GitError, subprocess.TimeoutExpired) as e:
                     # 恢复 index 到 old_head（不改工作区）。
@@ -2099,11 +2108,11 @@ class Watcher:
         menu = pystray.Menu(
             pystray.MenuItem("压缩历史", self._on_compact),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("重置工作区到 HEAD", self._make_reset_menu("HEAD")),
-            pystray.MenuItem("重置工作区到上一次提交", self._make_reset_menu("HEAD^")),
-            pystray.Menu.SEPARATOR,
             pystray.MenuItem("打开配置目录", self._on_open_dir),
             pystray.MenuItem("打开日志", self._on_open_log),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("重置工作区到 HEAD", self._make_reset_menu("HEAD")),
+            pystray.MenuItem("重置工作区到上一次提交", self._make_reset_menu("HEAD^")),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("退出", self._on_quit),
         )
