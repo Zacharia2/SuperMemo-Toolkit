@@ -29,6 +29,43 @@ backup 执行 git add -A，集合目录下所有未忽略文件都会被提交�
 restore 不删除 untracked 文件；如果 untracked 文件与目标 commit 的
 tracked 文件冲突，restore 失败并回滚，用户需手动处理冲突文件。
 
+reset_workspace 的语义（用户需求）：
+    成功 = 工作区完全等于目标 commit。所有不在目标 commit 中的文件被删除：
+           - tracked 文件被覆盖
+           - untracked 文件被删除
+           - ignored 文件（如 temp/、reports/、html/）也被删除
+           外部 .kno 写回目标 commit 的版本。
+    不成功 = 完全恢复操作前状态（refs、tracked、untracked、ignored、
+             外部 .kno 全部恢复原样）。index 状态丢失 staged/unstaged
+             区分（回滚后所有改动都变为 unstaged），但文件内容完全一致。
+            **例外**：若阶段 C0（git add -A --force）已经部分写入 index
+            后才失败，index 会被强制 reset 到 old_head（原先 staged 的
+            改动变为 unstaged，文件内容不变）。
+
+reset_workspace 的实现机制（snapshot commit，复用 backup 思路）：
+    - 阶段 A：前置检查（含残留 snapshot ref 检测）
+    - 阶段 B：写 kno tmp + SHA 校验（不 replace）
+    - 阶段 C0'：二次 is_kno_locked 检查
+    - 阶段 C0：git add -A --force（包含 ignored 文件）
+              + write-tree + commit-tree（parent = old_head）
+              → git update-ref refs/smtk-reset-snapshot <commit>
+              始终创建 snapshot，确保包含工作区所有文件（含 ignored）。
+              snapshot commit 的 parent 指向 old_head，方便残留 ref 恢复
+              时用 SNAPSHOT_REF^ 找回操作前 HEAD。
+    - 阶段 C1-C4：read-tree -u --reset + update-ref + symbolic-ref
+                 + _write_kno_atomic(kno_src, target_kno)
+              read-tree -u --reset 会删除所有"add 时在 index 里、
+              目标 commit 里没有"的文件（包括 ignored 和 untracked）。
+    - 成功：git update-ref -d refs/smtk-reset-snapshot
+    - 失败（回滚成功）：
+          1. read-tree -u --reset <snapshot>    恢复工作区
+          2. read-tree --reset <old_head>       重置 index（防 ignored 污染）
+          3. update-ref HOT_REF <old_head> + symbolic-ref
+          4. 恢复外部 .kno 原始字节
+          5. 删除 snapshot ref
+    - 失败（回滚不完整）：同 1-4 步尽力执行，**保留** snapshot ref，
+      并在错误消息里给出完整恢复命令（含 kno 恢复）。
+
 已知限制：
     - 崩溃 / 强杀 / 断电时，本次会话不自动备份；下次打开后关闭会正常备份，
       但崩溃前的数据不在仓库中。
@@ -41,6 +78,21 @@ tracked 文件冲突，restore 失败并回滚，用户需手动处理冲突文�
     - CLI 与 Watcher 同时运行时，FileLock(<repo>.smtk.lock) 保证跨进程互斥。
     - 系统时钟只影响 commit message 的时间戳，不影响任何结构、折叠决策、
       恢复行为。时钟错了，git log 显示的时间不准，仅此而已。
+    - reset_workspace 失败回滚后，原 staged/unstaged 区分丢失（所有改动
+      变成 unstaged），但文件内容完全一致。
+    - reset_workspace 阶段 C0'（二次激活检查）到 C0（add -A --force）
+      之间有一个微小窗口（通常 < 1 秒），期间用户可能重新打开 SuperMemo。
+      add -A --force 会读取工作区所有文件，若 SM 正在写，snapshot 内容
+      可能包含半写入的文件。这不影响 C1-C4 的原子性（失败时仍按 snapshot
+      回滚），但 snapshot 里可能有部分不完整的文件。极低概率，日志可追溯。
+    - reset_workspace 在阶段 C0 之后、C4 之前被强杀时，snapshot ref
+      （refs/smtk-reset-snapshot）会残留。下次 reset 前置检测发现即拒绝，
+      并给出完整恢复命令（含恢复工作区、index、refs、外部 kno）。
+    - reset_workspace 在阶段 C4 成功之后、删除 snapshot ref 之前被强杀时，
+      工作区/refs/kno 均已重置到目标（状态正确），只残留 snapshot ref。
+      下次 reset 前置检测即拒绝，用户按提示 update-ref -d 清理即可。
+    - 重置子菜单在 Watcher.start() 时静态生成，运行期间新初始化的集合
+      需要重启 watcher 才会出现。
 """
 
 from __future__ import annotations
@@ -84,9 +136,10 @@ def _get_log_file() -> str:
 
 GIT_LOCK = threading.RLock()
 
-# 就这两个 ref。没有 HOT_PREFIX，没有周辅助函数。
 ARCHIVE_REF = "refs/heads/archive"
 HOT_REF = "refs/heads/hot"
+# reset_workspace 的临时快照 ref（进程被强杀时可能残留，下次 reset 会检测）
+SNAPSHOT_REF = "refs/smtk-reset-snapshot"
 
 
 # ============================================================================
@@ -247,6 +300,22 @@ class RestoreResult:
 
 class GitError(RuntimeError):
     """Git 命令执行失败。"""
+
+
+class NoTargetCommit(RuntimeError):
+    """目标 commit 无法解析（如 HEAD^ 但只有 1 个 commit）。调用方应视为跳过。"""
+
+
+class ResetFailed(RuntimeError):
+    """重置失败，但文件内容已完全回滚（refs、tracked、untracked、ignored、
+    外部 .kno 均恢复原样）。index 状态丢失 staged/unstaged 区分
+    （所有改动变为 unstaged）。用户可以放心重试。"""
+
+
+class ResetRollbackFailed(RuntimeError):
+    """重置失败且回滚不完整，仓库/文件可能不一致。snapshot ref 保留
+    （含操作前完整工作区，parent 指向操作前 HEAD），用户可按错误消息中
+    的完整命令手动恢复。"""
 
 
 # ============================================================================
@@ -604,12 +673,12 @@ def _try_rollback(
     failed: list[str] = []
     try:
         git(repo, "read-tree", "-u", "--reset", old_head)
-    except GitError as e:
+    except (GitError, subprocess.TimeoutExpired) as e:
         failed.append(f"read-tree: {e}")
     try:
         git(repo, "update-ref", HOT_REF, old_head)
         git(repo, "symbolic-ref", "HEAD", HOT_REF)
-    except GitError as e:
+    except (GitError, subprocess.TimeoutExpired) as e:
         failed.append(f"ref: {e}")
     try:
         _write_kno_atomic(kno_src, old_kno)
@@ -680,6 +749,7 @@ class CollectionRepo:
         >>> result = repo.backup()
         >>> repo.compact()
         >>> repo.restore("refs/heads/archive")
+        >>> repo.reset_workspace("HEAD")
     """
 
     def __init__(self, coll: Collection) -> None:
@@ -1034,7 +1104,7 @@ class CollectionRepo:
                     git(repo, "read-tree", "-u", "--reset", commit)
                     git(repo, "update-ref", HOT_REF, commit)
                     git(repo, "symbolic-ref", "HEAD", HOT_REF)
-                except GitError as e:
+                except (GitError, subprocess.TimeoutExpired) as e:
                     _try_rollback(repo, old_head, old_kno, kno_src, self.name, e)
                     raise RuntimeError(
                         f"{self.name}: 恢复失败（git 操作），已回滚，请检查 {repo}"
@@ -1049,6 +1119,408 @@ class CollectionRepo:
                     ) from e
 
                 return RestoreResult(target=target, restored=True, old_head=old_head)
+
+    def list_untracked(self) -> list[str]:
+        """返回工作区中所有 untracked 路径（相对仓库根），不含 .gitignore 忽略的。
+
+        失败时抛 GitError，禁止降级。
+        """
+        r = git(
+            self.repo_path,
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            check=False,
+            text=False,
+        )
+        if r.returncode != 0:
+            err = (r.stderr or b"").decode("utf-8", errors="replace")[:200]
+            raise GitError(f"{self.name}: list_untracked failed: {err}")
+        raw = r.stdout or b""
+        return [p.decode("utf-8", errors="replace") for p in raw.split(b"\0") if p]
+
+    def reset_workspace(self, target: str = "HEAD") -> str:
+        """把工作区完全重置到指定 commit，并把 .kno 写回外部。
+
+        一致性承诺：
+        - 成功：工作区完全等于目标 commit。所有不在目标 commit 中的文件
+          被删除：tracked 被覆盖、untracked 被删除、ignored 文件（如
+          temp/、reports/、html/）也被删除。外部 .kno = 目标 commit 的
+          .kno 版本。
+        - 不成功（阶段 A / B / C0'）：**工作区文件内容完全没动**。
+        - 不成功（阶段 C0 `add -A --force` 部分写入后才失败）：代码执行
+          `read-tree --reset old_head` 把 index 强制重置为 old_head 版本。
+          此时工作区文件内容不变，但 **原先 staged 的改动会变为 unstaged**。
+        - 不成功（阶段 C1-C4）：文件内容完全恢复操作前状态（refs、tracked、
+          untracked、ignored、外部 .kno 全部恢复）。index 状态丢失
+          staged/unstaged 区分（回滚后所有改动都变为 unstaged）。
+        - 极端情况（C0 之后进程被 kill）：snapshot ref
+          （refs/smtk-reset-snapshot）残留，下次 reset 前置检测即拒绝，
+          并给出完整恢复命令（含恢复工作区、index、refs、外部 kno）。
+
+        实现机制（snapshot commit，复用 backup 思路）：
+        - 阶段 C0 用 `git add -A --force` 把工作区所有文件（含 ignored）
+          加入 index，然后 write-tree + commit-tree（parent = old_head）
+          得到完整快照。
+        - `git read-tree -u --reset commit` 会把所有"index 里有、目标
+          commit 里没有"的文件从工作区删除（包括 ignored 和 untracked）。
+          这是实现"成功 = 工作区完全等于 commit"的关键。
+        - 失败回滚分两段：
+          1. `read-tree -u --reset snapshot` 恢复工作区到快照（含 ignored）
+          2. `read-tree --reset old_head` 重置 index 到 HEAD（防 ignored 污染）
+          第二段是必需的：snapshot 的 index 含所有 ignored 文件，若不清空，
+          下次 backup() 的 `add -A` 会保留它们，`write-tree` 会把 ignored
+          文件提交进 hot 链，用户以为永远被忽略的临时文件会永久进入历史。
+
+        锁：GIT_LOCK + FileLock(smtk_lock_path, timeout=360)。
+
+        Args:
+            target: rev 表达式，如 "HEAD" 或 "HEAD^"
+
+        Returns:
+            目标 commit 的完整 hash
+
+        Raises:
+            NoTargetCommit: target 无法解析
+            RuntimeError: 阶段 A / B / C0' / C0 失败（工作区文件内容未动；
+                C0 失败时 index 可能被 reset）
+            ResetFailed: 阶段 C1-C4 失败，文件内容已完全恢复
+            ResetRollbackFailed: 阶段 C1-C4 失败且回滚不完整，
+                snapshot ref 保留供手动恢复
+        """
+        with GIT_LOCK:
+            with FileLock(self._coll.smtk_lock_path(), timeout=360):
+                repo = self.repo_path
+                kno_src = self.kno_path
+                kno_rel = self.kno_rel()
+
+                # ============ 阶段 A：前置检查 ============
+                if not self.is_initialized():
+                    raise RuntimeError(f"{self.name}: 仓库未初始化")
+                if kno_src.exists() and not kno_src.is_file():
+                    raise RuntimeError(f"{self.name}: {kno_src} 不是普通文件，拒绝重置")
+                if kno_src.is_file() and is_kno_locked(kno_src):
+                    raise RuntimeError(f"{self.name}: 集合正在激活，拒绝重置")
+
+                # 提前定义 kno_tmp，阶段 B 复用；残留 ref 清理和阶段 B 都用到
+                kno_tmp = kno_src.with_suffix(kno_src.suffix + ".smtk-tmp")
+
+                # 残留 snapshot ref 检测（进程被 kill 的迹象）
+                if ref_exists(repo, SNAPSHOT_REF):
+                    # 顺带清理上次 kill 残留的 tmp（阶段 B 尚未执行，此处只能
+                    # 是上次的残留）
+                    kno_tmp.unlink(missing_ok=True)
+                    old_snap = rev_parse(repo, SNAPSHOT_REF)
+                    raise RuntimeError(
+                        f"{self.name}: 发现上次 reset 残留的快照 "
+                        f"{SNAPSHOT_REF} -> {old_snap[:8]}，可能是进程被强杀。\n"
+                        f"\n"
+                        f"【第一步：确认当前状态】\n"
+                        f"请先运行以下命令，对比当前 HEAD 与快照 parent：\n"
+                        f"  git -C {repo} status\n"
+                        f"  git -C {repo} log --oneline -3 HEAD\n"
+                        f"  git -C {repo} log --oneline -3 {SNAPSHOT_REF}\n"
+                        f"\n"
+                        f"判断：\n"
+                        f"  - 若 HEAD 的 hash == {SNAPSHOT_REF}^（快照 parent），\n"
+                        f"    说明 refs 未被移动，只需恢复工作区和 index（方案 A）。\n"
+                        f"  - 若 HEAD 的 hash 不同，说明 refs 已被移动，需完整恢复（方案 B）。\n"
+                        f"  - 若工作区实际已经等于目标 commit（重置其实成功了），\n"
+                        f"    只需清理快照（方案 C）。\n"
+                        f"\n"
+                        f"【方案 A：完整恢复（工作区 + index + refs + 外部 kno）】\n"
+                        f"  git -C {repo} read-tree -u --reset {SNAPSHOT_REF}\n"
+                        f"  git -C {repo} read-tree --reset {SNAPSHOT_REF}^\n"
+                        f"  git -C {repo} update-ref {HOT_REF} {SNAPSHOT_REF}^\n"
+                        f"  git -C {repo} symbolic-ref HEAD {HOT_REF}\n"
+                        f"  git -C {repo} cat-file -p {SNAPSHOT_REF}:{kno_rel} > {kno_src}\n"
+                        f"  git -C {repo} update-ref -d {SNAPSHOT_REF}\n"
+                        f"\n"
+                        f"【方案 B：只清理快照】\n"
+                        f"  git -C {repo} update-ref -d {SNAPSHOT_REF}"
+                    )
+
+                # 未合并冲突会导致 add -A 失败。
+                # check=True：命令本身失败（仓库损坏）时抛异常，不降级为
+                # "无 unmerged"（那样会在 C0 阶段以误导性错误失败）。
+                unmerged = git(repo, "ls-files", "--unmerged").stdout.strip()
+                if unmerged:
+                    raise RuntimeError(
+                        f"{self.name}: 存在未合并的冲突文件，请先解决再重置"
+                    )
+
+                head_r = git(
+                    repo, "rev-parse", "--verify", "--quiet", "HEAD", check=False
+                )
+                if head_r.returncode != 0:
+                    raise RuntimeError(
+                        f"{self.name}: 仓库无 HEAD（从未 backup），拒绝重置"
+                    )
+                old_head = head_r.stdout.strip()
+
+                try:
+                    commit = rev_parse_commit(repo, target)
+                except (GitError, subprocess.TimeoutExpired) as e:
+                    raise NoTargetCommit(
+                        f"{self.name}: 无法解析目标 {target!r}（可能无父提交）"
+                    ) from e
+
+                target_kno = _commit_kno_bytes(repo, commit, kno_rel)
+                if target_kno is None:
+                    raise RuntimeError(
+                        f"{self.name}: 目标 commit {commit[:8]} 中无 {kno_rel}，"
+                        f"拒绝重置（数据不完整）"
+                    )
+
+                if _commit_kno_bytes(repo, old_head, kno_rel) is None:
+                    raise RuntimeError(
+                        f"{self.name}: 旧 HEAD {old_head[:8]} 中无 {kno_rel}，"
+                        f"拒绝重置（仓库状态异常）"
+                    )
+
+                try:
+                    old_kno_actual: bytes | None = (
+                        kno_src.read_bytes() if kno_src.is_file() else None
+                    )
+                except OSError as e:
+                    raise RuntimeError(
+                        f"{self.name}: 读取 {kno_src} 失败，未做任何改动: {e}"
+                    ) from e
+
+                # ============ 阶段 B：写 kno tmp ============
+                try:
+                    kno_tmp.write_bytes(target_kno)
+                    if _sha256_file(kno_tmp) != _sha256_bytes(target_kno):
+                        raise OSError("tmp 内容 SHA-256 校验失败")
+                except OSError as e:
+                    kno_tmp.unlink(missing_ok=True)
+                    raise RuntimeError(
+                        f"{self.name}: 写 .kno 临时文件失败，未做任何改动: {e}"
+                    ) from e
+
+                # ============ 阶段 C0'：二次激活检查 ============
+                if kno_src.is_file() and is_kno_locked(kno_src):
+                    kno_tmp.unlink(missing_ok=True)
+                    raise RuntimeError(
+                        f"{self.name}: 集合在重置执行前被激活，拒绝重置（数据未变）"
+                    )
+
+                # ============ 阶段 C0：创建 snapshot commit ============
+                # add -A --force：把工作区所有文件（含 .gitignore 忽略的）
+                # 加入 index。这样 read-tree -u --reset commit 时，所有不在
+                # 目标 commit 里的文件（无论之前是 tracked、untracked 还是
+                # ignored）都会被识别为"被移除的 index entry"并删除。
+                try:
+                    git(repo, "add", "-A", "--force")
+                    snapshot_tree = git_out(repo, "write-tree")
+                except (GitError, subprocess.TimeoutExpired) as e:
+                    # 恢复 index 到 old_head（不改工作区）。
+                    # check=False 时不抛异常，必须显式检查 returncode，
+                    # 否则 index 恢复失败被静默吞掉，用户看到的是
+                    # "创建快照失败"但不知道 index 也坏了。
+                    reset_r = git(repo, "read-tree", "--reset", old_head, check=False)
+                    if reset_r.returncode != 0:
+                        reset_err = (
+                            reset_r.stderr
+                            if isinstance(reset_r.stderr, str)
+                            else reset_r.stderr.decode(errors="replace")
+                        )
+                        log.error(
+                            f"{self.name}: C0 失败后重置 index 也失败: {reset_err}。"
+                            f"index 可能停留在部分 staged 状态，可用 "
+                            f"git -C {repo} read-tree --reset {old_head} 手动清理。"
+                            f"（原始错误: {e}）"
+                        )
+                    kno_tmp.unlink(missing_ok=True)
+                    raise RuntimeError(
+                        f"{self.name}: 创建快照时暂存工作区失败"
+                        f"（工作区文件内容未变；index 已尝试重置到 HEAD 版本，"
+                        f"原 staged 状态可能丢失）: {e}"
+                    ) from e
+
+                # 始终创建 snapshot（包含工作区所有文件，含 ignored）。
+                # parent = old_head：让残留 ref 恢复时可以用 SNAPSHOT_REF^
+                # 找回操作前 HEAD。
+                try:
+                    snap_msg = (
+                        f"smtk-reset-snapshot "
+                        f"{datetime.now().isoformat(timespec='seconds')}"
+                    )
+                    snapshot_commit = commit_tree(
+                        repo, snapshot_tree, old_head, snap_msg
+                    )
+                    git(repo, "update-ref", SNAPSHOT_REF, snapshot_commit)
+                except (GitError, subprocess.TimeoutExpired) as e:
+                    # 创建 commit 或 ref 失败。index 已 modified，恢复它。
+                    reset_r = git(repo, "read-tree", "--reset", old_head, check=False)
+                    if reset_r.returncode != 0:
+                        reset_err = (
+                            reset_r.stderr
+                            if isinstance(reset_r.stderr, str)
+                            else reset_r.stderr.decode(errors="replace")
+                        )
+                        log.error(
+                            f"{self.name}: 快照 commit 创建失败后重置 index 也失败: "
+                            f"{reset_err}。index 可能停留在部分 staged 状态，可用 "
+                            f"git -C {repo} read-tree --reset {old_head} 手动清理。"
+                            f"（原始错误: {e}）"
+                        )
+                    kno_tmp.unlink(missing_ok=True)
+                    raise RuntimeError(
+                        f"{self.name}: 创建快照 commit 失败"
+                        f"（工作区文件内容未变；index 已尝试重置到 HEAD 版本，"
+                        f"原 staged 状态可能丢失）: {e}"
+                    ) from e
+
+                # log.info 移出 try：logging 极端失败时也不留未清理的 ref
+                log.info(f"{self.name}: created snapshot {snapshot_commit[:8]}")
+
+                log.info(
+                    f"{self.name}: resetting workspace {old_head} -> "
+                    f"{commit[:8]} ({target})"
+                )
+
+                # ============ 阶段 C1-C4：执行写操作 ============
+                # C4 使用 _write_kno_atomic（与 restore 一致）：内部写 tmp +
+                # os.replace + SHA-256 校验，失败时清理 tmp 并 raise。
+                # 阶段 B 写的 kno_tmp 会被 _write_kno_atomic 内部同名 tmp 覆盖，
+                # 等价且更安全；若 git 命令失败（还没到 C4），阶段 B 的 kno_tmp
+                # 仍在，由下面 except 里的 unlink 清理。
+                try:
+                    git(repo, "read-tree", "-u", "--reset", commit)
+                    git(repo, "update-ref", HOT_REF, commit)
+                    git(repo, "symbolic-ref", "HEAD", HOT_REF)
+                    _write_kno_atomic(kno_src, target_kno)
+                except Exception as e:
+                    kno_tmp.unlink(missing_ok=True)
+
+                    # ---- 回滚 ----
+                    # 需要恢复：
+                    #   1. 工作区到 snapshot（含 ignored 原内容）
+                    #   2. index 到 old_head（避免 ignored 污染下一次 backup）
+                    #   3. HOT_REF/HEAD 到 old_head
+                    #   4. 外部 .kno 到操作前字节
+                    rb_ok = True
+
+                    # 1. 恢复工作区到 snapshot（-u 才会更新工作区）
+                    try:
+                        git(repo, "read-tree", "-u", "--reset", snapshot_commit)
+                    except (GitError, subprocess.TimeoutExpired) as re:
+                        rb_ok = False
+                        log.error(f"{self.name}: 回滚工作区失败: {re}")
+
+                    # 2. 重置 index 到 old_head（不带 -u，不动工作区）。
+                    # 这一步至关重要：snapshot 是用 add -A --force 创建的，
+                    # 包含所有 ignored 文件。若 index 停留在 snapshot，
+                    # 下次 backup() 的 add -A 不会移除它们，write-tree 会把
+                    # ignored 文件提交进 hot 链，用户以为永远被忽略的临时
+                    # 文件会永久进入 Git 历史。
+                    try:
+                        git(repo, "read-tree", "--reset", old_head)
+                    except (GitError, subprocess.TimeoutExpired) as re:
+                        rb_ok = False
+                        log.error(f"{self.name}: 回滚 index 失败: {re}")
+
+                    # 3. 恢复 refs
+                    try:
+                        git(repo, "update-ref", HOT_REF, old_head)
+                        git(repo, "symbolic-ref", "HEAD", HOT_REF)
+                    except (GitError, subprocess.TimeoutExpired) as re:
+                        rb_ok = False
+                        log.error(f"{self.name}: 回滚 refs 失败: {re}")
+
+                    # 4. 恢复外部 .kno
+                    try:
+                        if old_kno_actual is not None:
+                            _write_kno_atomic(kno_src, old_kno_actual)
+                        else:
+                            kno_src.unlink(missing_ok=True)
+                    except Exception as ke:
+                        rb_ok = False
+                        log.error(f"{self.name}: 回滚外部 .kno 失败: {ke}")
+
+                    if rb_ok:
+                        # 回滚完整成功 → 清理 snapshot ref。
+                        # check=False 时不抛异常，必须显式检查 returncode，
+                        # 否则清理失败被静默吞掉，下次 reset 会因残留 ref
+                        # 拒绝，用户困惑："上次明明说完全回滚了"。
+                        drop_r = git(
+                            repo, "update-ref", "-d", SNAPSHOT_REF, check=False
+                        )
+                        if drop_r.returncode != 0:
+                            drop_err = (
+                                drop_r.stderr
+                                if isinstance(drop_r.stderr, str)
+                                else drop_r.stderr.decode(errors="replace")
+                            )
+                            log.warning(
+                                f"{self.name}: 回滚成功后清理 snapshot ref 失败: "
+                                f"{drop_err}。可手动 "
+                                f"git -C {repo} update-ref -d {SNAPSHOT_REF}"
+                            )
+                        raise ResetFailed(
+                            f"{self.name}: 重置失败，文件内容已完全回滚"
+                            f"（refs、tracked、untracked、ignored、外部 .kno 均已恢复；"
+                            f"原 staged/unstaged 区分丢失，所有改动现为 unstaged）。"
+                            f"原始错误: {e}"
+                        ) from e
+
+                    # 回滚不完整 → **保留** snapshot ref，供用户手动恢复
+                    log.error(
+                        f"{self.name}: 回滚不完整，保留 snapshot "
+                        f"{SNAPSHOT_REF} -> {snapshot_commit[:8]}，可手动恢复"
+                    )
+                    raise ResetRollbackFailed(
+                        f"{self.name}: 重置失败且回滚不完整，仓库/文件可能不一致。\n"
+                        f"快照 {SNAPSHOT_REF} -> {snapshot_commit[:8]} 保留"
+                        f"（含操作前完整工作区，parent 指向操作前 HEAD）。\n"
+                        f"\n"
+                        f"【第一步：确认当前状态】\n"
+                        f"  git -C {repo} status\n"
+                        f"  git -C {repo} log --oneline -3 HEAD\n"
+                        f"\n"
+                        f"【恢复操作前状态（依次执行）】\n"
+                        f"  1. 恢复工作区：\n"
+                        f"     git -C {repo} read-tree -u --reset {SNAPSHOT_REF}\n"
+                        f"  2. 重置 index 到操作前 HEAD（防 ignored 文件污染）：\n"
+                        f"     git -C {repo} read-tree --reset {SNAPSHOT_REF}^\n"
+                        f"  3. 恢复 hot 分支：\n"
+                        f"     git -C {repo} update-ref {HOT_REF} {SNAPSHOT_REF}^\n"
+                        f"  4. 恢复 HEAD：\n"
+                        f"     git -C {repo} symbolic-ref HEAD {HOT_REF}\n"
+                        f"  5. 恢复外部 .kno：\n"
+                        f"     git -C {repo} cat-file -p {SNAPSHOT_REF}:{kno_rel} > {kno_src}\n"
+                        f"  6. 清理快照：\n"
+                        f"     git -C {repo} update-ref -d {SNAPSHOT_REF}\n"
+                        f"\n"
+                        f"如已确认工作区状态正确（例如重置其实已成功），\n"
+                        f"只清理快照即可：\n"
+                        f"  git -C {repo} update-ref -d {SNAPSHOT_REF}\n"
+                        f"\n"
+                        f"原始错误: {e}。请手动检查 {repo} 和 {kno_src}。"
+                    ) from e
+
+                # ============ 成功：删除 snapshot ref ============
+                drop_r = git(repo, "update-ref", "-d", SNAPSHOT_REF, check=False)
+                if drop_r.returncode != 0:
+                    drop_err = (
+                        drop_r.stderr
+                        if isinstance(drop_r.stderr, str)
+                        else drop_r.stderr.decode(errors="replace")
+                    )
+                    log.warning(
+                        f"{self.name}: 删除 snapshot ref 失败: {drop_err}。"
+                        f"可手动 git -C {repo} update-ref -d {SNAPSHOT_REF}"
+                    )
+                else:
+                    log.info(f"{self.name}: cleaned up snapshot {snapshot_commit[:8]}")
+
+                log.info(
+                    f"{self.name}: workspace reset to {commit[:8]} ({target}), "
+                    f"old_head={old_head}"
+                )
+                return commit
 
     def forget(self) -> bool:
         """让集合遗忘 Git 历史：删除 .git 目录。
@@ -1336,8 +1808,6 @@ class Watcher:
         err_state: dict[str, bool] = {}
         was_active: dict[str, bool] = {}
 
-        # 初始化逐集合 try：任一集合探测失败不阻塞其余集合，
-        # 也不会因初始化 comprehensions 抛异常导致线程启动即死。
         for c in self._config.collections:
             active = self._is_active_safe(c, err_state)
             if active is None:
@@ -1421,6 +1891,145 @@ class Watcher:
 
         threading.Thread(target=lambda: self._track(_do), daemon=True).start()
 
+    def _make_reset_menu(self, target: str) -> pystray.Menu:
+        """为指定 target 生成「按集合选择」子菜单。
+
+        只列出已经 git 初始化的集合。未初始化的集合没有 HEAD/commit，
+        reset 无意义，隐藏它们避免用户误点后收到"未初始化"提示。
+
+        用工厂函数创建签名严格为 (icon, item) 的 handler。
+        pystray 的 _assert_action 要求 action 正好接受 2 个位置参数，
+        带额外默认参数的 lambda 会被拒绝。
+
+        注意：集合的初始化状态在 start() 时静态确定。若用户在 watcher
+        运行期间新初始化仓库，需要重启 watcher 才会出现在菜单里。
+        """
+
+        def make_handler(cname: str):
+            def handler(icon, item):
+                self._on_reset(icon, item, target, cname)
+
+            return handler
+
+        items: list[pystray.MenuItem] = []
+        for c in self._config.collections:
+            try:
+                if not CollectionRepo(c).is_initialized():
+                    continue
+            except Exception as e:
+                log.warning(f"reset menu: 检查 {c.name} 初始化状态失败，跳过: {e}")
+                continue
+            items.append(pystray.MenuItem(c.name, make_handler(c.name)))
+
+        if not items:
+            items.append(pystray.MenuItem("(无已初始化集合)", None, enabled=False))
+        return pystray.Menu(*items)
+
+    def _on_reset(self, icon, item, target: str, name: str) -> None:
+        """托盘菜单：重置指定集合的工作区到 target。后台执行，不阻塞托盘。"""
+        label = "HEAD" if target == "HEAD" else "上一次提交"
+
+        def _notify(msg: str) -> None:
+            try:
+                icon.notify(msg, "time")
+            except Exception:
+                pass
+
+        def _do():
+            try:
+                c = next((x for x in self._config.collections if x.name == name), None)
+                if c is None:
+                    log.error(f"reset: collection not found: {name}")
+                    return
+
+                self._update_icon("running", f"{name} 重置中 ({label})")
+                repo = CollectionRepo(c)
+
+                if not repo.is_initialized():
+                    log.info(f"{name}: 未初始化，跳过 reset")
+                    _notify(f"{name} 未初始化，跳过")
+                    self._update_icon("done", f"{name} 未初始化")
+                    return
+
+                try:
+                    active = repo.is_active()
+                except Exception as e:
+                    log.error(f"{name}: 探测激活状态失败: {e}")
+                    _notify(f"{name} 状态探测失败")
+                    self._update_icon("error", f"{name} 状态探测失败")
+                    return
+                if active:
+                    log.warning(f"{name}: 集合正在激活，拒绝重置")
+                    _notify(f"{name} 正在激活，请先关闭 SuperMemo")
+                    self._update_icon("active", name)
+                    return
+
+                try:
+                    commit = repo.reset_workspace(target)
+                except NoTargetCommit as e:
+                    log.info(f"{name}: reset to {target} skipped: {e}")
+                    _notify(f"{name} 无目标提交（{label}）")
+                    self._update_icon("done", f"{name} 无目标提交")
+                    return
+                except ResetFailed as e:
+                    log.warning(f"{name}: reset failed but rolled back: {e}")
+                    _notify(f"{name} 重置失败，已完全回滚（文件内容未变）")
+                    self._update_icon("error", f"{name} 重置失败（已回滚）")
+                    return
+                except ResetRollbackFailed as e:
+                    log.error(f"{name}: reset rollback FAILED: {e}")
+                    _notify(
+                        f"{name} 重置失败且回滚不完整！"
+                        f"快照 refs/smtk-reset-snapshot 保留，请打开日志查看恢复步骤"
+                    )
+                    self._update_icon("error", f"{name} 需人工检查！")
+                    return
+                except Exception as e:
+                    log.error(f"{name}: reset failed pre-write: {e}")
+                    # 针对常见前置检查失败给出更有指向性的通知，
+                    # 避免用户看到笼统的"数据未变"却不知道下一步做什么。
+                    msg = str(e)
+                    if "发现上次 reset 残留的快照" in msg:
+                        _notify(
+                            f"{name} 检测到上次残留的快照！"
+                            f"请打开日志查看恢复步骤（方案 A/B/C）"
+                        )
+                    elif "存在未合并的冲突文件" in msg:
+                        _notify(f"{name} 有未解决的 git 冲突，请先在集合目录手动处理")
+                    elif "不是普通文件" in msg:
+                        _notify(f"{name} 的 .kno 路径配置异常，请检查配置")
+                    else:
+                        _notify(f"{name} 重置失败，数据未变（详见日志）")
+                    self._update_icon("error", f"{name} 重置失败")
+                    return
+
+                log.info(f"{name}: reset to {commit[:8]} ({label})")
+
+                # reset_workspace 成功路径里 update-ref -d SNAPSHOT_REF 失败
+                # 只 log.warning 不 raise；上层再查一次 ref，若残留则通知用户
+                # 手动清理，避免下次 reset 被"发现上次残留的快照"误导。
+                try:
+                    leftover = ref_exists(repo.repo_path, SNAPSHOT_REF)
+                except Exception:
+                    leftover = False
+                if leftover:
+                    log.warning(
+                        f"{name}: reset 成功但 snapshot ref 残留 "
+                        f"{SNAPSHOT_REF}，需手动清理"
+                    )
+                    _notify(
+                        f"{name} 已重置，但快照清理失败，请手动 "
+                        f"git -C {repo.repo_path} update-ref -d {SNAPSHOT_REF}"
+                    )
+                    self._update_icon("error", f"{name} 已重置（快照残留）")
+                else:
+                    _notify(f"{name} 已重置到 {label}（未备份改动已丢弃）")
+                    self._update_icon("done", f"{name} 已重置 ({label})")
+            except Exception as e:
+                log.error(f"reset background thread failed: {e}")
+
+        threading.Thread(target=lambda: self._track(_do), daemon=True).start()
+
     def _on_open_dir(self, icon, item) -> None:
         """托盘菜单：打开配置目录。"""
         try:
@@ -1489,6 +2098,9 @@ class Watcher:
 
         menu = pystray.Menu(
             pystray.MenuItem("压缩历史", self._on_compact),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("重置工作区到 HEAD", self._make_reset_menu("HEAD")),
+            pystray.MenuItem("重置工作区到上一次提交", self._make_reset_menu("HEAD^")),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("打开配置目录", self._on_open_dir),
             pystray.MenuItem("打开日志", self._on_open_log),
@@ -1598,6 +2210,25 @@ class SuperMemoBackup:
         """冷恢复指定集合（集合必须已关闭）。"""
         return self.collection(name).restore(target)
 
+    def reset_workspace(self, name: str, target: str = "HEAD") -> str:
+        """重置指定集合的工作区到 target（集合必须已关闭）。
+
+        成功：工作区完全等于目标 commit。所有不在目标 commit 中的文件
+        被删除：tracked 被覆盖、untracked 被删除、ignored 文件（如
+        temp/、reports/、html/）也被删除。外部 .kno = 目标 commit 版本。
+        不成功：完全恢复操作前状态（refs、tracked、untracked、ignored、
+        外部 .kno 全部恢复）；原 staged/unstaged 区分丢失，文件内容一致。
+
+        Raises:
+            NoTargetCommit: target 无法解析
+            RuntimeError: 前置检查失败（工作区文件内容未动；
+                C0 失败时 index 可能被 reset 到 HEAD）
+            ResetFailed: 阶段 C1-C4 失败，文件内容已完全恢复
+            ResetRollbackFailed: 阶段 C1-C4 失败且回滚不完整，
+                snapshot ref 保留供手动恢复
+        """
+        return self.collection(name).reset_workspace(target)
+
     def compact(self, name: str | None = None) -> CompactResult | list[CompactResult]:
         """压缩集合历史。
 
@@ -1663,6 +2294,9 @@ __all__ = [
     "FileLock",
     # 异常
     "GitError",
+    "NoTargetCommit",
+    "ResetFailed",
+    "ResetRollbackFailed",
     "RestoreResult",
     "SnapshotData",
     # 高级 API
