@@ -1704,6 +1704,8 @@ COLORS = {
     "done": (158, 158, 158, 255),
     "waiting": (255, 193, 7, 255),
     "error": (244, 67, 54, 255),
+    # 橙色：监听已暂停
+    "paused": (255, 152, 0, 255),
 }
 
 TITLES = {
@@ -1712,6 +1714,7 @@ TITLES = {
     "done": "SuperMemo 备份守护（空闲）",
     "waiting": "SuperMemo 备份守护（等待激活）",
     "error": "SuperMemo 备份守护（错误）",
+    "paused": "SuperMemo 备份守护（监听已暂停）",
 }
 
 
@@ -1740,6 +1743,11 @@ class Watcher:
     使用 0.5 秒轮询 is_kno_locked 检测集合的打开/关闭。
     只 backup，不 compact。折叠由用户通过托盘菜单手动触发。
 
+    托盘菜单提供「暂停监听」开关：暂停期间轮询线程完全停止探测，
+    不感知集合打开/关闭，因此不触发自动关闭备份；恢复监听时重新
+    同步当前状态，不补做暂停期间错过的备份。手动 backup() /
+    compact() / reset_workspace() 不受影响。每次 start() 默认开始监听。
+
     已知限制见模块文档字符串。
     """
 
@@ -1754,6 +1762,8 @@ class Watcher:
         # 修复：未 start 时没有 inflight 操作，stop() 不应等 300 秒。
         # Event() 初始为 unset，wait() 会一直阻塞到超时。
         self._idle_event.set()
+        # set() 表示「监听已暂停」。默认不暂停。
+        self._pause_event = threading.Event()
 
     @property
     def config(self) -> BackupConfig:
@@ -1808,15 +1818,13 @@ class Watcher:
             log.info(f"{c.name}: 激活状态探测已恢复")
         return result
 
-    def _poll_loop(self) -> None:
-        """定期轮询集合激活状态，检测打开/关闭转换。
+    def _probe_states(
+        self, err_state: dict[str, bool], was_active: dict[str, bool]
+    ) -> None:
+        """探测所有集合的激活状态写入 was_active。
 
-        单集合探测失败只影响该集合本轮判定（状态未知则跳过、保留原状态），
-        不会终止轮询线程，其他集合的监控和自动备份不受影响。
+        只更新图标，不触发打开/关闭事件。供 _poll_loop 初始化与恢复监听时复用。
         """
-        err_state: dict[str, bool] = {}
-        was_active: dict[str, bool] = {}
-
         for c in self._config.collections:
             active = self._is_active_safe(c, err_state)
             if active is None:
@@ -1825,9 +1833,41 @@ class Watcher:
             if active:
                 self._update_icon("active", c.name)
 
+    def _poll_loop(self) -> None:
+        """定期轮询集合激活状态，检测打开/关闭转换。
+
+        单集合探测失败只影响该集合本轮判定（状态未知则跳过、保留原状态），
+        不会终止轮询线程，其他集合的监控和自动备份不受影响。
+
+        监听暂停（_pause_event 被 set）时不做任何探测、不感知打开/关闭，
+        也不触发自动备份；恢复时重新探测当前状态，只更新图标，
+        不补做暂停期间错过的关闭备份。
+        """
+        err_state: dict[str, bool] = {}
+        was_active: dict[str, bool] = {}
+
+        self._probe_states(err_state, was_active)
+
         pending_close: dict[str, float] = {}
 
         while not self._stop_event.is_set():
+            # ---- 暂停监听：不做任何探测，等待恢复 ----
+            if self._pause_event.is_set():
+                # 已排队未执行的关闭备份直接丢弃；was_active 清空后
+                # 恢复时重新同步，避免暂停期间的关闭被当作新事件。
+                pending_close.clear()
+                was_active.clear()
+                self._update_icon("paused", "监听已暂停")
+                while not self._stop_event.is_set() and self._pause_event.is_set():
+                    _time.sleep(0.5)
+                if self._stop_event.is_set():
+                    break
+                # ---- 恢复监听：重新探测当前状态，只更新图标，不触发事件 ----
+                self._update_icon("waiting", "监听已恢复")
+                log.info("监听已恢复")
+                self._probe_states(err_state, was_active)
+                continue
+
             _time.sleep(0.5)
             now = _time.time()
 
@@ -1899,6 +1939,40 @@ class Watcher:
                 log.error(f"compact background thread failed: {e}")
 
         threading.Thread(target=lambda: self._track(_do), daemon=True).start()
+
+    def _on_toggle_pause(self, icon, item) -> None:
+        """托盘菜单：暂停 / 恢复监听。
+
+        暂停时 _poll_loop 完全停止探测 .kno 锁定状态，不感知集合打开/关闭，
+        因此也不会触发自动关闭备份。恢复时重新探测当前状态，不补做暂停期间
+        错过的关闭备份。手动 backup / compact / reset_workspace 不受影响。
+        """
+        try:
+            if self._pause_event.is_set():
+                self._pause_event.clear()
+                log.info("已恢复监听")
+                try:
+                    icon.notify("已恢复监听", "time")
+                except Exception:
+                    pass
+                self._update_icon("waiting", "监听已恢复")
+            else:
+                self._pause_event.set()
+                log.info("已暂停监听")
+                try:
+                    icon.notify("已暂停监听（手动备份不受影响）", "time")
+                except Exception:
+                    pass
+                self._update_icon("paused", "监听已暂停")
+        except Exception as e:
+            log.error(f"toggle pause: {e}")
+        finally:
+            # 刷新菜单勾选状态（不同后端对 checked 的计算时机不同，
+            # 显式 update_menu 最稳妥）
+            try:
+                icon.update_menu()
+            except Exception as e:
+                log.debug(f"update_menu: {e}")
 
     def _make_reset_menu(self, target: str) -> pystray.Menu:
         """为指定 target 生成「按集合选择」子菜单。
@@ -2104,6 +2178,8 @@ class Watcher:
         self._idle_event.set()
         self._inflight = 0
         self._holder = {}
+        # 每次 start 都默认开始监听
+        self._pause_event.clear()
 
         menu = pystray.Menu(
             pystray.MenuItem("压缩历史", self._on_compact),
@@ -2114,6 +2190,11 @@ class Watcher:
             pystray.MenuItem("重置工作区到 HEAD", self._make_reset_menu("HEAD")),
             pystray.MenuItem("重置工作区到上一次提交", self._make_reset_menu("HEAD^")),
             pystray.Menu.SEPARATOR,
+            pystray.MenuItem(
+                "暂停监听",
+                self._on_toggle_pause,
+                checked=lambda item: self._pause_event.is_set(),
+            ),
             pystray.MenuItem("退出", self._on_quit),
         )
         icon = pystray.Icon(
