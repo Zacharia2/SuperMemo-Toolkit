@@ -32,6 +32,7 @@ class Trace:
     def __init__(self):
         self.__stoped = False
         self.his_id = []
+        self.telwind_hwnd: int | None = None
 
     def _get_process_start_timestamp(self, pid):
         """
@@ -68,6 +69,7 @@ class Trace:
 
     def trace_with_mem(self, callback: Callable[[int, TextRegistry], any]):
         reader = ElementNo()
+        self.telwind_hwnd = reader.app.window(class_name="TElWind").handle
         active_kno_path = self._get_active_kno_path()
         if active_kno_path == None:
             return
@@ -103,7 +105,7 @@ class Trace:
                 "ignore", message=".*32-bit application should be automated.*"
             )
             app = Application(backend="win32").connect(class_name="TElWind")
-
+            self.telwind_hwnd = app.window(class_name="TElWind").handle
         except Exception as e:  # noqa: BLE001
             if isinstance(e, ElementNotFoundError):
                 messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))

@@ -107,15 +107,76 @@ class _INPUT(ctypes.Structure):
     _fields_ = [("type", wintypes.DWORD), ("u", _INPUT_UNION)]
 
 
+# ---------- MapVirtualKeyW（VK -> 扫描码） ----------
+_user32.MapVirtualKeyW.argtypes = [wintypes.UINT, wintypes.UINT]
+_user32.MapVirtualKeyW.restype = wintypes.UINT
+
+MAPVK_VK_TO_VSC = 0
+
+
+def _key_input(vk: int, up: bool = False) -> _INPUT:
+    """构造单个键盘 INPUT。
+
+    同时填 wVk 和 wScan：
+      - 不设 KEYEVENTF_SCANCODE，系统优先用 wVk；wScan 作为兜底，
+        某些 VCL/Delphi 路径会直接读扫描码。
+      - wVk 与 wScan 均为 0 时才是"纯扫描码模式"，这里不用。
+    """
+    inp = _INPUT()
+    inp.type = _INPUT_KEYBOARD
+    inp.u.ki.wVk = vk
+    inp.u.ki.wScan = _user32.MapVirtualKeyW(vk, MAPVK_VK_TO_VSC)
+    inp.u.ki.dwFlags = KEYEVENTF_KEYUP if up else 0
+    inp.u.ki.time = 0
+    inp.u.ki.dwExtraInfo = 0
+    return inp
+
+
+def _send_inputs(inputs: list[_INPUT]) -> bool:
+    """统一投递键盘 INPUT 序列。
+
+    cbSize 必须是单个 INPUT 的大小（Win32 约定），
+    不是整个数组的字节数——否则 SendInput 立刻返回 87。
+    """
+    n = len(inputs)
+    if n == 0:
+        return True
+    arr = (_INPUT * n)(*inputs)
+    sent = _user32.SendInput(
+        n,
+        ctypes.byref(arr),
+        ctypes.sizeof(_INPUT),  # ← 关键：单个结构体大小
+    )
+    return sent == n
+
+
 def _send_alt() -> bool:
     """原子化 Alt 点击；返回 True 表示输入被接受。"""
-    inp = (_INPUT * 2)()
-    inp[0].type = _INPUT_KEYBOARD
-    inp[0].u.ki.wVk = 0x12
-    inp[1].type = _INPUT_KEYBOARD
-    inp[1].u.ki.wVk = 0x12
-    inp[1].u.ki.dwFlags = KEYEVENTF_KEYUP
-    return _user32.SendInput(2, ctypes.byref(inp), ctypes.sizeof(inp)) == 2
+    return _send_inputs(
+        [
+            _key_input(0x12),  # VK_MENU down
+            _key_input(0x12, up=True),  # VK_MENU up
+        ]
+    )
+
+
+def send_vk(
+    vk: int, *, ctrl: bool = False, shift: bool = False, alt: bool = False
+) -> bool:
+    """SendInput 发送单键 + 修饰键组合。调用前需确保目标窗口在前台。"""
+    mods: list[int] = []
+    if ctrl:
+        mods.append(0x11)  # VK_CONTROL
+    if shift:
+        mods.append(0x10)  # VK_SHIFT
+    if alt:
+        mods.append(0x12)  # VK_MENU
+
+    seq: list[_INPUT] = [_key_input(m) for m in mods]
+    seq.append(_key_input(vk))
+    seq.append(_key_input(vk, up=True))
+    seq.extend(_key_input(m, up=True) for m in reversed(mods))
+    return _send_inputs(seq)
 
 
 # ---------- 钩子管理器 ----------

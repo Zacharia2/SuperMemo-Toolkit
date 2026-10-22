@@ -6,6 +6,7 @@ from pathlib import Path
 import regex
 from bs4 import BeautifulSoup, Comment, NavigableString
 
+from supermemo_toolkit.latex2img.bridge import Bridge
 from supermemo_toolkit.latex2img.formula_to_png import latex2img_md
 
 BLOCK_FORMULA_RE = regex.compile(r"\$\$\$(.+?)\$\$\$", regex.S)
@@ -21,45 +22,48 @@ PRE_CHECK_RE = regex.compile(
     """
 )
 
-INLINE_EDITOR_JS_VER = "1.1.2"
+INLINE_EDITOR_JS_VER = "1.2.1"
 
 INLINE_EDITOR_JS = (
     f"// FX_EDITOR_VER: {INLINE_EDITOR_JS_VER}\n"
     + r"""
-function fxFindImg(c) {
+function fxFindChild(c, cls, tag) {
   if (!c) return null;
-  var imgs = c.getElementsByTagName("img");
-  for (var i = 0; i < imgs.length; i++) {
-    var cn = imgs[i].className;
-    if (cn && (" " + cn + " ").indexOf(" smtk-fx-img ") >= 0) return imgs[i];
+  var els = c.getElementsByTagName(tag);
+  var re = new RegExp("(^|\\s)" + cls + "(\\s|$)");
+  for (var i = 0; i < els.length; i++) {
+    if (re.test(els[i].className)) return els[i];
   }
   return null;
 }
+function fxFindImg(c) { return fxFindChild(c, "smtk-fx-img", "img"); }
 function fxGetSource(c) {
   var img = fxFindImg(c);
   return img ? (img.getAttribute("alt") || "") : null;
+}
+function fxStripDelims(s) {
+  s = s.replace(/^\s+|\s+$/g, "");
+  if (s.indexOf("$$$") === 0 && s.lastIndexOf("$$$") === s.length - 3)
+    return s.substring(3, s.length - 3).replace(/^\s+|\s+$/g, "");
+  if (s.indexOf("$$") === 0 && s.lastIndexOf("$$") === s.length - 2)
+    return s.substring(2, s.length - 2).replace(/^\s+|\s+$/g, "");
+  return s;
 }
 function fxSetSource(c, text) {
   var img = fxFindImg(c);
   if (!img) { alert("\u627e\u4e0d\u5230\u6e32\u67d3\u56fe\u7247"); return false; }
   img.setAttribute("alt", text);
-  if ((" " + c.className + " ").indexOf(" smtk-block ") >= 0) {
-    var srcEl = c.getElementsByTagName("div");
-    for (var i = 0; i < srcEl.length; i++) {
-      if ((" " + srcEl[i].className + " ").indexOf(" smtk-fx-src ") >= 0) {
-        while (srcEl[i].firstChild) srcEl[i].removeChild(srcEl[i].firstChild);
-        srcEl[i].appendChild(document.createTextNode(text));
-        break;
-      }
+  if (/(^|\s)smtk-block(\s|$)/.test(c.className)) {
+    var src = fxFindChild(c, "smtk-fx-src", "div");
+    if (src) {
+      while (src.firstChild) src.removeChild(src.firstChild);
+      src.appendChild(document.createTextNode(text));
     }
   }
   return true;
 }
 function fxMarkPending(c) {
-  var pending = c.getElementsByTagName("span");
-  for (var i = 0; i < pending.length; i++) {
-    if ((" " + pending[i].className + " ").indexOf(" fx-pending ") >= 0) return;
-  }
+  if (fxFindChild(c, "fx-pending", "span")) return;
   var span = document.createElement("span");
   span.className = "fx-pending";
   span.style.color = "#c60";
@@ -67,44 +71,48 @@ function fxMarkPending(c) {
   span.appendChild(document.createTextNode(" [\u5f85\u91cd\u65b0\u6e32\u67d3]"));
   c.appendChild(span);
 }
+function fxCancel(eid) {
+  var e = document.getElementById(eid);
+  if (e && e.parentNode) e.parentNode.removeChild(e);
+  return false;
+}
+function fxNotifySave(cid) {
+  if (typeof SMTK_BRIDGE === "undefined" || !SMTK_BRIDGE) return;
+  var img = new Image();
+  img.onload = img.onerror = function () {};
+  img.src = SMTK_BRIDGE.url + encodeURIComponent(cid) + "&_=" + (+new Date());
+}
+var FX_EDITOR_STYLE = "position:absolute;top:20px;left:5%;width:90%;z-index:9999;"
+  + "border:2px solid #888;padding:10px;background:#fffbe6;text-align:left;";
+var FX_BTN_STYLE = "cursor:pointer;border:1px solid #888;padding:2px 12px;"
+  + "background:#eee;color:#000;";
 function fxEditClick(cid) {
   try {
     var c = document.getElementById(cid);
     if (!c) { alert("\u627e\u4e0d\u5230\u516c\u5f0f\u5bb9\u5668: " + cid); return false; }
     var src = fxGetSource(c);
     if (src == null) { alert("\u627e\u4e0d\u5230\u516c\u5f0f\u6e90\u7801"); return false; }
-    
     var eid = "ed-" + cid;
-    var existing = document.getElementById(eid);
-    if (existing) { existing.parentNode.removeChild(existing); }
-    
-    var inner = src.replace(/^\s+|\s+$/g, "");
-    if (inner.indexOf("$$$") === 0) { inner = inner.substring(3, inner.length - 3); }
-    else if (inner.indexOf("$$") === 0) { inner = inner.substring(2, inner.length - 2); }
-    inner = inner.replace(/^\s+|\s+$/g, "");
-    
+    fxCancel(eid);
     var q = String.fromCharCode(39);
     var html =
-      "<div class=\"editor\" id=\"" + eid + "\" style=\"position:absolute; top:20px; left:5%; width:90%; z-index:9999; border:2px solid #888; padding:10px; background:#fffbe6; text-align:left;\">" +
-        "<div style=\"text-align:center; font-weight:bold; margin-bottom:6px;\">\u7f16\u8f91\u516c\u5f0f\uff08\u65e0\u9700\u56f4\u680f\uff0c\u7cfb\u7edf\u81ea\u52a8\u8865\u5168\uff09\uff1a</div>" +
-        "<textarea id=\"ta-" + cid + "\" rows=\"4\" style=\"width:100%; font-family:monospace; box-sizing:border-box;\"></textarea>" +
-        "<div style=\"margin-top:8px; text-align:center;\">" +
-          "<span onclick=\"return fxCancel(" + q + eid + q + ")\" style=\"cursor:pointer; border:1px solid #888; padding:2px 12px; background:#eee; color:#000;\">\u53d6\u6d88</span> " +
-          "<span onclick=\"return fxCommit(" + q + cid + q + ")\" style=\"cursor:pointer; border:1px solid #888; padding:2px 12px; background:#eee; margin-left:10px; color:#000;\">\u786e\u5b9a</span>" +
+      "<div id=\"" + eid + "\" style=\"" + FX_EDITOR_STYLE + "\">" +
+        "<div style=\"text-align:center;font-weight:bold;margin-bottom:6px;\">\u7f16\u8f91\u516c\u5f0f\uff08\u65e0\u9700\u56f4\u680f\uff0c\u7cfb\u7edf\u81ea\u52a8\u8865\u5168\uff09\uff1a</div>" +
+        "<textarea id=\"ta-" + cid + "\" rows=\"4\" style=\"width:100%;font-family:monospace;box-sizing:border-box;\"></textarea>" +
+        "<div style=\"margin-top:8px;text-align:center;\">" +
+          "<span onclick=\"return fxCancel(" + q + eid + q + ")\" style=\"" + FX_BTN_STYLE + "\">\u53d6\u6d88</span> " +
+          "<span onclick=\"return fxCommit(" + q + cid + q + ")\" style=\"" + FX_BTN_STYLE + "margin-left:10px;\">\u786e\u5b9a</span>" +
         "</div>" +
       "</div>";
-      
     var temp = document.createElement("div");
     temp.innerHTML = html;
-    var editor = temp.firstChild;
-    
+    var editor = temp.getElementsByTagName("div")[0];
     var scrollTop = document.body.scrollTop || document.documentElement.scrollTop;
     editor.style.top = (scrollTop + 20) + "px";
     document.body.appendChild(editor);
-    
     var ta = document.getElementById("ta-" + cid);
     if (ta) {
-      ta.value = inner;
+      ta.value = fxStripDelims(src);
       try { ta.focus(); } catch (e) {}
     }
   } catch (e) {
@@ -112,30 +120,19 @@ function fxEditClick(cid) {
   }
   return false;
 }
-function fxCancel(eid) {
-  var e = document.getElementById(eid);
-  if (e && e.parentNode) e.parentNode.removeChild(e);
-  return false;
-}
 function fxCommit(cid) {
   var c = document.getElementById(cid);
   var ta = document.getElementById("ta-" + cid);
   if (!c || !ta) { alert("\u7f16\u8f91\u533a\u5df2\u5931\u6548\uff0c\u8bf7\u91cd\u65b0\u70b9\u51fb\u201c\u7f16\u8f91\u201d"); return false; }
-  
-  var innerText = ta.value.replace(/^\s+|\s+$/g, "");
-  if (innerText === "") { alert("\u516c\u5f0f\u5185\u5bb9\u4e0d\u80fd\u4e3a\u7a7a\u3002"); return false; }
-  
-  if (innerText.indexOf("$$$") === 0 && innerText.lastIndexOf("$$$") === innerText.length - 3) {
-    innerText = innerText.substring(3, innerText.length - 3).replace(/^\s+|\s+$/g, "");
-  } else if (innerText.indexOf("$$") === 0 && innerText.lastIndexOf("$$") === innerText.length - 2) {
-    innerText = innerText.substring(2, innerText.length - 2).replace(/^\s+|\s+$/g, "");
+  if (ta.value.replace(/^\s+|\s+$/g, "") === "") {
+    alert("\u516c\u5f0f\u5185\u5bb9\u4e0d\u80fd\u4e3a\u7a7a\u3002"); return false;
   }
-  
-  var isBlock = (" " + c.className + " ").indexOf(" smtk-block ") >= 0;
+  var innerText = fxStripDelims(ta.value);
+  var isBlock = /(^|\s)smtk-block(\s|$)/.test(c.className);
   var text = isBlock ? ("$$$" + innerText + "$$$") : ("$$" + innerText + "$$");
-  
   if (!fxSetSource(c, text)) return false;
   fxMarkPending(c);
+  fxNotifySave(cid);
   fxCancel("ed-" + cid);
   return false;
 }
@@ -144,11 +141,42 @@ function fxCommit(cid) {
 
 
 class FormulaRenderer:
-    def __init__(self, elements_dir: str | Path):
+    def __init__(self, elements_dir: str | Path, bridge: Bridge | None = None):
         self.image_dir = Path(elements_dir) / "local_pic"
         self.image_dir.mkdir(parents=True, exist_ok=True)
+        self.bridge = bridge
         self.changed = False
 
+    # ── 脚本注入 ────────────────────────────────────────────────
+    def _script_payload(self) -> str:
+        if self.bridge is None:
+            return INLINE_EDITOR_JS
+        return (
+            f"// SMTK_BRIDGE_PORT: {self.bridge.port}\n"
+            f"var SMTK_BRIDGE = {{ port: {self.bridge.port}, "
+            f'url: "http://127.0.0.1:{self.bridge.port}/save-formula?cid=" }};\n'
+            + INLINE_EDITOR_JS
+        )
+
+    def _needs_script_update(self, html: str) -> bool:
+        """判断 html 中现存的注入脚本是否需要重写。
+
+        触发条件：
+          1. 版本号不符 —— 升级编辑器脚本。
+          2. bridge 存在但端口不符 —— 进程重启导致端口变化。
+          3. bridge 不存在但残留桥定义 —— 清理旧端口（避免哑火）。
+        """
+        if f"// FX_EDITOR_VER: {INLINE_EDITOR_JS_VER}" not in html:
+            return True
+        if self.bridge is not None:
+            if f"// SMTK_BRIDGE_PORT: {self.bridge.port}" not in html:
+                return True
+        else:
+            if "// SMTK_BRIDGE_PORT:" in html:
+                return True
+        return False
+
+    # ── 图片渲染 ────────────────────────────────────────────────
     def _hash_text(self, text: str) -> str:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()[:8]
 
@@ -249,12 +277,13 @@ class FormulaRenderer:
         ]
         text_node.replace_with(*new_nodes)  # 极致优雅：一步替换整段节点
 
+    # ── 主流程 ──────────────────────────────────────────────────
     def process_html(self, html: str) -> str:
         self.changed = False
         if not PRE_CHECK_RE.search(html):
             return html
 
-        needs_script_update = f"// FX_EDITOR_VER: {INLINE_EDITOR_JS_VER}" not in html
+        needs_script_update = self._needs_script_update(html)
         soup = BeautifulSoup(html, "html.parser")
 
         if needs_script_update:
@@ -299,7 +328,7 @@ class FormulaRenderer:
         # 3. 注入脚本
         if soup.find(class_="smtk-formula") and needs_script_update:
             script = soup.new_tag("script", attrs={"type": "text/javascript"})
-            script.string = INLINE_EDITOR_JS
+            script.string = self._script_payload()
             (soup.body or soup).append(script)
             self.changed = True
 

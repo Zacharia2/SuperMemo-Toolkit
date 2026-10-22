@@ -6,10 +6,12 @@ import shlex
 import shutil
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import click
 import regex
+import win32gui
 from edge_tts.voices import list_voices
 from tabulate import tabulate
 
@@ -19,9 +21,10 @@ from supermemo_toolkit.database.force_reload import ForceReload
 from supermemo_toolkit.database.origin_window import find_origin_window
 from supermemo_toolkit.database.registry import TextRegistry
 from supermemo_toolkit.database.trace import Trace, make_link
-from supermemo_toolkit.database.window_focus import activate_window
+from supermemo_toolkit.database.window_focus import activate_window, send_vk
 from supermemo_toolkit.epub2sm import epub_convert, format_ascii
 from supermemo_toolkit.latex2img import formula_to_png
+from supermemo_toolkit.latex2img.bridge import Bridge
 from supermemo_toolkit.latex2img.renderer import FormulaRenderer
 from supermemo_toolkit.pathpix import im_sort_out
 from supermemo_toolkit.pathpix.epub_imgfit import EpubImageFit
@@ -922,6 +925,26 @@ main.add_command(math)
 def math_card(tracing, ignore):
     """对当前元素中的 $$公式$$ 进行渲染，并支持就地编辑"""
     CONTINUE = not tracing
+    bridge = Bridge() if tracing else None
+    trace = Trace()  # ← 提到 on_save 之前
+
+    def on_save(cid: str) -> bool:
+        hwnd = trace.telwind_hwnd
+        if hwnd is None:
+            return False
+        if not activate_window(hwnd):
+            return False
+        if win32gui.GetForegroundWindow() != hwnd:
+            return False  # 激活被抢回，别发键
+        time.sleep(0.05)
+        ok1 = send_vk(ord("E"), ctrl=True)  # Ctrl+E
+        time.sleep(0.12)
+        ok2 = send_vk(0x1B)  # Esc
+        ok2 = send_vk(0x1B)  # Esc
+        return ok1 and ok2
+
+    if bridge is not None:
+        bridge.on_save = on_save
 
     def work(text_reg: TextRegistry) -> bool:
         if text_reg is None or text_reg.eId == None:
@@ -954,7 +977,7 @@ def math_card(tracing, ignore):
 
         click.echo(f"[No. {text_reg.eId}] [Title: {text_reg.eTitle[:12].strip()}]")
 
-        renderer = FormulaRenderer(elements_root)
+        renderer = FormulaRenderer(elements_root, bridge=bridge)
 
         with open(path, "r", encoding="utf-8") as fs:
             htm = fs.read()
@@ -986,7 +1009,6 @@ def math_card(tracing, ignore):
         return CONTINUE
 
     force_reload = ForceReload()
-    trace = Trace()
     if force_reload.online_and_has_force_addr is not None:
         trace.trace_with_mem(work)
         force_reload.detach()
@@ -1074,7 +1096,7 @@ if __name__ == "__main__":
     #     ["--re", r'(?i)(?s)<p class="block">.*?</p>\s*\K<p>'], standalone_mode=False
     # )
     # main.commands["imgfit"](["--trace"], standalone_mode=False)
-    # main.commands["math"].commands["card"](standalone_mode=False)
+    # main.commands["math"](["card", "--trace"], standalone_mode=False)
     # main.commands["pathpix"](["Reading-And-Review", "--clean"], standalone_mode=False)
     if is_launched_from_gui():
         try:
