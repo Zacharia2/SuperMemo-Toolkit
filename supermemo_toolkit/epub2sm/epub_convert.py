@@ -160,7 +160,7 @@ def _build_segment(events, start, end, prefix_stack):
     return str(soup.div)
 
 
-def split_html_by_toc(html, anchor_points):
+def split_html_by_toc(html, anchor_points, remove_overlap=True):
     """
     按目录顺序切分某文档。
 
@@ -173,6 +173,9 @@ def split_html_by_toc(html, anchor_points):
              或下一个锚点在文档中不存在 / 出现在当前锚点之前，
              则延伸到文档末尾。
     文档中不存在的锚点，对应片段为 ""。
+    remove_overlap:
+        如果为 True，则子节点从锚点本身开始切分，文档开头到第一个锚点的部分
+        会被单独存为 "_prefix_"，供父节点（不带锚点的节点）提取，避免重复。
     """
     if not html or not html.strip() or not anchor_points:
         return {}
@@ -194,22 +197,41 @@ def split_html_by_toc(html, anchor_points):
             if nid and nid not in pos:
                 pos[nid] = i
 
-    # 目录顺序与文档顺序一致性校验（如不需要可删除这段 print）
-    ordered_pos = [pos[aid] for aid in anchor_points if aid in pos]
-    if ordered_pos != sorted(ordered_pos):
-        print(f"警告：目录锚点顺序与文档顺序不一致：{anchor_points}")
+    # 目录顺序与文档顺序一致性校验（仅旧版模式提示，因为新版模式会自动按文档顺序重新排序）
+    if not remove_overlap:
+        ordered_pos = [pos[aid] for aid in anchor_points if aid in pos]
+        if ordered_pos != sorted(ordered_pos):
+            print(f"警告：目录锚点顺序与文档顺序不一致：{anchor_points}")
 
-    n = len(anchor_points)
+    # 提取有效锚点并按文档实际物理顺序排序（去重模式下）
+    if remove_overlap:
+        processing_anchors = sorted(
+            [a for a in anchor_points if a in pos], key=lambda x: pos[x]
+        )
+    else:
+        processing_anchors = anchor_points
+
+    n = len(processing_anchors)
     ranges = []
-    for idx, aid in enumerate(anchor_points):
+    prefix_html = ""
+
+    # 提取文档开头到第一个锚点的内容，作为父节点的专属内容
+    if remove_overlap and processing_anchors:
+        first_pos = pos[processing_anchors[0]]
+        if first_pos > 0:
+            prefix_html = _build_segment(events, 0, first_pos, [])
+
+    for idx, aid in enumerate(processing_anchors):
         if aid not in pos:
             ranges.append((aid, None, None))
             continue
 
-        start = 0 if idx == 0 else pos[aid]
+        # 核心修改：如果去重，子节点永远从自身位置开始；否则保持原逻辑（第一个从 0 开始）
+        start = pos[aid] if remove_overlap else (0 if idx == 0 else pos[aid])
 
         if idx + 1 < n:
-            next_pos = pos.get(anchor_points[idx + 1])
+            next_aid = processing_anchors[idx + 1]
+            next_pos = pos.get(next_aid)
             if next_pos is None or next_pos <= start:
                 end = len(events)
             else:
@@ -232,6 +254,9 @@ def split_html_by_toc(html, anchor_points):
             stack.pop()
 
     result = {}
+    if remove_overlap and prefix_html:
+        result["_prefix_"] = prefix_html
+
     for aid, s, e in ranges:
         if s is None or s >= e:
             result[aid] = ""
@@ -244,6 +269,7 @@ def get_content(
     book: epub.EpubBook,
     href: str,
     anchor_points: dict[str, list[str]] | None = None,
+    remove_overlap: bool = True,
 ):
     if "#" in href and anchor_points:
         doc_href, _, anchor_point = href.partition("#")
@@ -251,17 +277,38 @@ def get_content(
         if not anchor_list:
             return ""
 
-        if doc_href not in _split_cache:
+        cache_key = (doc_href, remove_overlap)
+        if cache_key not in _split_cache:
             doc = book.get_item_with_href(doc_href)
             if doc is None:
                 return ""
             html = doc.content.decode("utf-8")
-            _split_cache[doc_href] = split_html_by_toc(html, anchor_list)
+            _split_cache[cache_key] = split_html_by_toc(
+                html, anchor_list, remove_overlap
+            )
 
-        return escape_sequence(_split_cache[doc_href].get(anchor_point, ""))
+        return escape_sequence(_split_cache[cache_key].get(anchor_point, ""))
 
     doc_href = href.partition("#")[0]
     doc = book.get_item_with_href(doc_href)
+
+    # 核心修改：如果没有锚点，但该文档有子节点进行了切分，父节点只返回前缀部分
+    if remove_overlap and anchor_points and doc_href in anchor_points:
+        anchor_list = anchor_points[doc_href]
+        cache_key = (doc_href, remove_overlap)
+        if cache_key not in _split_cache:
+            if doc is None:
+                return ""
+            html = doc.content.decode("utf-8")
+            _split_cache[cache_key] = split_html_by_toc(html, anchor_list, remove_overlap)
+        
+        split_result = _split_cache[cache_key]
+        # 兜底：如果切分结果为空（说明目录里的锚点在 HTML 中完全找不到），则父节点返回全文，防止内容丢失
+        if not split_result:
+            return escape_sequence(doc.content.decode("utf-8") if doc else " ")
+            
+        return escape_sequence(split_result.get("_prefix_", ""))
+
     content = doc.content.decode("utf-8") if doc else " "
     return escape_sequence(content)
 
@@ -290,12 +337,12 @@ def get_anchor_point_list(chapters):
     return anchor_point_dict
 
 
-def get_docs_by_toc(book, chapters, folder_name):
+def get_docs_by_toc(book, chapters, folder_name, remove_overlap=True):
     anchor_points = get_anchor_point_list(chapters)
-    return _get_docs_by_toc(book, chapters, folder_name, anchor_points)
+    return _get_docs_by_toc(book, chapters, folder_name, anchor_points, remove_overlap)
 
 
-def _get_docs_by_toc(book, chapters, folder_name, anchor_points):
+def _get_docs_by_toc(book, chapters, folder_name, anchor_points, remove_overlap=True):
     global id_counts
     el_list = []
     for chapter in chapters:
@@ -321,13 +368,17 @@ def _get_docs_by_toc(book, chapters, folder_name, anchor_points):
         with tag("Content"), tag("Question"):
             text(
                 modify_img_url(
-                    book, get_content(book, href, anchor_points), folder_name
+                    book,
+                    get_content(book, href, anchor_points, remove_overlap),
+                    folder_name,
                 )
             )
         id_counts += 1
 
         if children:
-            for el in _get_docs_by_toc(book, children, folder_name, anchor_points):
+            for el in _get_docs_by_toc(
+                book, children, folder_name, anchor_points, remove_overlap
+            ):
                 with tag("SuperMemoElement"):
                     doc.asis(el)
 
@@ -465,7 +516,7 @@ def _finalize(book, book_f_name, save_folder, save_image_folder, xml_str):
     print("转换完成，已存储至：", os.path.abspath(save_folder))
 
 
-def start_with_toc(epub_file, save_folder, save_image_folder=None):
+def start_with_toc(epub_file, save_folder, save_image_folder=None, remove_overlap=True):
     _reset_state()
     book = epub.read_epub(epub_file, {"ignore_ncx": True})
     book_f_name = makeNameSafe(trans_pinyin(book.title))
@@ -482,7 +533,7 @@ def start_with_toc(epub_file, save_folder, save_image_folder=None):
 
     doc, tag, text = Doc().tagtext()
     mid = get_id()
-    el_list = get_docs_by_toc(book, toc, book_f_name)
+    el_list = get_docs_by_toc(book, toc, book_f_name, remove_overlap)
     with tag("SuperMemoCollection"):
         with tag("Count"):
             text(id_counts + 1)
@@ -558,4 +609,5 @@ if __name__ == "__main__":
     start_with_toc(
         r"D:\Calibre Library\Calibre 星轨\Yi Ming\Shi Jing (Quan Xi Quan Yi Ban ) (283)\Shi Jing (Quan Xi Quan Yi Ban ) - Yi Ming.epub",
         r"C:\Users\Snowy\Desktop",
+        remove_overlap=True,  # 设为 True 时去重（仅保留叶子），设为 False 时保留旧版全量包含
     )
