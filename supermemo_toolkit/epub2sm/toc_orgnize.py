@@ -50,8 +50,14 @@ def 补全目录文档分类(书籍):
     目录链接集合 = 收集目录链接集合(书籍)
     头部文档列表, 正文分类列表 = [], []
     已遇到目录文档 = False
+    已处理文档ID = set()
 
-    for 文档 in 书籍.get_items_of_type(ebooklib.ITEM_DOCUMENT):
+    def 处理单个文档(文档):
+        nonlocal 已遇到目录文档
+        if not 文档 or 文档.get_type() != ebooklib.ITEM_DOCUMENT:
+            return
+
+        已处理文档ID.add(文档.id)
         文档在目录中 = 规范化链接(文档.file_name) in 目录链接集合
 
         if not 已遇到目录文档:
@@ -65,6 +71,16 @@ def 补全目录文档分类(书籍):
                 正文分类列表.append((文档.file_name, []))
             else:
                 正文分类列表[-1][1].append(文档.file_name)
+
+    # 1. 优先按照 Spine（真正的阅读顺序）遍历
+    for idref, _ in 书籍.spine:
+        文档 = 书籍.get_item_with_id(idref)
+        处理单个文档(文档)
+
+    # 2. 兜底：处理 Manifest 中遗漏、未包含在 Spine 里的文档
+    for 文档 in 书籍.get_items_of_type(ebooklib.ITEM_DOCUMENT):
+        if 文档.id not in 已处理文档ID:
+            处理单个文档(文档)
 
     return 头部文档列表, 正文分类列表
 
@@ -108,12 +124,12 @@ def 插入兄弟文档(章节列表, 目标链接, 新链接列表):
                     isinstance(头部, (epub.Section, epub.Link))
                     and 规范化链接(头部.href) == 目标链接规范化
                 ):
-                    if isinstance(子项, list) and 子项:
-                        # 有子项：并入 Section 开头
+                    if isinstance(子项, list):
+                        # 修复：无论子项列表是否为空，都强制插入到子项内部
                         for 序号, 链接 in enumerate(新链接列表):
                             子项.insert(序号, 链接)
                     else:
-                        # 无子项：平级插入 Section 之后
+                        # 兜底：子项结构异常时，平级插入
                         for 序号, 链接 in enumerate(新链接列表):
                             当前列表.insert(位置 + 1 + 序号, 链接)
                     return True

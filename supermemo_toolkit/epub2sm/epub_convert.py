@@ -556,6 +556,6 @@ def start_with_topic(epub_file, save_folder, limit_num, save_image_folder=None):
 
 if __name__ == "__main__":
     start_with_toc(
-        r"D:\Calibre Library\Calibre 花园\Wei Zhi\Shi Jing (31)\Shi Jing - Wei Zhi.epub",
+        r"D:\Calibre Library\Calibre 星轨\Yi Ming\Shi Jing (Quan Xi Quan Yi Ban ) (283)\Shi Jing (Quan Xi Quan Yi Ban ) - Yi Ming.epub",
         r"C:\Users\Snowy\Desktop",
     )
