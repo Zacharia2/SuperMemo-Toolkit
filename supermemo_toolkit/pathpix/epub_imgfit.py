@@ -107,6 +107,14 @@ class EpubImageFit:
 
         return scan(img.previous_sibling, "prev") or scan(img.next_sibling, "next")
 
+    def formula_kind(self, img):
+        """判断图片是否属于公式容器。返回 'block' / 'inline' / None"""
+        p = img.find_parent(class_="smtk-formula")
+        if p is None:
+            return None
+        cls = p.get("class") or []
+        return "block" if "smtk-block" in cls else "inline"
+
     # ====== 核心分类 ======
 
     def classify(self, img, base_dir):
@@ -136,6 +144,26 @@ class EpubImageFit:
         stats = {}
 
         for img in soup.find_all("img"):
+            fk = self.formula_kind(img)
+
+            # 1. 块级公式图：跳过
+            if fk == "block":
+                stats["formula-block(skip)"] = stats.get("formula-block(skip)", 0) + 1
+                continue
+
+            # 2. 行内公式：跳过
+            if fk == "inline":
+                # for attr in ("width", "height", "align", "border"):
+                #     if img.has_attr(attr):
+                #         del img[attr]
+                # # 只重写 style，保留 alt（fxGetSource 依赖）和 class（fxFindImg 依赖）
+                # img["style"] = self.style["inline"](
+                #     f"{self.formula_inline_height_em}em"
+                # )
+                stats["formula-inline(skip)"] = stats.get("formula-inline(skip)", 0) + 1
+                continue
+
+            # 3. 普通图片
             cat = self.classify(img, base_dir)
             w, _ = self.get_image_size(img.get("src", ""), base_dir)
 

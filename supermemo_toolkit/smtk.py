@@ -418,8 +418,12 @@ def imgfit(tracing, ignore, max_width):
     def work(text_reg: TextRegistry) -> bool:
         if text_reg is None or text_reg.eId == None:
             return CONTINUE
-        path = text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
-        if path == "":
+        path = (
+            text_reg.eComponents[1].mPath
+            if text_reg.eComponents is not None and len(text_reg.eComponents) > 0
+            else ""
+        )
+        if path == "" or not os.path.exists(path):
             return CONTINUE
         try:
             url = Path(path).resolve().as_uri()
@@ -589,7 +593,11 @@ def splitline(pattern, limit, eid, tracing, recover):
         # terminate == True 终止
         if text_reg is None or text_reg.eId == None:
             return CONTINUE
-        path = text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
+        path = (
+            text_reg.eComponents[1].mPath
+            if text_reg.eComponents is not None and len(text_reg.eComponents) > 0
+            else ""
+        )
         if path == "" or not os.path.exists(path):
             return CONTINUE
         try:
@@ -954,7 +962,7 @@ def math_card(tracing, ignore):
             if text_reg.eComponents is not None and len(text_reg.eComponents) > 0
             else ""
         )
-        if path == "":
+        if path == "" or not os.path.exists(path):
             return CONTINUE
 
         base_dir = Path(path).parent
@@ -1095,7 +1103,7 @@ if __name__ == "__main__":
     # main.commands["splitline"](
     #     ["--re", r'(?i)(?s)<p class="block">.*?</p>\s*\K<p>'], standalone_mode=False
     # )
-    # main.commands["imgfit"](["--trace"], standalone_mode=False)
+    # main.commands["imgfit"](["--trace", "--ignore"], standalone_mode=False)
     # main.commands["math"](["card", "--trace"], standalone_mode=False)
     # main.commands["pathpix"](["Reading-And-Review", "--clean"], standalone_mode=False)
     if is_launched_from_gui():
