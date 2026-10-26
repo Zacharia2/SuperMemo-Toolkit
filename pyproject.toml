@@ -1,6 +1,6 @@
 [project]
 name = "supermemo-toolkit"
-version = "0.2.8"
+version = "0.2.9"
 description = "SuperMemo 增强工具(CLI命令行)。包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、卡片朗读等。"
 readme = "README.md"
 keywords = ["supermemo", "cli-app", "tooltik"]
@@ -15,10 +15,10 @@ license = { text = "GPL-2.0-only" }
 requires-python = ">=3.10"
 dependencies = [
     "beautifulsoup4>=4.15.0",
-    "charset-normalizer>=3.4.9",
-    "click>=8.4.2",
+    "charset-normalizer>=3.5.2",
+    "click>=8.5.0",
     "ebooklib>=0.20",
-    "edge-tts>=7.2.8",
+    "edge-tts>=7.3.1",
     "filetype>=1.2.0",
     "matplotlib>=3.10.9",
     "miniaudio>=1.71",
@@ -27,7 +27,7 @@ dependencies = [
     "pymem>=1.14.0",
     "pyperclip>=1.11.0",
     "pypinyin>=0.55.0",
-    "pyquery>=2.0.1",
+    "pyquery>=2.1.0",
     "pyreadline3>=3.5.6; sys_platform == 'win32'",
     "pystray>=0.19.5",
     "python-magic>=0.4.27; sys_platform != 'win32'",
@@ -35,15 +35,15 @@ dependencies = [
     "pywinauto>=0.6.9; sys_platform == 'win32'",
     "regex>=2026.9.29",
     "requests>=2.34.2",
-    "sounddevice>=0.5.5",
-    "svglib>=2.2.0",
-    "tqdm>=4.69.1",
+    "sounddevice>=0.5.6",
+    "svglib>=2.3.2",
+    "tqdm>=4.70.1",
     "watchdog>=6.0.0",
     "yattag>=1.16.1",
 ]
 
 [dependency-groups]
-dev = ["pyinstaller>=6.21.0"]
+dev = ["pyinstaller>=6.22.3"]
 
 [project.urls]
 homepage = "https://github.com/Zacharia2/SuperMemo-Toolkit"
