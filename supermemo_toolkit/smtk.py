@@ -557,8 +557,12 @@ def trace(mem, his):
     help="追踪模式：持续处理切走的元素",
 )
 @click.option("--recover", is_flag=True, help="清除文档分割符标记")
-def splitline(pattern, limit, eid, tracing, recover):
+@click.pass_context
+def splitline(ctx, pattern, limit, eid, tracing, recover):
     """在当前元素中根据条件插入水平分割线"""
+    if not any([pattern, limit is not None, eid, tracing, recover]):
+        click.echo(ctx.get_help())
+        ctx.exit()
     CONTINUE = not tracing
 
     # 字数默认推荐1000字，按段落分。
