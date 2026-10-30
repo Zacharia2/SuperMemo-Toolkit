@@ -1803,6 +1803,7 @@ class Watcher:
 
     def _backup_only(self, c: Collection) -> None:
         """只 backup，不 compact。"""
+        self._update_icon("running", f"{c.name} 备份中")
         try:
             r = CollectionRepo(c).backup("shutdown")
         except Exception as e:
