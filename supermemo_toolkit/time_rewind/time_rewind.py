@@ -199,13 +199,11 @@ class Collection:
 
     def smtk_lock_path(self) -> Path:
         """写锁路径：仓库目录下的 .<name>.smtk.lock。"""
-        p = Path(self.path)
-        return p / f".{p.name}.smtk.lock"
+        return Path(self.path) / ".smtk.lock"
 
     def init_lock_path(self) -> Path:
         """init 锁路径：仓库目录下的 .<name>.init.lock。"""
-        p = Path(self.path)
-        return p / f".{p.name}.init.lock"
+        return Path(self.path) / ".init.lock"
 
 
 @dataclass(frozen=True)
