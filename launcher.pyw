@@ -21,7 +21,7 @@ from tkinter import messagebox, scrolledtext, ttk
 # ============================================================
 
 APP_TITLE = "smtk Launcher"
-CONFIG_FILE = Path.home() / ".smtk_launcher.json"
+CONFIG_FILE = Path.home() / ".config" / "supermemo_toolkit" / ".smtk_launcher.json"
 CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 
 THEMES = {
