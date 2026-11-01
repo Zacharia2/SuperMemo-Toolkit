@@ -1,11 +1,11 @@
 import os
 import struct
-from collections import namedtuple
 from enum import IntEnum
+from typing import NamedTuple
 
 
 # LinkType 表示链接类型
-class LinkType(IntEnum):
+class MemberLinkType(IntEnum):
     DELETED = 0
     RTF = 1
     FILE_AND_RTX = 2
@@ -27,6 +27,31 @@ class ElementStatus(IntEnum):
     DISMISSED = 2  # 遗忘：既不在学习队列也不在待处理队列
     DELETED = 3  # 已删除（仅占位）
 
+
+class Member(NamedTuple):
+    UseCount: int  # uint32, offset 0 没问题
+    LinkType: MemberLinkType  # uint16, offset 4 没问题
+    unknown1: int  # uint32, offset 6
+    RtxOffset: int  # uint32, offset 10
+    RtxLength: int  # uint32, offset 14
+    LstRelated: int  # uint32, offset 18
+    SlotId: int | None  # uint32, offset 22 没问题（原始为 0 时构造时已转为 None）
+    unknown2: int  # uint32, offset 26
+
+
+class Component(NamedTuple):
+    Position: int | None
+    LinkType: MemberLinkType | None
+    Path: str
+    Text: str
+
+
+EMPTY_COMPONENT = Component(
+    Position=None,
+    LinkType=None,
+    Path="",
+    Text="",
+)
 
 COMPONENT_TYPES = {
     "HTM": {"TYPE": 7181, "LEN": 29},
@@ -111,26 +136,13 @@ class TextRegistry:
         # members 行号6461 (Position)，内容是 member(UseCount=1, LinkType=2, RtxId=0, RtxOffset=6832362, RtxLength=10625, XX=2613, SlotId=1846, Empty=0, Reserved=0)
         # 01000000 0300 00000000 01000000 19000000 01000000 00000000 00000000
         # 01000000 03 00 00000000 01000000 19000000 01000000 00000000 00000000
-        Member = namedtuple(
-            "Member",
-            [
-                "UseCount",  # uint32, offset 0 没问题
-                "LinkType",  # uint16, offset 4 没问题
-                "unknown1",  # uint32, offset 6
-                "RtxOffset",  # uint32, offset 10
-                "RtxLength",  # uint32, offset 14
-                "LstRelated",  # uint32, offset 18
-                "SlotId",  # uint32, offset 22 没问题
-                "unknown2",  # uint32, offset 26
-            ],
-        )
         member_fmt = struct.Struct("<IHIIIIII")
         members = (
             None,
             *[
                 Member(
                     fields[0],
-                    LinkType(fields[1]),
+                    MemberLinkType(fields[1]),
                     fields[2],
                     fields[3],
                     fields[4],
@@ -207,7 +219,7 @@ class TextRegistry:
                 first_comp_offset = compon_pos + 11 + skip_offset
                 f.seek(first_comp_offset)
 
-                components = {}
+                components: dict[int, int] = {}
                 for i in range(1, count + 1):
                     # 读取组件类型
                     comp_start_offset = f.tell()
@@ -281,6 +293,20 @@ class TextRegistry:
                 text_content = raw_text.decode("utf-8", errors="replace")
         return text_content
 
+    def get_component(self, component_id: int = 1) -> Component:
+        """
+        安全获取指定组件。
+
+        - 若 eId、eComponents 为 None / eComponents 空 dict
+        - 若 component_id 不存在
+        均返回 EMPTY_COMPONENT（Path=""、Text=""、其余 None），
+        调用处可直接 .Path / .Position，无需判空。
+        """
+
+        if self.eId is None or self.eComponents is None or len(self.eComponents) == 0:
+            return EMPTY_COMPONENT
+        return self.eComponents.get(component_id, EMPTY_COMPONENT)
+
     def refresh(self, element_id: int):
         self.eId = None
         self.eType = None
@@ -301,10 +327,6 @@ class TextRegistry:
 
         # 解析组件组，获取组件信息
         self.eComponents = {}
-        Component = namedtuple(
-            "Component",
-            ["mPosition", "mLinkType", "mPath", "eText"],
-        )
         component_group_positions = self.__get_member_component_group_positions(
             record["compon_pos"]
         )
@@ -328,23 +350,23 @@ class TextRegistry:
 
             # 异常警报
             if cMember.SlotId is None and (
-                cMember.LinkType is LinkType.FILE_AND_RTX
-                or cMember.LinkType is LinkType.FILE
+                cMember.LinkType is MemberLinkType.FILE_AND_RTX
+                or cMember.LinkType is MemberLinkType.FILE
             ):
                 print(f"[Registry] 警告: slot=0 异常 (元素={self.eId}, pos={position})")
 
             # 读成员数据
             mPath = (
                 self.__compute_element_path(cMember.SlotId)
-                if cMember.SlotId != None
+                if cMember.SlotId is not None
                 else ""
             )
             eText = self.__get_rtx_text(cMember.RtxOffset, cMember.RtxLength)
             self.eComponents[compon_id] = Component(
-                mPosition=position,
-                mLinkType=cMember.LinkType,
-                mPath=mPath,
-                eText=eText,
+                Position=position,
+                LinkType=cMember.LinkType,
+                Path=mPath,
+                Text=eText,
             )
 
 

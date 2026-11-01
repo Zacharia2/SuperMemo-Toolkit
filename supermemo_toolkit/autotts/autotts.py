@@ -58,9 +58,9 @@ class AutoTTS:
         if self.stoped == True:
             return
 
-        text = text_reg.eComponents[1].eText if len(text_reg.eComponents) != 0 else None
+        text = text_reg.get_component().Text
         print(self.show_title())
-        if text is not None and text != "":
+        if text != "":
             text = normalize_text(text)
             self.window.update_lable_text(self.show_title())
             self.switcher.play(text)

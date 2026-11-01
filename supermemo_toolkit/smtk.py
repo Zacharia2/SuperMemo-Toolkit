@@ -416,13 +416,9 @@ def imgfit(tracing, ignore, max_width):
     CONTINUE = not tracing
 
     def work(text_reg: TextRegistry) -> bool:
-        if text_reg is None or text_reg.eId == None:
+        if text_reg is None or text_reg.eId is None:
             return CONTINUE
-        path = (
-            text_reg.eComponents[1].mPath
-            if text_reg.eComponents is not None and len(text_reg.eComponents) > 0
-            else ""
-        )
+        path = text_reg.get_component().Path
         if path == "" or not os.path.exists(path):
             return CONTINUE
         try:
@@ -595,13 +591,9 @@ def splitline(ctx, pattern, limit, eid, tracing, recover):
 
     def work(text_reg: TextRegistry):
         # terminate == True 终止
-        if text_reg is None or text_reg.eId == None:
+        if text_reg is None or text_reg.eId is None:
             return CONTINUE
-        path = (
-            text_reg.eComponents[1].mPath
-            if text_reg.eComponents is not None and len(text_reg.eComponents) > 0
-            else ""
-        )
+        path = text_reg.get_component().Path
         if path == "" or not os.path.exists(path):
             return CONTINUE
         try:
@@ -959,13 +951,9 @@ def math_card(tracing, ignore):
         bridge.on_save = on_save
 
     def work(text_reg: TextRegistry) -> bool:
-        if text_reg is None or text_reg.eId == None:
+        if text_reg is None or text_reg.eId is None:
             return CONTINUE
-        path = (
-            text_reg.eComponents[1].mPath
-            if text_reg.eComponents is not None and len(text_reg.eComponents) > 0
-            else ""
-        )
+        path = text_reg.get_component().Path
         if path == "" or not os.path.exists(path):
             return CONTINUE
 

@@ -165,14 +165,8 @@ class Trace:
                 return
 
             self.his_id.append(text_reg.eId)
-            path = (
-                text_reg.eComponents[1].mPath if len(text_reg.eComponents) > 0 else ""
-            )
-            position = (
-                text_reg.eComponents[1].mPosition
-                if len(text_reg.eComponents) > 0
-                else None
-            )
+            path = text_reg.get_component().Path
+            position = text_reg.get_component().Position
 
             # 把本地路径转成 file:// URL
             try:
