@@ -108,11 +108,10 @@ import time as _time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import NamedTuple
+from typing import NamedTuple, Self
 
 import pystray
 from PIL import Image, ImageDraw
-from typing_extensions import Self
 
 from supermemo_toolkit.utilscripts.config import config_dir, read_smtk_conf
 from supermemo_toolkit.utilscripts.ulils import is_kno_locked
@@ -419,6 +418,11 @@ class FileLock:
 # ============================================================================
 
 
+def _is_ui_only() -> bool:
+    """SMTK_LOG_UI_ONLY=1/true/yes 时为 GUI 包装器模式。"""
+    return os.environ.get("SMTK_LOG_UI_ONLY", "").lower() in ("1", "true", "yes")
+
+
 def setup_logging(verbose: bool = False) -> None:
     """初始化日志。破坏性，仅供 CLI 入口调用。
 
@@ -427,8 +431,7 @@ def setup_logging(verbose: bool = False) -> None:
         供 GUI 包装器（launcher）通过管道读取并显示到日志窗口。
       - 未设置：写文件；stderr 是 tty 时额外写 stderr（原行为不变）。
     """
-    ui_only = os.environ.get("SMTK_LOG_UI_ONLY", "").lower() in ("1", "true", "yes")
-    if ui_only:
+    if _is_ui_only():
         # GUI 模式：只走 stderr。sys.stderr 为 None（pythonw）时退化为 NullHandler，
         # 避免 StreamHandler(None) 在 logging 内部报错。
         handlers: list[logging.Handler] = (
@@ -2199,22 +2202,32 @@ class Watcher:
         # 每次 start 都默认开始监听
         self._pause_event.clear()
 
-        menu = pystray.Menu(
+        menu_items: list[pystray.MenuItem] = [
             pystray.MenuItem("压缩历史", self._on_compact),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("打开配置目录", self._on_open_dir),
-            pystray.MenuItem("打开日志", self._on_open_log),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("重置工作区到 HEAD", self._make_reset_menu("HEAD")),
-            pystray.MenuItem("重置工作区到上一次提交", self._make_reset_menu("HEAD^")),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem(
-                "暂停监听",
-                self._on_toggle_pause,
-                checked=lambda item: self._pause_event.is_set(),
-            ),
-            pystray.MenuItem("退出", self._on_quit),
+        ]
+        # GUI 包装器模式下日志走 stderr 管道，由 launcher 的日志窗口展示，
+        # 托盘里的"打开日志"没有意义，隐藏该项。
+        if not _is_ui_only():
+            menu_items.append(pystray.MenuItem("打开日志", self._on_open_log))
+        menu_items.extend(
+            [
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem("重置工作区到 HEAD", self._make_reset_menu("HEAD")),
+                pystray.MenuItem(
+                    "重置工作区到上一次提交", self._make_reset_menu("HEAD^")
+                ),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem(
+                    "暂停监听",
+                    self._on_toggle_pause,
+                    checked=lambda item: self._pause_event.is_set(),
+                ),
+                pystray.MenuItem("退出", self._on_quit),
+            ]
         )
+        menu = pystray.Menu(*menu_items)
         icon = pystray.Icon(
             "smtime",
             _make_tray_image(COLORS["waiting"]),
