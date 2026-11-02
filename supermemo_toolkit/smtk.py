@@ -29,6 +29,12 @@ from supermemo_toolkit.latex2img.renderer import FormulaRenderer
 from supermemo_toolkit.pathpix import im_sort_out
 from supermemo_toolkit.pathpix.epub_imgfit import EpubImageFit
 from supermemo_toolkit.pathpix.gui import run_pathpix_ui
+from supermemo_toolkit.time_rewind.time_rewind import (
+    GitError,
+    SuperMemoBackup,
+    Watcher,
+    setup_logging,
+)
 from supermemo_toolkit.title_xref import complete_title
 from supermemo_toolkit.utilscripts import config as smtk_config
 from supermemo_toolkit.utilscripts.ulils import makeNameSafe
@@ -710,29 +716,13 @@ def time_cmd():
 main.add_command(time_cmd)
 
 
-def _load_time_backup():
-    try:
-        from supermemo_toolkit.time_rewind.time_rewind import (
-            GitError,
-            SuperMemoBackup,
-            setup_logging,
-        )
-    except ImportError as e:
-        raise click.ClickException(
-            f"无法导入 time_backup 模块：{e}\n"
-            "请确认 time_backup.py 位于 PYTHONPATH 中，并已安装 pystray、Pillow。"
-        )
-    return SuperMemoBackup, GitError, setup_logging
-
-
 def _make_backup_manager():
-    SuperMemoBackup, GitError, setup_logging = _load_time_backup()
     setup_logging()
     try:
         sm = SuperMemoBackup.from_config()
     except SystemExit as e:
         raise click.ClickException(str(e))
-    return sm, GitError
+    return sm
 
 
 @time_cmd.command(name="backup")
@@ -749,7 +739,7 @@ def time_backup(collection, trigger):
 
     注意: 如果集合处于激活状态 (.kno 被锁定)，备份将直接失败。
     """
-    sm, GitError = _make_backup_manager()
+    sm = _make_backup_manager()
     names = [collection] if collection else [c.name for c in sm.config.collections]
     if not names:
         raise click.ClickException(
@@ -790,7 +780,7 @@ def time_restore(collection, target):
     TARGET 可以是完整 hash、短 hash 或 ref (如 refs/smtk/archive)。
     恢复前会自动校验工作区干净及 .kno 一致性；失败时自动回滚。
     """
-    sm, GitError = _make_backup_manager()
+    sm = _make_backup_manager()
     try:
         r = sm.restore(collection, target)
     except KeyError:
@@ -811,7 +801,7 @@ def time_compact(collection):
     此操作由用户手动触发，不会自动执行。
     折叠后旧 hot commit 变为 dangling，2 周内可通过 git fsck --lost-found 找回。
     """
-    sm, GitError = _make_backup_manager()
+    sm = _make_backup_manager()
     names = [collection] if collection else [c.name for c in sm.config.collections]
     if not names:
         raise click.ClickException("没有发现任何集合。")
@@ -840,7 +830,7 @@ def time_compact(collection):
 @click.argument("collection", required=False)
 def time_list(collection):
     """列出集合的快照历史 (archive + hot 链)"""
-    sm, _ = _make_backup_manager()
+    sm = _make_backup_manager()
     if collection:
         try:
             sm.list_snapshots(collection)
@@ -862,8 +852,36 @@ def time_watch():
     """启动托盘监控 (阻塞，轮询 .kno 锁定状态)
 
     检测到集合关闭后自动触发 backup(trigger='shutdown')。
+    Ctrl+C 触发优雅退出，等待当前备份完成后再关闭。
     """
-    sm, _ = _make_backup_manager()
+    import signal
+
+    sm = _make_backup_manager()
+
+    # 抑制 KeyboardInterrupt，避免 pystray ctypes 回调泄漏警告
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    if sys.platform == "win32":
+        import ctypes
+        import ctypes.wintypes as wt
+
+        _HANDLER_ROUTINE = ctypes.WINFUNCTYPE(wt.BOOL, wt.DWORD)
+
+        # 必须持有引用，防止被 GC 回收导致回调崩溃
+        @_HANDLER_ROUTINE
+        def _handler(ctrl_type: int) -> bool:
+            # CTRL_C_EVENT=0, CTRL_BREAK_EVENT=1, CTRL_CLOSE_EVENT=2
+            if ctrl_type in (0, 2):
+                Watcher.signal_stop()
+                return True
+            return False
+
+        # 挂到函数对象上防止被 GC
+        time_watch._win32_handler_ref = _handler
+        ctypes.windll.kernel32.SetConsoleCtrlHandler(_handler, True)
+    else:
+        signal.signal(signal.SIGINT, lambda *_: Watcher.signal_stop())
+
     sm.watch()
 
 
@@ -875,7 +893,7 @@ def time_forget(collection, yes):
 
     卸载前会检查：集合未激活、无未提交改动、外部 .kno 与 HEAD 一致。
     """
-    sm, GitError = _make_backup_manager()
+    sm = _make_backup_manager()
 
     try:
         _ = sm.get_collection(collection)

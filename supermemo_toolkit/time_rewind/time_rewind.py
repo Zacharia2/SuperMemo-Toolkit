@@ -2176,9 +2176,9 @@ class Watcher:
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.sendto(b"SHUTDOWN", ("127.0.0.1", SHUTDOWN_PORT))
             s.close()
-            log.info("[已发送关闭信号，等待安全退出…]\n")
+            log.info("已发送关闭信号，等待安全退出…")
         except Exception as e:
-            log.info(f"[signal_shutdown] {e}\n")
+            log.info(f"signal_stop {e}")
 
     def _stop_listener(self, icon) -> None:
         """启动 UDP 监听线程，接收外部关闭信号并触发优雅退出。
@@ -2200,6 +2200,7 @@ class Watcher:
                 try:
                     data, _ = s.recvfrom(64)
                     if data == b"SHUTDOWN":
+                        _time.sleep(0.1)
                         log.info("收到外部关闭信号，正在退出…")
                         self._update_icon("running", "正在退出…")
                         self._shutdown(icon)
@@ -2288,8 +2289,8 @@ class Watcher:
         self._stop_listener(icon)
         try:
             icon.run()
-        except KeyboardInterrupt:
-            log.info("interrupted")
+        # except KeyboardInterrupt:
+        #     log.info("interrupted")
         finally:
             self.stop()
             if self._thread is not None:
