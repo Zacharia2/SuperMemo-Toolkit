@@ -2200,7 +2200,7 @@ class Watcher:
                 try:
                     data, _ = s.recvfrom(64)
                     if data == b"SHUTDOWN":
-                        log.info("收到外部关闭信号，正在优雅退出…")
+                        log.info("收到外部关闭信号，正在退出…")
                         self._update_icon("running", "正在退出…")
                         self._shutdown(icon)
                         break

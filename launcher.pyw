@@ -26,6 +26,7 @@ APP_TITLE = "smtk Launcher"
 CONFIG_FILE = Path.home() / ".config" / "supermemo_toolkit" / ".smtk_launcher.json"
 CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 SINGLE_INSTANCE_PORT = 49152
+SHUTDOWN_PORT = 49200  # time_watch 优雅关闭信号端口
 
 THEMES = {
     "light": {
@@ -247,6 +248,18 @@ class Runner:
                 p.wait(timeout=2)
             except Exception:
                 pass
+
+    def signal_shutdown(self) -> None:
+        """通过 UDP 发送优雅关闭信号给 time_watch 子进程。"""
+        if self.name != "time_watch":
+            return
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.sendto(b"SHUTDOWN", ("127.0.0.1", SHUTDOWN_PORT))
+            s.close()
+            LOG.put((self.name, "[已发送关闭信号，等待安全退出…]\n"))
+        except Exception as e:
+            LOG.put((self.name, f"[signal_shutdown] {e}\n"))
 
     def is_running(self) -> bool:
         return self.proc is not None and self.proc.poll() is None
@@ -1053,12 +1066,35 @@ class LauncherApp:
         runner.start(path)
 
     def _stop(self, name: str) -> None:
+        runner = self.runners[name]
+        if not runner.is_running():
+            return
+
         if name == "time_watch":
             if not messagebox.askyesno(
                 "停止托盘备份",
-                "强杀进程可能导致 git 状态不一致。\n推荐从托盘图标菜单选择「退出」。\n\n仍要停止吗？",
+                "将发送关闭信号，等待正在进行的备份完成后安全退出。\n"
+                "超时（5 分钟）后会强制终止。\n\n继续安全关闭？",
             ):
                 return
+            # 发 UDP 信号，让 Watcher 自己优雅退出
+            runner.signal_shutdown()
+
+            # 后台线程等待进程退出，超时强杀
+            def _wait_and_force():
+                try:
+                    runner.proc.wait(timeout=310)
+                except subprocess.TimeoutExpired:
+                    LOG.put((name, "[超时] 关闭超时，强制终止\n"))
+                    runner.stop(timeout=10)
+
+            threading.Thread(
+                target=_wait_and_force,
+                name=f"wait-{name}",
+                daemon=True,
+            ).start()
+            return
+
         self.runners[name].stop()
 
     def _start_all(self) -> None:
@@ -1074,9 +1110,27 @@ class LauncherApp:
                 runner.start(path)
 
     def _stop_all(self) -> None:
-        for runner in self.runners.values():
-            if runner.is_running():
+        tw = self.runners.get("time_watch")
+
+        for name, runner in self.runners.items():
+            if not runner.is_running():
+                continue
+            if name == "time_watch":
+                # UDP信号 + 后台等待，不弹确认框
+                runner.signal_shutdown()
+            else:
                 runner.stop()
+
+        # 后台等 time_watch 优雅退出
+        if tw is not None and tw.is_running():
+
+            def _wait_tw():
+                try:
+                    tw.proc.wait(timeout=310)
+                except subprocess.TimeoutExpired:
+                    tw.stop(timeout=10)
+
+            threading.Thread(target=_wait_tw, daemon=True).start()
 
     def _clear_trace_view(self) -> None:
         self._last_trace = None
@@ -1276,8 +1330,24 @@ class LauncherApp:
                 resp = messagebox.askyesno("确认退出", msg, parent=self.root)
             if not resp:
                 return
-            for r in self.runners.values():
-                r.stop()
+            # time_watch 走 UDP 信号，其余直接 stop
+            tw = self.runners.get("time_watch")
+            for name, r in self.runners.items():
+                if r.is_running():
+                    if name == "time_watch":
+                        r.signal_shutdown()
+                    else:
+                        r.stop()
+            # 后台等 time_watch 优雅退出
+            if tw is not None and tw.is_running():
+
+                def _wait_tw():
+                    try:
+                        tw.proc.wait(timeout=310)
+                    except subprocess.TimeoutExpired:
+                        tw.stop(timeout=10)
+
+                threading.Thread(target=_wait_tw, daemon=True).start()
 
         for attr in ("_poll_status_id", "_poll_trace_id", "_drain_logs_id"):
             aid = getattr(self, attr, None)
