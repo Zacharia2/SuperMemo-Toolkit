@@ -26,7 +26,7 @@ APP_TITLE = "smtk Launcher"
 CONFIG_FILE = Path.home() / ".config" / "supermemo_toolkit" / ".smtk_launcher.json"
 CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 SINGLE_INSTANCE_PORT = 49152
-SHUTDOWN_PORT = 49200  # time_watch 优雅关闭信号端口
+SHUTDOWN_PORT = 49200  # time_watch 关闭信号端口，以time_rewind.py定义为准
 
 THEMES = {
     "light": {
