@@ -9,6 +9,7 @@ import queue
 import re
 import shlex
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -24,6 +25,7 @@ from tkinter import messagebox, scrolledtext, ttk
 APP_TITLE = "smtk Launcher"
 CONFIG_FILE = Path.home() / ".config" / "supermemo_toolkit" / ".smtk_launcher.json"
 CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+SINGLE_INSTANCE_PORT = 49152
 
 THEMES = {
     "light": {
@@ -113,7 +115,7 @@ _GLOBAL_MUTEX = None
 
 
 def _ensure_single_instance() -> bool:
-    """使用 Windows Mutex 确保单实例运行，若已存在则激活旧窗口。"""
+    """使用 Windows Mutex 确保单实例运行；若已存在则发送 UDP 唤醒信号。"""
     global _GLOBAL_MUTEX
     if sys.platform != "win32":
         return True
@@ -131,12 +133,14 @@ def _ensure_single_instance() -> bool:
         kernel32.CloseHandle(_GLOBAL_MUTEX)
         _GLOBAL_MUTEX = None
 
-        # 查找已有窗口并激活
-        user32 = ctypes.windll.user32
-        hwnd = user32.FindWindowW(None, APP_TITLE)
-        if hwnd:
-            user32.ShowWindow(hwnd, 9)  # SW_RESTORE = 9 (如果最小化了则恢复)
-            user32.SetForegroundWindow(hwnd)  # 拉到最前
+        # 发送 UDP 唤醒信号给第一个实例
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.sendto(b"WAKE_UP", ("127.0.0.1", SINGLE_INSTANCE_PORT))
+        except Exception:
+            pass
+        finally:
+            s.close()
         return False
     return True
 
@@ -346,6 +350,43 @@ class LauncherApp:
         self.root.after(200, self._check_smtk_on_startup)
         self.root.after(150, lambda: self.root.attributes("-alpha", self.opacity))
 
+        # 启动 UDP 监听用于单实例唤醒
+        self._start_udp_listener()
+
+    # ---------- 单实例唤醒 (UDP 通信) ----------
+    def _start_udp_listener(self):
+        def listen():
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                s.bind(("127.0.0.1", SINGLE_INSTANCE_PORT))
+            except OSError:
+                return
+
+            while True:
+                try:
+                    data, _ = s.recvfrom(1024)
+                    if data == b"WAKE_UP":
+                        self.root.after(0, self._bring_to_front)
+                except Exception:
+                    break
+
+        threading.Thread(target=listen, daemon=True).start()
+
+    def _bring_to_front(self):
+        # 如果悬浮窗开着，先关掉恢复主窗口
+        if self.mini_window is not None and self.mini_window.winfo_exists():
+            self._close_floating_view()
+
+        # 纯 Tkinter 原生恢复，完美重绘客户区
+        self.root.deiconify()
+        self.root.lift()
+        self.root.focus_force()
+
+        # 临时置顶一下保证盖过其他窗口
+        was_topmost = self.root.attributes("-topmost")
+        self.root.attributes("-topmost", True)
+        self.root.after(100, lambda: self.root.attributes("-topmost", was_topmost))
+
     # ---------- 配置 ----------
     def _load_config(self) -> dict:
         cfg = {"geometry": "", "custom_args": "", "theme": "light", "opacity": 1.0}
@@ -368,6 +409,7 @@ class LauncherApp:
             self.config["custom_args"] = self.custom_var.get().strip()
             self.config["theme"] = self.theme_name
             self.config["opacity"] = self.opacity
+            CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
             CONFIG_FILE.write_text(
                 json.dumps(self.config, ensure_ascii=False, indent=2), encoding="utf-8"
             )
