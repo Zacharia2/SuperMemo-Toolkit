@@ -166,6 +166,59 @@ def _apply_composited_fix(root: tk.Tk):
 
 
 # ============================================================
+# 悬浮窗：创建即满足 origin_window.is_focusable_top_window() 判据
+# ============================================================
+
+
+class FloatingWindow(tk.Toplevel):
+    """无边框悬浮窗：创建即满足 origin_window.is_focusable_top_window() 判据。
+
+    Tk 的 overrideredirect 窗口有两个坑，都会让 origin_window 拒绝：
+      1. 异步 map —— 刚创建时 IsWindowVisible=0，必须 update() 一次；
+      2. 带 WS_EX_TOOLWINDOW —— origin_window 明确排除。
+    这里在构造期一次性清掉 TOOLWINDOW/NOACTIVATE，让这个窗口成为
+    find_origin_window() 从子进程上溯时可以命中的"可聚焦顶层窗口"，
+    从而 imgfit --trace / math card --trace 等能正确找回焦点。
+    """
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        geometry: str = "400x130",
+        opacity: float = 1.0,
+        **kw,
+    ):
+        super().__init__(master, **kw)
+        self.overrideredirect(True)
+        self.attributes("-topmost", True)
+        self.attributes("-alpha", opacity)
+        self.geometry(geometry)
+        self._become_focusable()
+
+    def _become_focusable(self) -> None:
+        if sys.platform != "win32":
+            return
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            u = ctypes.WinDLL("user32", use_last_error=True)
+            u.GetAncestor.argtypes = [wintypes.HWND, ctypes.c_uint]
+            u.GetAncestor.restype = wintypes.HWND
+
+            self.update()  # 强制 map → IsWindowVisible=1
+            hwnd = u.GetAncestor(self.winfo_id(), 2) or self.winfo_id()
+            if not hwnd:
+                return
+
+            # 清 WS_EX_NOACTIVATE(0x08000000) / WS_EX_TOOLWINDOW(0x80)
+            ex = u.GetWindowLongW(hwnd, -20)  # GWL_EXSTYLE
+            u.SetWindowLongW(hwnd, -20, ex & ~0x08000000 & ~0x00000080)
+        except Exception:
+            pass
+
+
+# ============================================================
 # 进程管理
 # ============================================================
 
@@ -824,10 +877,6 @@ class LauncherApp:
             return
 
         c = self.colors
-        win = tk.Toplevel(self.root)
-        win.overrideredirect(True)
-        win.attributes("-topmost", True)
-        win.configure(bg=c["BORDER"])
 
         sw = self.root.winfo_screenwidth()
         sh = self.root.winfo_screenheight()
@@ -842,8 +891,13 @@ class LauncherApp:
 
         x = max(0, min(rx + 20, sw - 420))
         y = max(0, min(ry + 20, sh - 160))
-        win.geometry(f"400x130+{x}+{y}")
-        win.attributes("-alpha", self.opacity)
+
+        win = FloatingWindow(
+            self.root,
+            geometry=f"400x130+{x}+{y}",
+            opacity=self.opacity,
+            bg=c["BORDER"],
+        )
 
         container = tk.Frame(win, bg=c["BG_PANEL"], padx=2, pady=2)
         container.pack(fill="both", expand=True)
