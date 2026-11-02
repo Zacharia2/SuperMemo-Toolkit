@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""smtk_launcher.py - SuperMemo toolkit 命令启动器 (极限紧凑版)"""
+"""smtk_launcher.py - SuperMemo toolkit 命令启动器 (极限紧凑版 + 悬浮视图)"""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, scrolledtext, ttk
@@ -252,7 +253,7 @@ class Runner:
         if self.is_running():
             return f"运行中 ({self.proc.pid})"
         rc = self.proc.returncode
-        return "已退出" if rc == 0 else f"异常退出"
+        return "已退出" if rc == 0 else "异常退出"
 
 
 # ============================================================
@@ -305,6 +306,10 @@ class LauncherApp:
         self._last_statuses: dict[str, str] = {}
         self.is_topmost = False
 
+        self._poll_status_id = None
+        self._poll_trace_id = None
+        self._drain_logs_id = None
+
         self.runners: dict[str, Runner] = {
             s["name"]: Runner(s["name"], s["label"], s["args"]) for s in COMMANDS
         }
@@ -315,6 +320,10 @@ class LauncherApp:
         self.log_buffer: dict[str, list[str]] = {}
         self.log_window: tk.Toplevel | None = None
         self.log_notebook: ttk.Notebook | None = None
+
+        self.hud_card_widgets: dict | None = None
+        self.mini_hud_widgets: dict | None = None
+        self.mini_window: tk.Toplevel | None = None
 
         self.config = self._load_config()
         self.theme_name = self.config.get("theme", "light")
@@ -330,11 +339,11 @@ class LauncherApp:
         self._restore_state()
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
-        self.root.after(100, self._drain_logs)
-        self.root.after(200, self._poll_trace)  # 稍微拉长一点点轮询，减轻后台压力
-        self.root.after(500, self._poll_status)
+        # 保存 after 返回值，便于退出时取消
+        self._drain_logs_id = self.root.after(100, self._drain_logs)
+        self._poll_trace_id = self.root.after(200, self._poll_trace)
+        self._poll_status_id = self.root.after(500, self._poll_status)
         self.root.after(200, self._check_smtk_on_startup)
-
         self.root.after(150, lambda: self.root.attributes("-alpha", self.opacity))
 
     # ---------- 配置 ----------
@@ -352,8 +361,10 @@ class LauncherApp:
             # 获取当前位置，强制固定宽高为 480x480
             x = self.root.winfo_x()
             y = self.root.winfo_y()
-            self.config["geometry"] = f"480x480+{x}+{y}"
-
+            sw = self.root.winfo_screenwidth()
+            sh = self.root.winfo_screenheight()
+            if 0 <= x < sw and 0 <= y < sh:
+                self.config["geometry"] = f"480x480+{x}+{y}"
             self.config["custom_args"] = self.custom_var.get().strip()
             self.config["theme"] = self.theme_name
             self.config["opacity"] = self.opacity
@@ -383,8 +394,7 @@ class LauncherApp:
             bg, fg, abg = c["PRIMARY_BG"], c["PRIMARY_FG"], c["PRIMARY_HOVER"]
         else:
             bg, fg, abg = c["BG_HOVER"], c["FG_MAIN"], c["BG_HOVER"]
-
-        btn = tk.Button(
+        return tk.Button(
             parent,
             text=text,
             command=command,
@@ -399,14 +409,131 @@ class LauncherApp:
             cursor="hand2",
             pady=0,
         )
-        return btn
+
+    # ---------- HUD 卡片构建（主窗口 / 悬浮窗共用）----------
+    def _build_hud_card(self, parent, enable_path_click: bool = True) -> dict:
+        c = self.colors
+
+        card = tk.Frame(
+            parent,
+            bg=c["BG_PANEL"],
+            highlightbackground=c["BORDER"],
+            highlightthickness=1,
+        )
+
+        top_bar = tk.Frame(card, bg=c["BG_PANEL"])
+        top_bar.pack(fill="x", padx=8, pady=(6, 2))
+
+        lbl_type = tk.Label(
+            top_bar,
+            text="UNKNOWN",
+            font=("Consolas", 8, "bold"),
+            bg=c["TYPE_COLORS"]["UNKNOWN"],
+            fg="#ffffff",
+            padx=4,
+            pady=1,
+        )
+        lbl_type.pack(side="left")
+
+        right_data = tk.Frame(top_bar, bg=c["BG_PANEL"])
+        right_data.pack(side="right")
+
+        lbl_pos_val = tk.Label(
+            right_data,
+            text="-",
+            font=("Consolas", 10),
+            bg=c["BG_PANEL"],
+            fg=c["FG_MAIN"],
+        )
+        lbl_pos_val.pack(side="right")
+        tk.Label(
+            right_data,
+            text="POS:",
+            font=("Consolas", 8, "bold"),
+            bg=c["BG_PANEL"],
+            fg=c["FG_DIM"],
+        ).pack(side="right", padx=(0, 2))
+
+        lbl_no_val = tk.Label(
+            right_data,
+            text="-",
+            font=("Consolas", 11, "bold"),
+            bg=c["BG_PANEL"],
+            fg=c["ACCENT"],
+        )
+        lbl_no_val.pack(side="right", padx=(0, 8))
+        tk.Label(
+            right_data,
+            text="NO.",
+            font=("Consolas", 8, "bold"),
+            bg=c["BG_PANEL"],
+            fg=c["FG_DIM"],
+        ).pack(side="right", padx=(0, 2))
+
+        tk.Frame(card, height=1, bg=c["BORDER"]).pack(fill="x", padx=8)
+
+        lbl_title = tk.Label(
+            card,
+            text="等待数据...",
+            font=("Microsoft YaHei", 12, "bold"),
+            bg=c["BG_PANEL"],
+            fg=c["FG_MAIN"],
+            justify="center",
+            anchor="center",
+        )
+        lbl_title.pack(fill="both", expand=True, padx=8, pady=2)
+
+        path_frame = tk.Frame(card, bg=c["BG_PANEL"])
+        path_frame.pack(fill="x", side="bottom", padx=8, pady=(2, 6))
+
+        tk.Label(
+            path_frame,
+            text=">_",
+            font=("Consolas", 8, "bold"),
+            bg=c["BG_PANEL"],
+            fg=c["FG_DIM"],
+        ).pack(side="left")
+
+        # 仅当启用路径点击时才显示手型光标，避免悬浮窗中误导用户
+        lbl_path = tk.Label(
+            path_frame,
+            text="",
+            font=("Consolas", 8),
+            bg=c["BG_PANEL"],
+            fg=c["ACCENT"],
+            cursor="hand2" if enable_path_click else "",
+            anchor="w",
+            justify="left",
+        )
+        lbl_path.pack(side="left", fill="x", expand=True, padx=(2, 0))
+        if enable_path_click:
+            lbl_path.bind("<Button-1>", self._on_path_clicked)
+
+        widgets = {
+            "card": card,
+            "type": lbl_type,
+            "no_val": lbl_no_val,
+            "pos_val": lbl_pos_val,
+            "title": lbl_title,
+            "path": lbl_path,
+        }
+
+        def on_resize(event):
+            w = event.width - 25
+            if w > 100:
+                widgets["title"].config(wraplength=w)
+                widgets["path"].config(wraplength=w)
+
+        card.bind("<Configure>", on_resize)
+
+        return widgets
 
     # ---------- 核心 UI 构建 ----------
     def _build_ui(self) -> None:
         c = self.colors
 
         # 1. 底部固定按钮栏 (增加按钮宽度)
-        bottom = tk.Frame(self.root, bg=c["BG_MAIN"], padx=6, pady=6)
+        bottom = tk.Frame(self.root, bg=c["BG_MAIN"], padx=3, pady=6)
         bottom.pack(side="bottom", fill="x")
 
         # 调整宽度以容纳 4 个中文字符（约等于 8~9 个英文字符宽）
@@ -416,10 +543,13 @@ class LauncherApp:
         self._create_button(bottom, "全部停止", self._stop_all, width=8).pack(
             side="left", padx=(4, 0)
         )
+        self._create_button(bottom, "悬浮", self._toggle_floating_view, width=6).pack(
+            side="left", padx=(4, 0)
+        )
 
-        theme_text = "🌙 暗色" if self.theme_name == "light" else "☀️ 亮色"
+        theme_text = "🌙 暗色" if self.theme_name == "light" else "☀ 亮色"
         self._create_button(bottom, theme_text, self._toggle_theme, width=7).pack(
-            side="left", padx=(6, 0)
+            side="left", padx=(4, 0)
         )
 
         topmost_text = "📌 置顶" if not self.is_topmost else "📌 取消置顶"
@@ -495,107 +625,10 @@ class LauncherApp:
         trace_frame = tk.Frame(self.root, bg=c["BG_MAIN"], padx=6, pady=4)
         trace_frame.pack(fill="both", expand=True)
 
-        self.hud_card = tk.Frame(
-            trace_frame,
-            bg=c["BG_PANEL"],
-            highlightbackground=c["BORDER"],
-            highlightthickness=1,
+        self.hud_card_widgets = self._build_hud_card(
+            trace_frame, enable_path_click=True
         )
-        self.hud_card.pack(fill="both", expand=True)
-        self.hud_card.bind("<Configure>", self._on_hud_resize)
-
-        top_bar = tk.Frame(self.hud_card, bg=c["BG_PANEL"])
-        top_bar.pack(fill="x", padx=8, pady=(6, 2))
-
-        self.lbl_type = tk.Label(
-            top_bar,
-            text="UNKNOWN",
-            font=("Consolas", 8, "bold"),
-            bg=c["TYPE_COLORS"]["UNKNOWN"],
-            fg="#ffffff",
-            padx=4,
-            pady=1,
-        )
-        self.lbl_type.pack(side="left")
-
-        right_data = tk.Frame(top_bar, bg=c["BG_PANEL"])
-        right_data.pack(side="right")
-
-        self.lbl_pos_val = tk.Label(
-            right_data,
-            text="-",
-            font=("Consolas", 10, "normal"),
-            bg=c["BG_PANEL"],
-            fg=c["FG_MAIN"],
-        )
-        self.lbl_pos_val.pack(side="right")
-        self.lbl_pos_lbl = tk.Label(
-            right_data,
-            text="POS:",
-            font=("Consolas", 8, "bold"),
-            bg=c["BG_PANEL"],
-            fg=c["FG_DIM"],
-        )
-        self.lbl_pos_lbl.pack(side="right", padx=(0, 2))
-
-        self.lbl_no_val = tk.Label(
-            right_data,
-            text="-",
-            font=("Consolas", 11, "bold"),
-            bg=c["BG_PANEL"],
-            fg=c["ACCENT"],
-        )
-        self.lbl_no_val.pack(side="right", padx=(0, 8))
-        self.lbl_no_lbl = tk.Label(
-            right_data,
-            text="NO.",
-            font=("Consolas", 8, "bold"),
-            bg=c["BG_PANEL"],
-            fg=c["FG_DIM"],
-        )
-        self.lbl_no_lbl.pack(side="right", padx=(0, 2))
-
-        tk.Frame(self.hud_card, height=1, bg=c["BORDER"]).pack(fill="x", padx=8)
-
-        self.lbl_title = tk.Label(
-            self.hud_card,
-            text="等待数据...",
-            font=("Microsoft YaHei", 12, "bold"),
-            bg=c["BG_PANEL"],
-            fg=c["FG_MAIN"],
-            justify="center",
-            anchor="center",
-        )
-        self.lbl_title.pack(fill="both", expand=True, padx=8, pady=2)
-
-        path_frame = tk.Frame(self.hud_card, bg=c["BG_PANEL"])
-        path_frame.pack(fill="x", side="bottom", padx=8, pady=(2, 6))
-
-        tk.Label(
-            path_frame,
-            text=">_",
-            font=("Consolas", 8, "bold"),
-            bg=c["BG_PANEL"],
-            fg=c["FG_DIM"],
-        ).pack(side="left")
-        self.lbl_path = tk.Label(
-            path_frame,
-            text="",
-            font=("Consolas", 8),
-            bg=c["BG_PANEL"],
-            fg=c["ACCENT"],
-            cursor="hand2",
-            anchor="w",
-            justify="left",
-        )
-        self.lbl_path.pack(side="left", fill="x", expand=True, padx=(2, 0))
-        self.lbl_path.bind("<Button-1>", self._on_path_clicked)
-
-    def _on_hud_resize(self, event) -> None:
-        w = event.width - 25
-        if w > 100:
-            self.lbl_title.config(wraplength=w)
-            self.lbl_path.config(wraplength=w)
+        self.hud_card_widgets["card"].pack(fill="both", expand=True)
 
     def _build_row(
         self, parent: tk.Frame, name: str, label: str, help_text: str
@@ -662,19 +695,22 @@ class LauncherApp:
     def _toggle_theme(self) -> None:
         self.theme_name = "dark" if self.theme_name == "light" else "light"
         self.colors = THEMES[self.theme_name]
+
+        if self.mini_window is not None and self.mini_window.winfo_exists():
+            self._close_floating_view(restore_main=False)
+        self.mini_window = None
+        self.mini_hud_widgets = None
+        self._close_log_window()
+
         self.root.configure(bg=self.colors["BG_MAIN"])
-
         self.root.attributes("-alpha", 1.0)
-
         for w in self.root.winfo_children():
-            w.destroy()
+            try:
+                w.destroy()
+            except Exception:
+                pass
 
-        if self.log_window is not None and self.log_window.winfo_exists():
-            self.log_window.destroy()
-            self.log_window = None
-            self.log_notebook = None
-            self.log_views.clear()
-
+        self.hud_card_widgets = None
         self._build_ui()
 
         if self.is_topmost:
@@ -682,8 +718,16 @@ class LauncherApp:
 
         self._last_statuses.clear()
 
-        if self.current_trace_text:
-            self._render_dashboard(self.current_trace_text, force=True)
+        # 优先用 pending 数据，避免"旧数据 → 新数据"跳变
+        init_text = (
+            self._last_trace
+            if self._last_trace is not None
+            else self.current_trace_text
+        )
+        if init_text:
+            self._render_dashboard(init_text, force=True)
+            if self._last_trace is not None:
+                self._last_trace = None
         else:
             self._clear_trace_view()
 
@@ -696,24 +740,211 @@ class LauncherApp:
         self.btn_topmost.config(text="📌 取消置顶" if self.is_topmost else "📌 置顶")
 
     def _toggle_opacity(self) -> None:
-        if self.opacity >= 1.0:
-            self.opacity = 0.8
-        elif self.opacity >= 0.8:
-            self.opacity = 0.6
-        elif self.opacity >= 0.6:
-            self.opacity = 0.4
-        elif self.opacity >= 0.4:
-            self.opacity = 0.3
-        elif self.opacity >= 0.3:
-            self.opacity = 0.15
+        for threshold in (1.0, 0.8, 0.6, 0.4, 0.3):
+            if self.opacity >= threshold:
+                self.opacity = {1.0: 0.8, 0.8: 0.6, 0.6: 0.4, 0.4: 0.3, 0.3: 0.15}[
+                    threshold
+                ]
+                break
         else:
             self.opacity = 1.0
 
         self.root.attributes("-alpha", self.opacity)
+        if self.mini_window is not None and self.mini_window.winfo_exists():
+            try:
+                self.mini_window.attributes("-alpha", self.opacity)
+            except Exception:
+                pass
         self.btn_opacity.config(text=f"🔮 {int(self.opacity * 100)}%")
+
+    # ---------- 悬浮视图 ----------
+    def _toggle_floating_view(self) -> None:
+        if self.mini_window is not None and self.mini_window.winfo_exists():
+            self._close_floating_view()
+        else:
+            self._open_floating_view()
+
+    def _open_floating_view(self) -> None:
+        if self.mini_window is not None and self.mini_window.winfo_exists():
+            return
+
+        c = self.colors
+        win = tk.Toplevel(self.root)
+        win.overrideredirect(True)
+        win.attributes("-topmost", True)
+        win.configure(bg=c["BORDER"])
+
+        sw = self.root.winfo_screenwidth()
+        sh = self.root.winfo_screenheight()
+
+        try:
+            rx = self.root.winfo_x()
+            ry = self.root.winfo_y()
+            if not (0 <= rx < sw and 0 <= ry < sh):
+                raise ValueError("invalid root position")
+        except Exception:
+            rx, ry = max(0, (sw - 480) // 2), max(0, (sh - 480) // 2)
+
+        x = max(0, min(rx + 20, sw - 420))
+        y = max(0, min(ry + 20, sh - 160))
+        win.geometry(f"400x130+{x}+{y}")
+        win.attributes("-alpha", self.opacity)
+
+        container = tk.Frame(win, bg=c["BG_PANEL"], padx=2, pady=2)
+        container.pack(fill="both", expand=True)
+
+        hud = self._build_hud_card(container, enable_path_click=False)
+        hud["card"].pack(fill="both", expand=True)
+
+        self.mini_hud_widgets = hud
+        self.mini_window = win
+
+        # 拖动 + 双击检测
+        drag = {
+            "offset_x": 0,
+            "offset_y": 0,
+            "start_x": 0,
+            "start_y": 0,
+            "active": False,
+            "moved": False,
+        }
+        last_click = {"t": 0.0, "x": 0, "y": 0}
+        DRAG_THRESHOLD = 3
+        DOUBLE_CLICK_INTERVAL = 0.35
+        DOUBLE_CLICK_DISTANCE = 8
+
+        def on_press(e):
+            drag["offset_x"] = e.x_root - win.winfo_x()
+            drag["offset_y"] = e.y_root - win.winfo_y()
+            drag["start_x"] = e.x_root
+            drag["start_y"] = e.y_root
+            drag["moved"] = False
+            drag["active"] = True
+
+        def on_drag(e):
+            if not drag["active"]:
+                return
+            if (
+                abs(e.x_root - drag["start_x"]) > DRAG_THRESHOLD
+                or abs(e.y_root - drag["start_y"]) > DRAG_THRESHOLD
+            ):
+                drag["moved"] = True
+            if drag["moved"]:
+                nx = max(-380, min(e.x_root - drag["offset_x"], sw - 20))
+                ny = max(0, min(e.y_root - drag["offset_y"], sh - 20))
+                win.geometry(f"+{nx}+{ny}")
+
+        def on_release(e):
+            if not drag["active"]:
+                return
+            drag["active"] = False
+            if drag["moved"]:
+                return
+
+            now = time.monotonic()
+            if (
+                now - last_click["t"] < DOUBLE_CLICK_INTERVAL
+                and abs(e.x_root - last_click["x"]) < DOUBLE_CLICK_DISTANCE
+                and abs(e.y_root - last_click["y"]) < DOUBLE_CLICK_DISTANCE
+            ):
+                last_click["t"] = 0.0
+                self._close_floating_view()
+            else:
+                last_click["t"] = now
+                last_click["x"] = e.x_root
+                last_click["y"] = e.y_root
+
+        win.bind("<ButtonPress-1>", on_press)
+        win.bind("<B1-Motion>", on_drag)
+        win.bind("<ButtonRelease-1>", on_release)
+
+        # ============ 右键菜单（含监听控制）============
+        START_LBL = "▶ 开始监听"
+        STOP_LBL = "■ 停止监听"
+
+        menu = tk.Menu(win, tearoff=0)
+
+        def refresh_menu_state() -> None:
+            """在菜单弹出前动态刷新监听/停止按钮的可用性。"""
+            running = self.runners["trace_mem"].is_running()
+            try:
+                menu.entryconfig(START_LBL, state="disabled" if running else "normal")
+                menu.entryconfig(STOP_LBL, state="normal" if running else "disabled")
+            except tk.TclError:
+                pass
+
+        menu.add_command(label=START_LBL, command=self._mini_start_trace)
+        menu.add_command(label=STOP_LBL, command=self._mini_stop_trace)
+        menu.add_separator()
+        menu.add_command(label="恢复主窗口", command=self._close_floating_view)
+        menu.add_separator()
+        menu.add_command(label="退出", command=self._on_close)
+        menu.configure(postcommand=refresh_menu_state)
+
+        def show_menu(e):
+            try:
+                menu.tk_popup(e.x_root, e.y_root)
+            finally:
+                menu.grab_release()
+
+        win.bind("<Button-3>", show_menu)
+
+        # 优先 pending 数据；若 pending 无效（如 $ 开头的命令行回显），
+        # 用已渲染数据兜底，保证悬浮窗立即显示正确内容
+        if self._last_trace is not None:
+            self._render_dashboard(self._last_trace, force=True)
+            self._last_trace = None
+        if self.current_trace_text:
+            self._render_dashboard(self.current_trace_text, force=True)
+
+        self.root.withdraw()
+
+    def _mini_start_trace(self) -> None:
+        """悬浮窗：启动内存追踪。"""
+        path = self._ensure_smtk(parent=self.mini_window or self.root)
+        if path is None:
+            return
+        runner = self.runners["trace_mem"]
+        if runner.is_running():
+            return
+        self._clear_trace_view()
+        if not runner.start(path):
+            messagebox.showerror(
+                "启动失败",
+                "无法启动 smtk trace --mem。\n请打开日志窗口查看详细信息。",
+                parent=self.mini_window or self.root,
+            )
+
+    def _mini_stop_trace(self) -> None:
+        """悬浮窗：停止内存追踪（保留最后显示的内容）。"""
+        runner = self.runners["trace_mem"]
+        if runner.is_running():
+            runner.stop()
+
+    def _close_floating_view(self, restore_main: bool = True) -> None:
+        if self.mini_window is not None:
+            try:
+                self.mini_window.destroy()
+            except Exception:
+                pass
+        self.mini_window = None
+        self.mini_hud_widgets = None
+        if restore_main:
+            try:
+                self.root.deiconify()
+                self.root.lift()
+            except Exception:
+                pass
 
     # ---------- 状态更新 ----------
     def _poll_status(self) -> None:
+        if self._poll_status_id is not None:
+            try:
+                self.root.after_cancel(self._poll_status_id)
+            except Exception:
+                pass
+            self._poll_status_id = None
+
         for name, runner in self.runners.items():
             widgets = self.row_widgets.get(name)
             if widgets is None:
@@ -735,7 +966,7 @@ class LauncherApp:
                     widgets["start_btn"].config(state="normal")
                     widgets["stop_btn"].config(state="disabled")
 
-        self.root.after(500, self._poll_status)
+        self._poll_status_id = self.root.after(500, self._poll_status)
 
     # ---------- 操作逻辑 ----------
     def _check_smtk_on_startup(self) -> None:
@@ -746,11 +977,15 @@ class LauncherApp:
                 "PATH 中未找到 `smtk` 可执行文件。\n请确认 smtk 安装目录已加入系统 PATH。",
             )
 
-    def _ensure_smtk(self) -> str | None:
+    def _ensure_smtk(self, parent=None) -> str | None:
         if self.smtk_path is None:
             self.smtk_path = _resolve_smtk()
         if self.smtk_path is None:
-            messagebox.showerror("找不到 smtk", "请确认 smtk 已在 PATH 中。")
+            messagebox.showerror(
+                "找不到 smtk",
+                "请确认 smtk 已在 PATH 中。",
+                parent=parent or self.root,
+            )
             return None
         return self.smtk_path
 
@@ -804,13 +1039,19 @@ class LauncherApp:
     def _clear_trace_view(self) -> None:
         self._last_trace = None
         self.current_trace_text = None
-        self.lbl_no_val.config(text="-")
-        self.lbl_pos_val.config(text="-")
-        color = self.colors["TYPE_COLORS"]["UNKNOWN"]
-        self.lbl_type.config(text="UNKNOWN", bg=color)
-        self.lbl_title.config(text="等待数据...")
-        self.lbl_path.config(text="")
         self.current_path = ""
+        color = self.colors["TYPE_COLORS"]["UNKNOWN"]
+        for hud in (self.hud_card_widgets, self.mini_hud_widgets):
+            if hud is None:
+                continue
+            try:
+                hud["no_val"].config(text="-")
+                hud["pos_val"].config(text="-")
+                hud["type"].config(text="UNKNOWN", bg=color)
+                hud["title"].config(text="等待数据...")
+                hud["path"].config(text="")
+            except tk.TclError:
+                pass
 
     def _on_path_clicked(self, event) -> None:
         if not self.current_path:
@@ -824,6 +1065,13 @@ class LauncherApp:
 
     # ---------- 日志与仪表盘渲染 ----------
     def _drain_logs(self) -> None:
+        if self._drain_logs_id is not None:
+            try:
+                self.root.after_cancel(self._drain_logs_id)
+            except Exception:
+                pass
+            self._drain_logs_id = None
+
         try:
             while True:
                 name, text = LOG.get_nowait()
@@ -834,10 +1082,13 @@ class LauncherApp:
 
                 view = self.log_views.get(name)
                 if view is not None:
-                    view.configure(state="normal")
-                    view.insert("end", text)
-                    view.see("end")
-                    view.configure(state="disabled")
+                    try:
+                        view.configure(state="normal")
+                        view.insert("end", text)
+                        view.see("end")
+                        view.configure(state="disabled")
+                    except tk.TclError:
+                        pass
 
                 if name == "trace_mem":
                     self._last_trace = text
@@ -846,23 +1097,29 @@ class LauncherApp:
         except Exception as e:
             if sys.stderr is not None:
                 print(f"[日志刷新异常] {e}", file=sys.stderr)
-        finally:
-            self.root.after(100, self._drain_logs)
+
+        self._drain_logs_id = self.root.after(100, self._drain_logs)
 
     def _poll_trace(self) -> None:
+        if self._poll_trace_id is not None:
+            try:
+                self.root.after_cancel(self._poll_trace_id)
+            except Exception:
+                pass
+            self._poll_trace_id = None
+
         if self._last_trace is not None:
             self._render_dashboard(self._last_trace)
             self._last_trace = None
-        self.root.after(200, self._poll_trace)
+
+        self._poll_trace_id = self.root.after(200, self._poll_trace)
 
     def _render_dashboard(self, text: str, force: bool = False) -> None:
         text = text.replace("\r\n", "\n").replace("\r", "\n").strip()
         if not text or text.startswith("$"):
             return
-
         if text == self.current_trace_text and not force:
             return
-
         self.current_trace_text = text
 
         m_no = re.search(r"\[No\.\s*(\d+)\]", text)
@@ -872,29 +1129,38 @@ class LauncherApp:
         m_path = re.search(r"\[Path:\s*(.*?)(?:\s*\(file:///.*?\))?\]", text)
 
         no_str = m_no.group(1) if m_no else "-"
-        if self.lbl_no_val.cget("text") != no_str:
-            self.lbl_no_val.config(text=no_str)
-
         pos_str = m_pos.group(1) if m_pos else "-"
-        if self.lbl_pos_val.cget("text") != pos_str:
-            self.lbl_pos_val.config(text=pos_str)
-
         type_str = m_type.group(1) if m_type else "UNKNOWN"
         color = self.colors["TYPE_COLORS"].get(
             type_str, self.colors["TYPE_COLORS"]["UNKNOWN"]
         )
-        if self.lbl_type.cget("text") != type_str or self.lbl_type.cget("bg") != color:
-            self.lbl_type.config(text=type_str, bg=color)
-
         title_str = m_title.group(1) if m_title else "无标题"
-        if self.lbl_title.cget("text") != title_str:
-            self.lbl_title.config(text=title_str)
-
         path_str = m_path.group(1).strip() if m_path else ""
         self.current_path = path_str
-        path_text = f"{path_str}" if path_str else ""
-        if self.lbl_path.cget("text") != path_text:
-            self.lbl_path.config(text=path_text)
+
+        for hud in (self.hud_card_widgets, self.mini_hud_widgets):
+            if hud is None:
+                continue
+            self._apply_trace_to_hud(
+                hud, no_str, pos_str, type_str, color, title_str, path_str
+            )
+
+    def _apply_trace_to_hud(
+        self, hud: dict, no_str, pos_str, type_str, color, title_str, path_str
+    ) -> None:
+        try:
+            if hud["no_val"].cget("text") != no_str:
+                hud["no_val"].config(text=no_str)
+            if hud["pos_val"].cget("text") != pos_str:
+                hud["pos_val"].config(text=pos_str)
+            if hud["type"].cget("text") != type_str or hud["type"].cget("bg") != color:
+                hud["type"].config(text=type_str, bg=color)
+            if hud["title"].cget("text") != title_str:
+                hud["title"].config(text=title_str)
+            if hud["path"].cget("text") != path_str:
+                hud["path"].config(text=path_str)
+        except tk.TclError:
+            pass
 
     # ---------- 日志窗口 ----------
     def _open_log_window(self, focus: str | None = None) -> None:
@@ -943,7 +1209,10 @@ class LauncherApp:
 
     def _close_log_window(self) -> None:
         if self.log_window is not None:
-            self.log_window.destroy()
+            try:
+                self.log_window.destroy()
+            except Exception:
+                pass
         self.log_window = None
         self.log_notebook = None
         self.log_views.clear()
@@ -953,25 +1222,44 @@ class LauncherApp:
 
     # ---------- 退出 ----------
     def _on_close(self) -> None:
+        was_mini = self.mini_window is not None and self.mini_window.winfo_exists()
+        parent = self.mini_window if was_mini else self.root
+
         running = [r.label for r in self.runners.values() if r.is_running()]
         if running:
-            if not messagebox.askyesno(
-                "确认退出",
-                "以下命令仍在运行：\n  " + "\n  ".join(running) + "\n\n停止并退出？",
-            ):
+            msg = "以下命令仍在运行：\n  " + "\n  ".join(running) + "\n\n停止并退出？"
+            try:
+                resp = messagebox.askyesno("确认退出", msg, parent=parent)
+            except tk.TclError:
+                resp = messagebox.askyesno("确认退出", msg, parent=self.root)
+            if not resp:
                 return
             for r in self.runners.values():
                 r.stop()
+
+        for attr in ("_poll_status_id", "_poll_trace_id", "_drain_logs_id"):
+            aid = getattr(self, attr, None)
+            if aid is not None:
+                try:
+                    self.root.after_cancel(aid)
+                except Exception:
+                    pass
+                setattr(self, attr, None)
+
         self._save_config()
+        if self.mini_window is not None:
+            try:
+                self.mini_window.destroy()
+            except Exception:
+                pass
+            self.mini_window = None
         self.root.destroy()
 
 
 def main() -> None:
     _enable_dpi_awareness()
-
     if not _ensure_single_instance():
         sys.exit(0)
-
     root = tk.Tk()
     LauncherApp(root)
     root.mainloop()

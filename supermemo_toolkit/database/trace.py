@@ -69,7 +69,7 @@ class Trace:
 
     def trace_with_mem(self, callback: Callable[[int, TextRegistry], any]):
         reader = ElementNo()
-        self.telwind_hwnd = reader.app.window(class_name="TElWind").handle
+        self.telwind_hwnd = reader.telwind_hwnd
         active_kno_path = self._get_active_kno_path()
         if active_kno_path == None:
             return

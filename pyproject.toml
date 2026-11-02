@@ -56,6 +56,7 @@ documentation = "https://github.com/Zacharia2/SuperMemo-Toolkit"
 
 [project.scripts]
 smtk = "supermemo_toolkit.smtk:main"
+smtk-ui = "launcher:main"
 
 [tool.pdm.build]
 excludes = ["docs/**"]

@@ -140,11 +140,12 @@ class ElementNo:
         info = self._get_exe_info()
         if info is None:
             sys.exit()
-        file_path, app = info
+        file_path, app, telwind_hwnd = info
         self.app = app
         self.process_name = os.path.basename(file_path)
         self.sm_ver: str = compute_sm_ver(file_path)
         self.sm_arch: int = 64 if app.is64bit() else 32
+        self.telwind_hwnd: int = telwind_hwnd
         self.py_mem: pymem.Pymem = None
         self.base: int = 0
         self.global_ptr_addr = None  # 缓存下来，只扫一次
@@ -321,10 +322,10 @@ class ElementNo:
                 False,
                 app.process,
             )
-
+            telwind_hwnd = app.window(class_name="TElWind").handle
             try:
                 file_path = win32process.GetModuleFileNameEx(h, 0)
-                return (file_path, app)
+                return (file_path, app, telwind_hwnd)
             finally:
                 win32api.CloseHandle(h)
 
