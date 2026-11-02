@@ -101,6 +101,7 @@ import hashlib
 import logging
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import threading
@@ -139,7 +140,7 @@ ARCHIVE_REF = "refs/heads/archive"
 HOT_REF = "refs/heads/hot"
 # reset_workspace 的临时快照 ref（进程被强杀时可能残留，下次 reset 会检测）
 SNAPSHOT_REF = "refs/smtk-reset-snapshot"
-
+SHUTDOWN_PORT = 49200
 
 # ============================================================================
 # 类型定义（公共 API 类型，调用方可直接引用）
@@ -2169,6 +2170,52 @@ class Watcher:
             pass
         threading.Thread(target=self._shutdown, args=(icon,), daemon=True).start()
 
+    @staticmethod
+    def signal_stop():
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.sendto(b"SHUTDOWN", ("127.0.0.1", SHUTDOWN_PORT))
+            s.close()
+            log.info("[已发送关闭信号，等待安全退出…]\n")
+        except Exception as e:
+            log.info(f"[signal_shutdown] {e}\n")
+
+    def _stop_listener(self, icon) -> None:
+        """启动 UDP 监听线程，接收外部关闭信号并触发优雅退出。
+
+        收到 SHUTDOWN 包后调用 _shutdown(icon)：
+          1. stop() → 等 inflight 操作归零（最多 300 秒）
+          2. icon.stop() → icon.run() 返回 → 进程自然退出
+        """
+
+        def listen():
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                s.bind(("127.0.0.1", SHUTDOWN_PORT))
+            except OSError:
+                log.warning(f"shutdown listener: 端口 {SHUTDOWN_PORT} 被占用，跳过")
+                return
+            s.settimeout(1.0)
+            while not self._stop_event.is_set():
+                try:
+                    data, _ = s.recvfrom(64)
+                    if data == b"SHUTDOWN":
+                        log.info("收到外部关闭信号，正在优雅退出…")
+                        self._update_icon("running", "正在退出…")
+                        self._shutdown(icon)
+                        break
+                except socket.timeout:
+                    continue
+                except Exception:
+                    break
+            try:
+                s.close()
+            except OSError:
+                pass
+
+        t = threading.Thread(target=listen, daemon=True, name="shutdown-listener")
+        t.start()
+
     def _shutdown(self, icon) -> None:
         """后台执行 stop + icon.stop，让 icon.run() 返回。
 
@@ -2237,6 +2284,8 @@ class Watcher:
         self._holder["icon"] = icon
         self._thread = threading.Thread(target=self._poll_loop, daemon=True)
         self._thread.start()
+        # ★ 新增：启动 UDP 关闭信号监听
+        self._stop_listener(icon)
         try:
             icon.run()
         except KeyboardInterrupt:
