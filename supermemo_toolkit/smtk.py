@@ -460,7 +460,7 @@ def imgfit(tracing, ignore, max_width):
             if tracing:
                 hwnd = find_origin_window()
                 if hwnd is None:
-                    print(f"[No. {id}] 命令行程序未找到可聚焦的顶层窗口")
+                    print(f"[No. {text_reg.eId}] 命令行程序未找到可聚焦的顶层窗口")
                     return CONTINUE
                 activate_window(hwnd)
                 with force_reload:
