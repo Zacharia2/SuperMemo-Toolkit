@@ -52,7 +52,9 @@ class EpubImageFit:
         while p:
             cls = p.get("class") if hasattr(p, "get") else None
             if cls:
-                joined = " ".join(cls).lower()
+                # 修复：兼容 class 是字符串或列表的情况
+                cls_str = " ".join(cls) if isinstance(cls, list) else str(cls)
+                joined = cls_str.lower()
                 if any(k in joined for k in keywords):
                     return True
             if getattr(p, "name", None) in ("body", "html", None):
@@ -62,20 +64,19 @@ class EpubImageFit:
 
     def get_image_size(self, img_src, base_dir):
         """读取图片真实宽高，失败返回 (0, 0)"""
+        if not img_src:
+            return 0, 0
+
         count = len(regex.compile(r"(?i)\[.*?Storage\]").findall(img_src))
         if count > 0:
             root, _ = base_dir.split("elements")
-            if not img_src:
-                return 0, 0
             path = os.path.normpath(img_src.split("#")[0].split("?")[0])
             full = regex.sub(
-                regex.compile(r"(?i)file:\\\[[A-Za-z]+Storage\]"),
-                lambda _: os.path.normpath(os.path.join(root, "elements")) + "\\",
+                regex.compile(r"(?i)file:[/\\]+\[[A-Za-z]+Storage\]"),
+                lambda _: os.path.normpath(os.path.join(root, "elements")) + os.sep,
                 path,
             )
         else:
-            if not img_src:
-                return 0, 0
             path = img_src.split("#")[0].split("?")[0]
             full = os.path.join(base_dir, path)
         try:
@@ -89,8 +90,10 @@ class EpubImageFit:
 
         def scan(node, direction):
             while node:
+                # 1. 遇到非空文本，说明前后有文字，返回 True
                 if isinstance(node, str) and node.strip():
                     return True
+                # 2. 遇到 <br> 继续找
                 if getattr(node, "name", None) == "br":
                     node = (
                         node.previous_sibling
@@ -98,8 +101,36 @@ class EpubImageFit:
                         else node.next_sibling
                     )
                     continue
+                # 3. 遇到标签节点
                 if getattr(node, "name", None):
-                    return False
+                    # 如果是块级标签，说明已经出界，返回 False
+                    if node.name in (
+                        "p",
+                        "div",
+                        "li",
+                        "td",
+                        "h1",
+                        "h2",
+                        "h3",
+                        "h4",
+                        "h5",
+                        "h6",
+                        "table",
+                        "tr",
+                        "figure",
+                        "figcaption",
+                        "body",
+                        "html",
+                    ):
+                        return False
+                    # 如果是内联标签（如 sup, span, b, i, img 等），跳过继续找
+                    node = (
+                        node.previous_sibling
+                        if direction == "prev"
+                        else node.next_sibling
+                    )
+                    continue
+                # 4. 其他（如注释、空文本），继续找
                 node = (
                     node.previous_sibling if direction == "prev" else node.next_sibling
                 )
@@ -179,19 +210,14 @@ class EpubImageFit:
             elif cat == "wide":
                 img["style"] = self.style[cat](str(self.page_width) + "px")
             elif cat == "small":
-                if w:
-                    small_width = str(w) + "px"
-                else:
-                    small_width = "auto"
+                small_width = str(w) + "px" if w else "auto"
                 img["style"] = self.style[cat](small_width)
             elif cat == "figure":
-                figure_width: str = None
+                figure_width = "auto"
                 if w > self.page_width:
                     figure_width = str(self.page_width) + "px"
                 elif w:
                     figure_width = str(w) + "px"
-                else:
-                    figure_width = "auto"
                 img["style"] = self.style[cat](figure_width)
 
             # 加语义化 class，方便日后识别或再加样式
@@ -222,9 +248,7 @@ class EpubImageFit:
         # 在同目录下建临时文件，保证和原文件同一文件系统
         dir_name = os.path.dirname(os.path.abspath(path))
         fd, tmp_path = tempfile.mkstemp(
-            prefix=".sm_tmp_",
-            suffix=".xhtml",
-            dir=dir_name,
+            prefix=".sm_tmp_", suffix=".xhtml", dir=dir_name
         )
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as f:
