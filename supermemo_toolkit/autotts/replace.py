@@ -280,6 +280,8 @@ regex_replace_list: list[tuple[regex.Pattern[str], str]] = [
     (regex.compile(r"(?i)</?strike\b[^>]*>"), ""),
     # ===== 空段落处理（必须在 <p> / <br/> 规则之前，避免产生 "。，" 噪音） =====
     (regex.compile(r"(?i)<p\b[^>]*>\s*<br\s*/?>\s*</p>"), "。"),
+    # ===== 带圈/带括号/带点数字（注释标记 ① ② ③ …）=====
+    (regex.compile(r"[\u2460-\u24FF\u2776-\u2793\u3251-\u325F\u32B1-\u32BF]"), ""),
     # ===== 方括号标签 =====
     (regex.compile(r"(?i)\[img\]"), "，插图，"),
     (regex.compile(r"(?i)\[/img\]"), ""),
