@@ -1950,7 +1950,7 @@ class Watcher:
                         log.error(f"{c.name}: compact failed: {e}")
                 msg = f"压缩完成，失败: {', '.join(failed)}" if failed else "压缩完成"
                 try:
-                    icon.notify(msg, "time")
+                    icon.notify(msg, "time_rewind")
                 except Exception:
                     pass
                 if failed:
@@ -1974,7 +1974,7 @@ class Watcher:
                 self._pause_event.clear()
                 log.info("已恢复监听")
                 try:
-                    icon.notify("已恢复监听", "time")
+                    icon.notify("已恢复监听", "time_rewind")
                 except Exception:
                     pass
                 self._update_icon("waiting", "监听已恢复")
@@ -1982,7 +1982,7 @@ class Watcher:
                 self._pause_event.set()
                 log.info("已暂停监听")
                 try:
-                    icon.notify("已暂停监听（手动备份不受影响）", "time")
+                    icon.notify("已暂停监听（手动备份不受影响）", "time_rewind")
                 except Exception:
                     pass
                 self._update_icon("paused", "监听已暂停")
@@ -2036,7 +2036,7 @@ class Watcher:
 
         def _notify(msg: str) -> None:
             try:
-                icon.notify(msg, "time")
+                icon.notify(msg, "time_rewind")
             except Exception:
                 pass
 
@@ -2165,7 +2165,7 @@ class Watcher:
         """
         self._update_icon("running", "正在退出…")
         try:
-            icon.notify("正在完成当前备份后退出…", "time")
+            icon.notify("正在退出，请稍候…", "time_rewind")
         except Exception:
             pass
         threading.Thread(target=self._shutdown, args=(icon,), daemon=True).start()
