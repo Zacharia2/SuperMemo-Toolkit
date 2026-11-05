@@ -77,8 +77,21 @@ class Trace:
 
         def _track_one(active_kno_path: str, should_abort=None) -> bool:
             """追踪单个 kno。
-            should_abort() 返回 True：提前结束，返回 True（监控模式回监听）。
-            进程结束 / __stoped：返回 False（调用方整体退出）。
+
+            返回值语义：
+              - True  : 回监听（watch 模式下集合失活 / 进程退出，但应继续等下一个）
+              - False : 整体退出（用户停止，或非 watch 模式下进程退出）
+
+            判定顺序（关键修复）：
+              1. 用户主动停止      → 整体退出
+              2. 集合失活          → 回监听
+              3. SM 进程退出       → watch 模式回监听；非 watch 模式整体退出
+
+            为什么顺序很重要：
+              SM 关闭时 .kno 的独占锁先释放，SuperMemo 进程完全退出稍晚，
+              两者之间存在几十到几百毫秒的窗口。若先判 is_process_running()，
+              就会在窗口外误判为「整体退出」。两个进程并发追踪时相位错开，
+              几乎必有一个落在窗口外，表现为「一开一关就只剩一个命令还活着」。
             """
             reader = ElementNo()
             self.telwind_hwnd = reader.telwind_hwnd
@@ -86,20 +99,39 @@ class Trace:
             try:
                 last_id = None
                 while True:
-                    if not reader.app.is_process_running() or self.__stoped:
+                    # 1) 用户主动停止
+                    if self.__stoped:
                         return False
+
+                    # 2) 集合失活 → 回监听（仅 watch 模式会传 should_abort）
                     if should_abort is not None and should_abort():
                         return True
+
+                    # 3) SM 进程退出
+                    if not reader.app.is_process_running():
+                        # watch 模式：进程没了但应继续等下一个集合 → 回监听
+                        if should_abort is not None:  # noqa: SIM103
+                            return True
+                        # 非 watch 模式：进程没了 → 整体退出
+                        return False
+
                     elem_id = reader.read_id()
                     if elem_id is not None and elem_id != last_id:
                         last_id = elem_id
                         text_reg.refresh(element_id=elem_id)
                         if text_reg.eId is None:
                             time.sleep(0.5)
-                            if not reader.app.is_process_running() or self.__stoped:
+                            # 同样的判定顺序，避免刚 sleep 完 SM 已退出被误判
+                            if self.__stoped:
                                 return False
                             if should_abort is not None and should_abort():
                                 return True
+                            if not reader.app.is_process_running():
+                                # watch 模式：进程没了但应继续等下一个集合 → 回监听
+                                if should_abort is not None:  # noqa: SIM103
+                                    return True
+                                # 非 watch 模式：进程没了 → 整体退出
+                                return False
                         if callback(text_reg) == True:
                             self.set_running(False)
                     time.sleep(0.1)
