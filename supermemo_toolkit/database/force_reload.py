@@ -122,7 +122,7 @@ user32.FindWindowW.restype = wintypes.HWND
 class ForceReload:
     """适配sm17、sm18、sm19、sm20"""
 
-    def __init__(self):
+    def __init__(self, retry: int = 20):
         info = self._get_exe_info()
         if info is None:
             sys.exit()
@@ -139,9 +139,15 @@ class ForceReload:
             print("[ForceReload] 附加进程失败")
             sys.exit()
         if not self.locate():
-            self.detach()
-            print("[ForceReload] 扫描失败，未找到有效特征码")
-            sys.exit()
+            # 扫描失败，尝试多次定位
+            for _ in range(retry):
+                time.sleep(1.5)
+                if self.locate():
+                    break
+            else:
+                self.detach()
+                print("[ForceReload] 扫描失败，未找到有效特征码")
+                sys.exit()
 
     def _scan_aob_execute_read_only(self, pattern, is_offset=False):
         """

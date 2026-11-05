@@ -136,7 +136,7 @@ kernel32.VirtualQueryEx.restype = ctypes.c_size_t
 class ElementNo:
     """适配sm15、sm16、sm17、sm18、sm19、sm20"""
 
-    def __init__(self):
+    def __init__(self, retry: int = 20):
         info = self._get_exe_info()
         if info is None:
             sys.exit()
@@ -158,9 +158,15 @@ class ElementNo:
             sys.exit()
 
         if not self.locate():
-            self.detach()
-            print("[ElementNo] 扫描失败，未找到有效特征码")
-            sys.exit()
+            # 扫描失败，尝试多次定位
+            for _ in range(retry):
+                time.sleep(1.5)
+                if self.locate():
+                    break
+            else:
+                self.detach()
+                print("[ElementNo] 扫描失败，未找到有效特征码")
+                sys.exit()
 
     def _scan_aob_execute_read_only(self, pattern):
         """
