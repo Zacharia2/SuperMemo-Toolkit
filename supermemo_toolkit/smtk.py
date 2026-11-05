@@ -428,6 +428,11 @@ def imgfit(tracing, watching, ignore, max_width):
     """调整当前元素中图片的尺寸，使其排版更合适"""
     if watching:
         tracing = True
+        if Trace.exe_is_runing() is False:
+            while True:
+                time.sleep(2)
+                if Trace.exe_is_runing() is True:
+                    break
     CONTINUE = not tracing
 
     def work(text_reg: TextRegistry) -> bool:
@@ -552,6 +557,11 @@ def trace(mem, mem_watch, his):
     if mem:
         trace.print_info(mode="m")
     elif mem_watch:
+        if Trace.exe_is_runing() is False:
+            while True:
+                time.sleep(2)
+                if Trace.exe_is_runing() is True:
+                    break
         trace.print_info(mode="m", watch=True)
     else:
         trace.print_info(mode="o")

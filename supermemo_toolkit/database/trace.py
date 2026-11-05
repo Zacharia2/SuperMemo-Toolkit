@@ -225,6 +225,19 @@ class Trace:
         if mode == "m":
             self.trace_with_mem(_printf, watch)
 
+    @staticmethod
+    def exe_is_runing() -> bool:
+        try:
+            warnings.filterwarnings(
+                "ignore", message=".*32-bit application should be automated.*"
+            )
+            Application(backend="win32").connect(class_name="TElWind")
+            return True
+        except ElementNotFoundError:
+            return False
+        except Exception:  # noqa: BLE001
+            return False
+
 
 if __name__ == "__main__":
     # 仅需提供：sm_location，并且打开程序
