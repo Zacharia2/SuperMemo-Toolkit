@@ -111,7 +111,7 @@ _GLOBAL_MUTEX = None
 
 
 # ============================================================
-# 系统级工具 (单实例 & 防闪烁)
+# 系统级工具 (单实例)
 # ============================================================
 
 
@@ -146,25 +146,6 @@ def _ensure_single_instance() -> bool:
     return True
 
 
-def _apply_composited_fix(root: tk.Tk):
-    """使用 Win32 API 强制开启双缓冲，彻底解决透明窗口重绘闪烁"""
-    if sys.platform != "win32":
-        return
-    try:
-        import ctypes
-
-        GWL_EXSTYLE = -20
-        WS_EX_COMPOSITED = 0x02000000
-        hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
-        if hwnd:
-            style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-            ctypes.windll.user32.SetWindowLongW(
-                hwnd, GWL_EXSTYLE, style | WS_EX_COMPOSITED
-            )
-    except Exception:
-        pass
-
-
 # ============================================================
 # 悬浮窗：创建即满足 origin_window.is_focusable_top_window() 判据
 # ============================================================
@@ -174,11 +155,12 @@ class FloatingWindow(tk.Toplevel):
     """无边框悬浮窗：创建即满足 origin_window.is_focusable_top_window() 判据。
 
     Tk 的 overrideredirect 窗口有两个坑，都会让 origin_window 拒绝：
-      1. 异步 map —— 刚创建时 IsWindowVisible=0，必须 update() 一次；
+      1. 异步 map —— 刚创建时 IsWindowVisible=0；
       2. 带 WS_EX_TOOLWINDOW —— origin_window 明确排除。
-    这里在构造期一次性清掉 TOOLWINDOW/NOACTIVATE，让这个窗口成为
-    find_origin_window() 从子进程上溯时可以命中的"可聚焦顶层窗口"，
-    从而 imgfit --trace / math card --trace 等能正确找回焦点。
+    这里采用 "withdraw → 配置 → reveal" 的方式：
+      - 构造期先隐藏，避免首帧空窗口闪烁；
+      - alpha / geometry / overrideredirect 全部在未 map 时设好，map 直接带；
+      - reveal() 才真正上屏并清掉 TOOLWINDOW/NOACTIVATE 扩展样式。
     """
 
     def __init__(
@@ -189,10 +171,17 @@ class FloatingWindow(tk.Toplevel):
         **kw,
     ):
         super().__init__(master, **kw)
+        self.withdraw()  # 先隐藏，避免首帧空窗口
         self.overrideredirect(True)
         self.attributes("-topmost", True)
         self.attributes("-alpha", opacity)
         self.geometry(geometry)
+
+    def reveal(self) -> None:
+        """一次性把窗口推上屏幕：布局 → 显示 → 清扩展样式。"""
+        self.update_idletasks()
+        self.deiconify()
+        self.update_idletasks()  # 确保 map 完成，IsWindowVisible=1
         self._become_focusable()
 
     def _become_focusable(self) -> None:
@@ -206,7 +195,6 @@ class FloatingWindow(tk.Toplevel):
             u.GetAncestor.argtypes = [wintypes.HWND, ctypes.c_uint]
             u.GetAncestor.restype = wintypes.HWND
 
-            self.update()  # 强制 map → IsWindowVisible=1
             hwnd = u.GetAncestor(self.winfo_id(), 2) or self.winfo_id()
             if not hwnd:
                 return
@@ -365,8 +353,6 @@ class LauncherApp:
         self.root.geometry("480x480")
         self.root.resizable(False, False)
 
-        _apply_composited_fix(self.root)
-
         self.smtk_path: str | None = None
         self._path_warned = False
         self._last_trace = None
@@ -401,12 +387,14 @@ class LauncherApp:
         self.colors = THEMES[self.theme_name]
 
         self.root.configure(bg=self.colors["BG_MAIN"])
-        self.root.attributes("-alpha", 1.0)
 
         self.custom_var = tk.StringVar()
 
         self._build_ui()
         self._restore_state()
+
+        # 在窗口尚未 map 时一次性设好 alpha，避免 map 之后再跳变导致闪烁
+        self.root.attributes("-alpha", self.opacity)
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         # 保存 after 返回值，便于退出时取消
@@ -414,7 +402,6 @@ class LauncherApp:
         self._poll_trace_id = self.root.after(200, self._poll_trace)
         self._poll_status_id = self.root.after(500, self._poll_status)
         self.root.after(200, self._check_smtk_on_startup)
-        self.root.after(150, lambda: self.root.attributes("-alpha", self.opacity))
 
         # 启动 UDP 监听用于单实例唤醒
         self._start_udp_listener()
@@ -443,15 +430,11 @@ class LauncherApp:
         if self.mini_window is not None and self.mini_window.winfo_exists():
             self._close_floating_view()
 
-        # 纯 Tkinter 原生恢复，完美重绘客户区
+        # 纯 Tkinter 原生恢复；先让客户区重绘好再抬升，避免只画 frame 的空帧
         self.root.deiconify()
+        self.root.update_idletasks()
         self.root.lift()
         self.root.focus_force()
-
-        # 临时置顶一下保证盖过其他窗口
-        was_topmost = self.root.attributes("-topmost")
-        self.root.attributes("-topmost", True)
-        self.root.after(100, lambda: self.root.attributes("-topmost", was_topmost))
 
     # ---------- 配置 ----------
     def _load_config(self) -> dict:
@@ -811,7 +794,6 @@ class LauncherApp:
         self._close_log_window()
 
         self.root.configure(bg=self.colors["BG_MAIN"])
-        self.root.attributes("-alpha", 1.0)
         for w in self.root.winfo_children():
             try:
                 w.destroy()
@@ -840,7 +822,6 @@ class LauncherApp:
             self._clear_trace_view()
 
         self._poll_status()
-        self.root.after(100, lambda: self.root.attributes("-alpha", self.opacity))
 
     def _toggle_topmost(self) -> None:
         self.is_topmost = not self.is_topmost
@@ -848,6 +829,7 @@ class LauncherApp:
         self.btn_topmost.config(text="📌 取消置顶" if self.is_topmost else "📌 置顶")
 
     def _toggle_opacity(self) -> None:
+        _dump_ex_style(self.root)
         for threshold in (1.0, 0.8, 0.6, 0.4, 0.3):
             if self.opacity >= threshold:
                 self.opacity = {1.0: 0.8, 0.8: 0.6, 0.6: 0.4, 0.4: 0.3, 0.3: 0.15}[
@@ -857,13 +839,17 @@ class LauncherApp:
         else:
             self.opacity = 1.0
 
+        # 先让布局稳定，再切换 alpha，减少撕裂
+        self.root.update_idletasks()
         self.root.attributes("-alpha", self.opacity)
         if self.mini_window is not None and self.mini_window.winfo_exists():
             try:
+                self.mini_window.update_idletasks()
                 self.mini_window.attributes("-alpha", self.opacity)
             except Exception:
                 pass
         self.btn_opacity.config(text=f"🔮 {int(self.opacity * 100)}%")
+        _dump_ex_style(self.root)
 
     # ---------- 悬浮视图 ----------
     def _toggle_floating_view(self) -> None:
@@ -1006,7 +992,9 @@ class LauncherApp:
         if self.current_trace_text:
             self._render_dashboard(self.current_trace_text, force=True)
 
+        # 先隐藏主窗口，再一次性 reveal 悬浮窗，避免两窗口重叠闪烁
         self.root.withdraw()
+        win.reveal()
 
     def _mini_start_trace(self) -> None:
         """悬浮窗：启动内存追踪。"""
@@ -1041,6 +1029,7 @@ class LauncherApp:
         if restore_main:
             try:
                 self.root.deiconify()
+                self.root.update_idletasks()  # 先重绘再抬升，避免空帧
                 self.root.lift()
             except Exception:
                 pass
@@ -1429,6 +1418,26 @@ def main() -> None:
     root = tk.Tk()
     LauncherApp(root)
     root.mainloop()
+
+
+def _dump_ex_style(win: tk.Misc) -> str:
+    if sys.platform != "win32":
+        return ""
+    import ctypes
+
+    u = ctypes.windll.user32
+    hwnd = u.GetAncestor(win.winfo_id(), 2) or win.winfo_id()
+    ex = u.GetWindowLongW(hwnd, -20)
+    bits = []
+    if ex & 0x02000000:
+        bits.append("COMPOSITED")
+    if ex & 0x00080000:
+        bits.append("LAYERED")
+    if ex & 0x08000000:
+        bits.append("NOACTIVATE")
+    if ex & 0x00000080:
+        bits.append("TOOLWINDOW")
+    return f"hwnd={hwnd:#x} ex={ex:#010x} [{'|'.join(bits)}]"
 
 
 if __name__ == "__main__":
