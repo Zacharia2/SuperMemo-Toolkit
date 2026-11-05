@@ -67,37 +67,73 @@ class Trace:
                 return kno_path.removesuffix(".kno")
         return None
 
-    def trace_with_mem(self, callback: Callable[[int, TextRegistry], any]):
-        reader = ElementNo()
-        self.telwind_hwnd = reader.telwind_hwnd
-        active_kno_path = self._get_active_kno_path()
-        if active_kno_path == None:
-            return
-        text_reg = TextRegistry(active_kno_path)
+    def trace_with_mem(
+        self, callback: Callable[[int, TextRegistry], any], watch: bool = False
+    ):
+        if watch:
+            if getattr(self, "_watch_running", False):
+                return
+            self._watch_running = True
+
+        def _track_one(active_kno_path: str, should_abort=None) -> bool:
+            """追踪单个 kno。
+            should_abort() 返回 True：提前结束，返回 True（监控模式回监听）。
+            进程结束 / __stoped：返回 False（调用方整体退出）。
+            """
+            reader = ElementNo()
+            self.telwind_hwnd = reader.telwind_hwnd
+            text_reg = TextRegistry(active_kno_path)
+            try:
+                last_id = None
+                while True:
+                    if not reader.app.is_process_running() or self.__stoped:
+                        return False
+                    if should_abort is not None and should_abort():
+                        return True
+                    elem_id = reader.read_id()
+                    if elem_id is not None and elem_id != last_id:
+                        last_id = elem_id
+                        text_reg.refresh(element_id=elem_id)
+                        if text_reg.eId is None:
+                            time.sleep(0.5)
+                            if not reader.app.is_process_running() or self.__stoped:
+                                return False
+                            if should_abort is not None and should_abort():
+                                return True
+                        if callback(text_reg) == True:
+                            self.set_running(False)
+                    time.sleep(0.1)
+            finally:
+                reader.detach()
 
         try:
-            last_id = None
-            while True:
-                if not reader.app.is_process_running():
+            # 常规模式：取一次激活的 kno，追踪到底（不检查中途失活，与原逻辑一致）
+            if not watch:
+                active_kno_path = self._get_active_kno_path()
+                if active_kno_path is None:
                     return
-                if self.__stoped:
-                    return
-                elem_id = reader.read_id()
-                if elem_id is not None and elem_id != last_id:
-                    last_id = elem_id
-                    text_reg.refresh(element_id=elem_id)
-                    if text_reg.eId == None:
-                        time.sleep(0.5)
-                        if not reader.app.is_process_running():
-                            return
-                        if self.__stoped:
-                            return
-                    terminate = callback(text_reg)
-                    if terminate == True:
-                        self.set_running(False)
-                time.sleep(0.1)
+                _track_one(active_kno_path)
+                return
+
+            # 监控模式：监听 → 追踪 → 失活/切换后回到监听
+            last_kno_path = None
+            while not self.__stoped:
+                active_kno_path = self._get_active_kno_path()
+                if active_kno_path is None or active_kno_path == last_kno_path:
+                    time.sleep(0.5)
+                    continue
+                last_kno_path = active_kno_path
+                kno_file = Path(active_kno_path + ".kno")
+
+                def _kno_inactive(_f=kno_file):
+                    return not is_collection_active(_f)
+
+                if not _track_one(active_kno_path, should_abort=_kno_inactive):
+                    return  # 整体退出
+                last_kno_path = None  # 回监听
         finally:
-            reader.detach()
+            if watch:
+                self._watch_running = False
 
     def trace_with_observer(self, callback: Callable[[int, TextRegistry], any]):
         try:
@@ -158,7 +194,7 @@ class Trace:
         """True 表示继续运行，False 表示停止。"""
         self.__stoped = not running
 
-    def print_info(self, mode=Literal["o", "m"]):
+    def print_info(self, mode=Literal["o", "m"], watch: bool = False):
 
         def _printf(text_reg: TextRegistry):
             if text_reg.eId == None:
@@ -187,7 +223,7 @@ class Trace:
         if mode == "o":
             self.trace_with_observer(_printf)
         if mode == "m":
-            self.trace_with_mem(_printf)
+            self.trace_with_mem(_printf, watch)
 
 
 if __name__ == "__main__":

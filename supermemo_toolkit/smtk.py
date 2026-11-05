@@ -409,6 +409,13 @@ def pathpix_transfer(src_kno, dst_kno, kno):
     default=False,
     help="追踪当前元素进行处理并标记",
 )
+@click.option(
+    "--trace-watch",
+    "watching",
+    is_flag=True,
+    default=False,
+    help="监控活动集合，追踪当前元素进行处理并标记",
+)
 @click.option("--ignore", "ignore", is_flag=True, help="忽略已处理标记, 重新处理一次")
 @click.option(
     "--max-width",
@@ -417,8 +424,10 @@ def pathpix_transfer(src_kno, dst_kno, kno):
     default=1200,
     help="设置图片最大宽度 (px)",
 )
-def imgfit(tracing, ignore, max_width):
+def imgfit(tracing, watching, ignore, max_width):
     """调整当前元素中图片的尺寸，使其排版更合适"""
+    if watching:
+        tracing = True
     CONTINUE = not tracing
 
     def work(text_reg: TextRegistry) -> bool:
@@ -488,7 +497,7 @@ def imgfit(tracing, ignore, max_width):
     trace = Trace()
     img_fitter = EpubImageFit(page_width=max_width)
     if force_reload.online_and_has_force_addr is not None:
-        trace.trace_with_mem(work)
+        trace.trace_with_mem(work, watching)
         force_reload.detach()
 
 
@@ -535,12 +544,15 @@ def autotts(onlyat):
 
 @main.command()
 @click.option("--mem", is_flag=True, help="通过扫描内存追踪当前元素")
+@click.option("--mem-watch", is_flag=True, help="通过扫描内存追踪当前元素")
 @click.option("--his", is_flag=True, help="打印浏览过的历史 ID")
-def trace(mem, his):
+def trace(mem, mem_watch, his):
     """追踪当前元素，并输出当前元素信息"""
     trace = Trace()
     if mem:
         trace.print_info(mode="m")
+    elif mem_watch:
+        trace.print_info(mode="m", watch=True)
     else:
         trace.print_info(mode="o")
 

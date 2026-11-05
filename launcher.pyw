@@ -79,7 +79,7 @@ COMMANDS = [
     {
         "name": "imgfit",
         "label": "图片适配",
-        "args": ["imgfit", "--trace"],
+        "args": ["imgfit", "--trace-watch"],
         "help": "自动适配图片尺寸",
     },
     {
@@ -97,7 +97,7 @@ COMMANDS = [
     {
         "name": "trace_mem",
         "label": "内存追踪",
-        "args": ["trace", "--mem"],
+        "args": ["trace", "--mem-watch"],
         "help": "监控并展示在仪表盘",
     },
 ]
