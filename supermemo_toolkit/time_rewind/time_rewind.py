@@ -91,8 +91,8 @@ reset_workspace 的实现机制（snapshot commit，复用 backup 思路）：
     - reset_workspace 在阶段 C4 成功之后、删除 snapshot ref 之前被强杀时，
       工作区/refs/kno 均已重置到目标（状态正确），只残留 snapshot ref。
       下次 reset 前置检测即拒绝，用户按提示 update-ref -d 清理即可。
-    - 重置子菜单在 Watcher.start() 时静态生成，运行期间新初始化的集合
-      需要重启 watcher 才会出现。
+    - 压缩与重置子菜单在 Watcher.start() 时静态生成，运行期间新初始化
+      的集合需要重启 watcher 才会出现在菜单里。
 """
 
 from __future__ import annotations
@@ -934,7 +934,7 @@ class CollectionRepo:
                     try:
                         git(repo, "symbolic-ref", "HEAD", HOT_REF)
                     except GitError:
-                        # 修复：had_hot 为 True 时恢复旧 hot tip（parent），
+                        # had_hot 为 True 时恢复旧 hot tip（parent），
                         # 不删除 HOT_REF。删除会把 backup 前的整个 hot 链
                         # 变成 dangling，下次 backup 可能 fallback 到 archive
                         # 重新起链，导致 hot 分叉、用户看到历史"消失"。
@@ -1002,9 +1002,9 @@ class CollectionRepo:
                         f"{self.name}: hot tip {hot_tip[:8]} 中无 {kno_rel}，拒绝折叠（集合数据不完整）"
                     )
 
-                # 修复：hot 已指向 archive tip（上次 compact 后无新 backup），
+                # hot 已指向 archive tip（上次 compact 后无新 backup），
                 # 此时既没有新内容可折叠，也没有旧 commit 会变 dangling，
-                # 直接返回 nothing to fold，不再落入 empty tree 分支误报 folded=True。
+                # 直接返回 nothing to fold，不落入 empty tree 分支误报 folded=True。
                 if archive_tip is not None and hot_tip == archive_tip:
                     log.info(f"{self.name}: hot == archive tip，无需折叠")
                     return CompactResult(folded=False, message="nothing to fold")
@@ -1018,7 +1018,7 @@ class CollectionRepo:
                     archive_tip is not None
                     and rev_parse(repo, f"{archive_tip}^{{tree}}") == tree
                 ):
-                    # 修复：先 symbolic-ref 再 update-ref，symbolic-ref 失败时
+                    # 先 symbolic-ref 再 update-ref：symbolic-ref 失败时
                     # refs 未动，干净退出；update-ref 失败时 HEAD 已指向 hot
                     # （hot 仍是旧值，良性），异常同样干净抛出。
                     git(repo, "symbolic-ref", "HEAD", HOT_REF)
@@ -1035,8 +1035,7 @@ class CollectionRepo:
                 msg = f"snapshot: {datetime.now().isoformat(timespec='seconds')}"
                 new = commit_tree(repo, tree, archive_tip, msg)
 
-                # 修复：先 symbolic-ref 再 update-ref。
-                # 原顺序（先 update-ref 后 symbolic-ref）在 symbolic-ref 失败时
+                # 先 symbolic-ref 再 update-ref：原顺序在 symbolic-ref 失败时
                 # archive/hot 已折叠但 HEAD 未指向 hot，调用方收到"失败"实际
                 # 已成功，日志里 dangling 提示也没打出来。交换后两行都满足
                 # "失败即 refs 未动或只动 benign 的 HEAD"。
@@ -1780,7 +1779,7 @@ class Watcher:
         self._inflight = 0
         self._ops_lock = threading.Lock()
         self._idle_event = threading.Event()
-        # 修复：未 start 时没有 inflight 操作，stop() 不应等 300 秒。
+        # 未 start 时没有 inflight 操作，stop() 不应等 300 秒。
         # Event() 初始为 unset，wait() 会一直阻塞到超时。
         self._idle_event.set()
         # set() 表示「监听已暂停」。默认不暂停。
@@ -1934,28 +1933,80 @@ class Watcher:
         self._holder["_last_icon_key"] = key
         _update_icon(self._holder, state, detail)
 
-    def _on_compact(self, icon, item) -> None:
-        """托盘菜单：压缩历史（后台执行，不阻塞托盘）。"""
+    def _on_compact(self, icon, item, name: str | None = None) -> None:
+        """托盘菜单：压缩历史（后台执行，不阻塞托盘）。
+
+        Args:
+            name: 集合名称；None 表示压缩全部已初始化集合。
+
+        批量模式只压缩已初始化集合：未初始化集合的 compact() 只返回
+        no repo，若计入结果会让用户在"压缩完成"里看不到任何实际动作。
+        单集合模式命中未初始化集合时给出明确提示，而非静默成功。
+
+        前置检查（集合查找、is_initialized）的失败均通过系统通知与
+        托盘图标反馈给用户，不依赖最外层兜底 except——那里只写日志，
+        托盘图标不变，用户看不到任何反馈。
+        """
+        label = "全部" if name is None else name
+
+        def _notify(msg: str) -> None:
+            try:
+                icon.notify(msg, "time_rewind")
+            except Exception:  # noqa: BLE001, S110
+                pass
 
         def _do():
             try:
-                self._update_icon("running", "压缩中")
+                # ---- 解析目标 ----
+                if name is None:
+                    targets = list(self._iter_initialized_collections())
+                    if not targets:
+                        log.info("compact: 无已初始化集合，跳过")
+                        _notify("无已初始化集合，无需压缩")
+                        self._update_icon("done", "无已初始化集合")
+                        return
+                else:
+                    c = next(
+                        (x for x in self._config.collections if x.name == name), None
+                    )
+                    if c is None:
+                        log.error(f"compact: collection not found: {name}")
+                        _notify(f"未找到集合 {name}")
+                        self._update_icon("error", f"压缩失败 ({name})")
+                        return
+                    try:
+                        initialized = CollectionRepo(c).is_initialized()
+                    except Exception as e:
+                        log.error(f"{name}: 检查初始化状态失败: {e}")
+                        _notify(f"{name} 状态检查失败")
+                        self._update_icon("error", f"{name} 状态检查失败")
+                        return
+                    if not initialized:
+                        log.info(f"{name}: 未初始化，跳过压缩")
+                        _notify(f"{name} 未初始化")
+                        self._update_icon("done", f"{name} 未初始化")
+                        return
+                    targets = [c]
+
+                # ---- 执行 ----
+                self._update_icon("running", f"压缩中 ({label})")
                 failed: list[str] = []
-                for c in self._config.collections:
+                for c in targets:
                     try:
                         r = CollectionRepo(c).compact()
                         log.info(f"{c.name}: compact -> {r.message}")
                     except Exception as e:
                         failed.append(c.name)
                         log.error(f"{c.name}: compact failed: {e}")
-                msg = f"压缩完成，失败: {', '.join(failed)}" if failed else "压缩完成"
-                try:
-                    icon.notify(msg, "time_rewind")
-                except Exception:
-                    pass
+
                 if failed:
+                    if name is None:
+                        _notify(f"压缩完成，失败: {', '.join(failed)}")
+                    else:
+                        _notify(f"{name} 压缩失败")
                     self._update_icon("error", f"压缩失败: {', '.join(failed)}")
                 else:
+                    _notify("压缩完成" if name is None else f"{name} 压缩完成")
                     self._update_icon("done", "压缩完成")
             except Exception as e:
                 log.error(f"compact background thread failed: {e}")
@@ -1996,42 +2047,108 @@ class Watcher:
             except Exception as e:
                 log.debug(f"update_menu: {e}")
 
-    def _make_reset_menu(self, target: str) -> pystray.Menu:
-        """为指定 target 生成「按集合选择」子菜单。
+    def _make_2arg(self, fn, *bound):
+        """把 fn(icon, item, *bound) 适配为 pystray 要求的 (icon, item) 签名。
 
-        只列出已经 git 初始化的集合。未初始化的集合没有 HEAD/commit，
-        reset 无意义，隐藏它们避免用户误点后收到"未初始化"提示。
-
-        用工厂函数创建签名严格为 (icon, item) 的 handler。
-        pystray 的 _assert_action 要求 action 正好接受 2 个位置参数，
-        带额外默认参数的 lambda 会被拒绝。
-
-        注意：集合的初始化状态在 start() 时静态确定。若用户在 watcher
-        运行期间新初始化仓库，需要重启 watcher 才会出现在菜单里。
+        pystray 的 _assert_action 校验 action 必须正好接受 2 个位置参数，
+        functools.partial 与带默认参数的 lambda 都会触发校验失败，
+        因此用闭包显式绑定额外参数。
         """
 
-        def make_handler(cname: str):
-            def handler(icon, item):
-                self._on_reset(icon, item, target, cname)
+        def handler(icon, item):
+            return fn(icon, item, *bound)
 
-            return handler
+        return handler
 
-        items: list[pystray.MenuItem] = []
+    def _iter_initialized_collections(self):
+        """按配置顺序迭代已初始化的集合。
+
+        单个集合的状态检查失败（git 超时、仓库损坏）只跳过该集合并记
+        warning，不影响其他集合；调用方可放心 list()/for 遍历。
+
+        is_initialized() 内部走 git()，subprocess 的 TimeoutExpired 不
+        被捕获会向上抛，这里吞掉是为了不让一个坏仓库拖垮整张菜单或
+        整批 compact。
+
+        日志前缀不带场景名：本方法同时服务于菜单静态生成与 compact
+        批量执行，写死场景（如 "menu:"）会在另一场景下误导排查。
+        """
         for c in self._config.collections:
             try:
-                if not CollectionRepo(c).is_initialized():
-                    continue
+                if CollectionRepo(c).is_initialized():
+                    yield c
             except Exception as e:
-                log.warning(f"reset menu: 检查 {c.name} 初始化状态失败，跳过: {e}")
-                continue
-            items.append(pystray.MenuItem(c.name, make_handler(c.name)))
+                log.warning(f"{c.name}: 检查初始化状态失败，跳过: {e}")
 
-        if not items:
+    def _make_collection_menu(
+        self,
+        make_handler,
+        *,
+        all_item: pystray.MenuItem | None = None,
+    ) -> pystray.Menu:
+        """构造「按集合选择」子菜单（reset 与 compact 共用）。
+
+        Args:
+            make_handler: name -> handler(icon, item)，为每个集合生成回调。
+            all_item:     可选的置顶项（如「全部」）。仅当其后存在集合项时
+                          才插入分隔线，避免空集合菜单出现孤儿分隔线。
+
+        无已初始化集合时追加一条禁用的提示项，避免渲染出空子菜单
+        让用户误以为菜单失效。
+
+        集合列表在调用时静态确定（即 start() 时）；运行期新初始化的
+        集合需重启 watcher 才会出现在菜单里。
+        """
+        coll_items: list[pystray.MenuItem] = [
+            pystray.MenuItem(c.name, make_handler(c.name))
+            for c in self._iter_initialized_collections()
+        ]
+        items: list[pystray.MenuItem] = []
+        if all_item is not None:
+            items.append(all_item)
+            if coll_items:
+                items.append(pystray.Menu.SEPARATOR)
+        items.extend(coll_items)
+        if not coll_items:
             items.append(pystray.MenuItem("(无已初始化集合)", None, enabled=False))
         return pystray.Menu(*items)
 
+    def _make_compact_menu(self) -> pystray.Menu:
+        """「压缩历史」子菜单：全部 + 逐个已初始化集合。
+
+        与 reset 菜单共享 _make_collection_menu；未初始化集合在 compact
+        下只会返回 no repo，列出来是噪音，因此与 reset 一样隐藏。
+        """
+        return self._make_collection_menu(
+            lambda cname: self._make_2arg(self._on_compact, cname),
+            all_item=pystray.MenuItem("全部", self._make_2arg(self._on_compact, None)),
+        )
+
+    def _make_reset_menu(self, target: str) -> pystray.Menu:
+        """「重置工作区」子菜单：针对指定 target 逐个列已初始化集合。
+
+        Args:
+            target: rev 表达式，如 "HEAD" 或 "HEAD^"。
+
+        未初始化集合没有 commit，reset 无意义，隐藏以避免用户误点后
+        收到"未初始化"提示。
+        """
+        return self._make_collection_menu(
+            lambda cname: self._make_2arg(self._on_reset, target, cname),
+        )
+
     def _on_reset(self, icon, item, target: str, name: str) -> None:
-        """托盘菜单：重置指定集合的工作区到 target。后台执行，不阻塞托盘。"""
+        """托盘菜单：把集合工作区重置到 target（后台执行，不阻塞托盘）。
+
+        前置检查（集合查找、is_initialized、is_active）的失败均通过
+        系统通知与托盘图标反馈给用户，不依赖最外层兜底 except——
+        那里只写日志，用户看不到任何反馈。
+
+        reset_workspace 抛出的三类异常分别通知：
+            NoTargetCommit:      目标 rev 不可解析（如 HEAD^ 但只有 1 个 commit）
+            ResetFailed:         失败但文件内容已完全回滚，用户可重试
+            ResetRollbackFailed: 失败且回滚不完整，需用户按日志手动恢复
+        """
         label = "HEAD" if target == "HEAD" else "上一次提交"
 
         def _notify(msg: str) -> None:
@@ -2045,12 +2162,21 @@ class Watcher:
                 c = next((x for x in self._config.collections if x.name == name), None)
                 if c is None:
                     log.error(f"reset: collection not found: {name}")
+                    _notify(f"未找到集合 {name}")
+                    self._update_icon("error", f"重置失败 ({name})")
                     return
 
                 self._update_icon("running", f"{name} 重置中 ({label})")
                 repo = CollectionRepo(c)
 
-                if not repo.is_initialized():
+                try:
+                    initialized = repo.is_initialized()
+                except Exception as e:
+                    log.error(f"{name}: 检查初始化状态失败: {e}")
+                    _notify(f"{name} 状态检查失败")
+                    self._update_icon("error", f"{name} 状态检查失败")
+                    return
+                if not initialized:
                     log.info(f"{name}: 未初始化，跳过 reset")
                     _notify(f"{name} 未初始化，跳过")
                     self._update_icon("done", f"{name} 未初始化")
@@ -2251,7 +2377,7 @@ class Watcher:
         self._pause_event.clear()
 
         menu_items: list[pystray.MenuItem] = [
-            pystray.MenuItem("压缩历史", self._on_compact),
+            pystray.MenuItem("压缩历史", self._make_compact_menu()),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("打开配置目录", self._on_open_dir),
         ]
@@ -2285,12 +2411,9 @@ class Watcher:
         self._holder["icon"] = icon
         self._thread = threading.Thread(target=self._poll_loop, daemon=True)
         self._thread.start()
-        # ★ 新增：启动 UDP 关闭信号监听
         self._stop_listener(icon)
         try:
             icon.run()
-        # except KeyboardInterrupt:
-        #     log.info("interrupted")
         finally:
             self.stop()
             if self._thread is not None:
@@ -2302,7 +2425,7 @@ class Watcher:
         等待 inflight 操作归零（最多 300 秒），避免在 Git 操作中途退出。
         从未 start() 时直接返回，不阻塞。
         """
-        # 修复：_stop_event 为 None 说明从未 start()，无事可停。
+        # _stop_event 为 None 说明从未 start()，无事可停。
         # 此时 _idle_event 已在 __init__ 中 set，wait() 会立即返回，
         # 但显式早退更清晰，也防御 _idle_event 意外被 clear 的情况。
         if self._stop_event is None:
