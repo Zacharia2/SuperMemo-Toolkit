@@ -3,14 +3,16 @@
 
 from __future__ import annotations
 
+import io
 import os
+import re
 import shlex
 import sys
 import time
 import traceback
 from pathlib import Path
 
-from prompt_toolkit import PromptSession
+from prompt_toolkit import PromptSession, print_formatted_text
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import (
     CompleteEvent,
@@ -21,6 +23,7 @@ from prompt_toolkit.completion import (
     merge_completers,
 )
 from prompt_toolkit.document import Document
+from prompt_toolkit.formatted_text import ANSI, to_formatted_text
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.patch_stdout import patch_stdout
 
@@ -91,7 +94,13 @@ def run_shell() -> None:
             print(os.getcwd())
             continue
         if parts[0] == "cd":
-            _do_cd(parts[1] if len(parts) > 1 else "")
+            # 统一复用 _split_args 进行解析，剥离引号并支持带空格的路径
+            try:
+                args = _split_args(line)
+                raw_arg = args[1] if len(args) > 1 else ""
+            except Exception:
+                raw_arg = ""
+            _do_cd(raw_arg)
             continue
 
         try:
@@ -133,7 +142,7 @@ def _bottom_toolbar() -> str:
 
 
 def _do_cd(arg: str) -> None:
-    arg = arg.strip().strip("\"'")
+    # _split_args 已经剥离了外层引号，此处无需再 strip 引号
     try:
         target = Path(arg).expanduser() if arg else Path.home()
         os.chdir(target)
@@ -168,20 +177,31 @@ def _parse_smtk_line(line: str) -> list[str] | None:
 def _split_args(line: str) -> list[str]:
     """Windows 下用 posix=False 保留反斜杠，再手动剥引号。"""
     if sys.platform == "win32":
-        tokens = shlex.split(line, posix=False)
-        return [
-            t[1:-1] if len(t) >= 2 and t[0] == t[-1] and t[0] in "\"'" else t
-            for t in tokens
-        ]
+        # 匹配 "..." 或 '...' 或 非空白字符
+        pattern = r'"([^"]*)"|\'([^\']*)\'|(\S+)'
+        args = []
+        for match in re.finditer(pattern, line):
+            # 避免 `or` 运算吞掉空字符串 ""
+            arg = match.group(1)
+            if arg is None:
+                arg = match.group(2)
+            if arg is None:
+                arg = match.group(3)
+            if arg is not None:
+                args.append(arg)
+        return args
     return shlex.split(line)
 
 
 def _display_args(args: list[str]) -> str:
-    """回显用：Windows 风格，含空白才加双引号。"""
+    """回显命令：安全处理包含引号的参数。"""
     out: list[str] = []
     for a in args:
         if not a or any(c in a for c in " \t"):
-            out.append(f'"{a}"')
+            if '"' in a and "'" not in a:
+                out.append(f"'{a}'")
+            else:
+                out.append(f'"{a}"')
         else:
             out.append(a)
     return " ".join(out)
@@ -274,15 +294,72 @@ def _build_completer() -> Completer:
 # ── 执行 smtk CLI ──────────────────────────────────────────────
 
 
+class PromptToolkitStdout(io.TextIOBase):
+    """代理 Stdout，将普通 print 和 ANSI 颜色码交给 prompt_toolkit 安全渲染。"""
+
+    def __init__(self, original_stream):
+        self.original = original_stream
+
+    def write(self, string):
+        if not string:
+            return 0
+
+        # 处理 bytes 字节流
+        if isinstance(string, bytes):
+            string = string.decode("utf-8", errors="replace")
+        elif not isinstance(string, str):
+            string = str(string)
+
+        try:
+            fragments = to_formatted_text(ANSI(string))
+            print_formatted_text(fragments, end="")
+        except Exception:
+            # 降级回退
+            self.original.write(string)
+
+        return len(string)
+
+    def flush(self):
+        if hasattr(self.original, "flush"):
+            self.original.flush()
+
+    def isatty(self):
+        return True  # 欺骗 click 等库，强制输出色彩
+
+    @property
+    def encoding(self):
+        # 显式暴露 encoding，兼容某些第三方库的检查
+        return getattr(self.original, "encoding", "utf-8")
+
+    def __getattr__(self, name):
+        return getattr(self.original, name)
+
+
 def _run_smtk(args: list[str]) -> None:
     import click
     from supermemo_toolkit.smtk import main
 
+    # 记录原始状态
+    old_argv = list(sys.argv)
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+    old_env_force = os.environ.get("FORCE_COLOR")
+    old_env_depth = os.environ.get("PROMPT_TOOLKIT_COLOR_DEPTH")
+
+    sys.argv = ["smtk", *args]
+
+    # 注入颜色环境
+    os.environ["FORCE_COLOR"] = "1"
+    os.environ["PROMPT_TOOLKIT_COLOR_DEPTH"] = "DEPTH_8_BIT"
+
+    # 同时劫持 stdout 和 stderr，防止错误信息刷屏打断输入
+    sys.stdout = PromptToolkitStdout(old_stdout)
+    sys.stderr = PromptToolkitStdout(old_stderr)
+
+    # 打印提示信息（此时已经被劫持，不会刷屏）
     cmd_line = ("smtk " + _display_args(args)) if args else "smtk"
     print(f"» {cmd_line}", file=sys.stderr)
 
-    old_argv = list(sys.argv)
-    sys.argv = ["smtk", *args]
     t0 = time.perf_counter()
     try:
         main(standalone_mode=False)
@@ -302,10 +379,25 @@ def _run_smtk(args: list[str]) -> None:
     except Exception:
         print("命令执行失败：\n" + traceback.format_exc(), file=sys.stderr)
     finally:
+        # 恢复标准流
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
+        sys.argv = old_argv
+
+        # 恢复环境变量
+        if old_env_force is None:
+            os.environ.pop("FORCE_COLOR", None)
+        else:
+            os.environ["FORCE_COLOR"] = old_env_force
+
+        if old_env_depth is None:
+            os.environ.pop("PROMPT_TOOLKIT_COLOR_DEPTH", None)
+        else:
+            os.environ["PROMPT_TOOLKIT_COLOR_DEPTH"] = old_env_depth
+
         elapsed = time.perf_counter() - t0
         if elapsed >= 0.5:
             print(f"[{elapsed:.2f}s]", file=sys.stderr)
-        sys.argv = old_argv
 
 
 # ── 启动时收集 ─────────────────────────────────────────────────
