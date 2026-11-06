@@ -5,7 +5,7 @@ if TYPE_CHECKING:
     from implicit_import import *
 
 # ==========================================
-# 1. 打包 smtk.py (命令行工具)
+# 1. smtk.exe —— 纯 CLI
 # ==========================================
 a = Analysis(
     ["supermemo_toolkit/smtk.py"],
@@ -21,27 +21,11 @@ a = Analysis(
     optimize=0,
 )
 pyz = PYZ(a.pure)
-
-splash = Splash(
-    "Icon.png",
-    binaries=a.binaries,
-    datas=a.datas,
-    text_pos=(10, 35),
-    text_size=12,
-    text_color="white",
-    max_img_size=(400, 400),
-    minify_script=True,
-    always_on_top=True,
-)
-
-exe = EXE(
+exe_smtk = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
-    splash,
-    splash.binaries,
     [],
+    exclude_binaries=True,
     name="smtk",
     debug=False,
     bootloader_ignore_signals=False,
@@ -59,10 +43,52 @@ exe = EXE(
 )
 
 # ==========================================
-# 2. 打包 launcher.pyw (GUI 启动器)
+# 2. smtk-shell.exe —— 交互终端
+# ==========================================
+a_shell = Analysis(
+    ["supermemo_toolkit/smtk_shell.py"],
+    pathex=[],
+    binaries=[],
+    datas=[],
+    hiddenimports=[
+        "supermemo_toolkit.smtk",  # shell.py 里延迟导入，静态分析抓不到
+        "prompt_toolkit",  # 显式声明，避免 hook 遗漏
+        "prompt_toolkit.output.win32",  # Windows 控制台后端
+    ],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    optimize=0,
+)
+pyz_shell = PYZ(a_shell.pure)
+exe_shell = EXE(
+    pyz_shell,
+    a_shell.scripts,
+    [],
+    exclude_binaries=True,
+    name="smtk-shell",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon="Icon.png",
+)
+
+# ==========================================
+# 3. launcher.exe —— GUI 启动器
 # ==========================================
 a_launcher = Analysis(
-    ["launcher.pyw"],  # 指定 launcher.pyw 为主入口
+    ["launcher.pyw"],
     pathex=[],
     binaries=[],
     datas=[],
@@ -75,14 +101,12 @@ a_launcher = Analysis(
     optimize=0,
 )
 pyz_launcher = PYZ(a_launcher.pure)
-
 exe_launcher = EXE(
     pyz_launcher,
     a_launcher.scripts,
-    a_launcher.binaries,
-    a_launcher.datas,
     [],
-    name="launcher",  # 最终生成 launcher.exe
+    exclude_binaries=True,
+    name="launcher",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -96,4 +120,23 @@ exe_launcher = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon="Icon.png",
+)
+
+# ==========================================
+# 4. 合并到一个目录
+# ==========================================
+coll = COLLECT(
+    exe_smtk,
+    exe_shell,
+    exe_launcher,
+    a.binaries,
+    a.datas,
+    a_shell.binaries,
+    a_shell.datas,
+    a_launcher.binaries,
+    a_launcher.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name="smtk",  # 产物：dist/smtk/
 )
