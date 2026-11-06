@@ -57,7 +57,7 @@ smtk = "supermemo_toolkit.smtk:main"
 smtk-ui = "launcher:main"
 
 [tool.pdm.build]
-excludes = ["docs/**"]
+includes = ["supermemo_toolkit/**", "launcher.pyw", "launcher.vbs"]
 
 [[tool.pdm.source]]
 name = "tuna"
