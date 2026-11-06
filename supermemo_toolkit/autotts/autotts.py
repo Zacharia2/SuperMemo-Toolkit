@@ -24,10 +24,11 @@ from supermemo_toolkit.database.trace import Trace
 class AutoTTS:
     def __init__(self, onlyat=False):
         self.logger = logging.getLogger(__name__)
-        warnings.filterwarnings(
-            "ignore", message=".*32-bit application should be automated.*"
-        )
+
         if not onlyat:
+            warnings.filterwarnings(
+                "ignore", message=".*32-bit application should be automated.*"
+            )
             try:
                 self.app: Application = Application(backend="win32").connect(
                     class_name="TElWind"
@@ -38,10 +39,10 @@ class AutoTTS:
                 else:
                     messagebox.showerror("错误", e)
                 sys.exit()
+            self.trace: Trace = Trace()
 
         self.switcher = AudioSwitcher()
         self.window: Win = None
-        self.trace: Trace = Trace()
         self.trace_thread = None
         self.stoped = True  # 软件启动后手动启动监听
         self.eid = None
@@ -97,7 +98,8 @@ class AutoTTS:
         self.stoped = False
 
     def stop_trace(self):
-        self.trace.set_running(False)
+        if hasattr(self, "trace"):
+            self.trace.set_running(False)
         self.switcher.stop()
         self.stoped = True
 
@@ -160,7 +162,7 @@ class Controller:
     # 导入UI类后，替换以下的 object 类型，将获得 IDE 属性提示功能
     ui: WinGUI
 
-    def __init__(self, sm_ver: str):
+    def __init__(self, sm_ver: str = ""):
         self.auto_tts: AutoTTS = None
         self.sm_ver = sm_ver
 
@@ -254,9 +256,11 @@ class Win(WinGUI):
         # 不用，丢就丢了，通知到位就可以 join的话就丢不了了。
         # exit(0) os._exit(0)
         # 先暂停把，清理完成就退出了
-        self.ctl.auto_tts.stop_trace()
-        self.ctl.auto_tts.switcher.stop()
-        sys.exit(0)
+        try:
+            self.ctl.auto_tts.stop_trace()
+            self.ctl.auto_tts.switcher.stop()
+        finally:
+            self.destroy()  # ← 销毁 Tk 窗口，mainloop() 立刻返回
 
     def __style_config(self):
         pass
@@ -297,19 +301,26 @@ def supermemo_ver():
 
 
 def run_auto_tts(onlyat: bool = False):
-    sm_ver = supermemo_ver()
-    controller = Controller(sm_ver)
-    autotts_window = Win(controller, onlyat, sm_ver)
-    autotts = AutoTTS(onlyat)
-    autotts.set_autotts_window(autotts_window)
-    controller.set_autotts(autotts)
-    if sm_ver not in ["sm15", "sm16"]:
-        autotts.start_trace()  # 或 mode="o"
+    if onlyat:
+        controller = Controller()
+        autotts_window = Win(controller, onlyat)
+        autotts = AutoTTS(onlyat)
+        autotts.set_autotts_window(autotts_window)
+        controller.set_autotts(autotts)
     else:
-        autotts_window.after(500, controller.run_legacy_autotts())
+        sm_ver = supermemo_ver()
+        controller = Controller(sm_ver)
+        autotts_window = Win(controller, onlyat, sm_ver)
+        autotts = AutoTTS(onlyat)
+        autotts.set_autotts_window(autotts_window)
+        controller.set_autotts(autotts)
+        if sm_ver not in ["sm15", "sm16"]:
+            autotts.start_trace()  # 或 mode="o"
+        else:
+            autotts_window.after(500, controller.run_legacy_autotts())
     autotts_window.mainloop()
 
 
 if __name__ == "__main__":
     # 点击下一个自动播放。或者自己复制自动播放。
-    run_auto_tts()
+    run_auto_tts(onlyat=True)

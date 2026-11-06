@@ -1,8 +1,5 @@
 import asyncio
-import cmd
-import ctypes
 import os
-import shlex
 import shutil
 import sys
 import tempfile
@@ -541,10 +538,10 @@ def comptitle(htmtoc: str, node: str, xml: str):
 
 
 @main.command()
-@click.option("--onlyat", is_flag=True, help="仅使用拷贝发音功能")
-def autotts(onlyat):
+@click.option("--only-at", is_flag=True, help="仅使用拷贝发音功能")
+def autotts(only_at):
     """运行 AutoTTS 卡片朗读 文本转语音"""
-    run_auto_tts(onlyat)
+    run_auto_tts(only_at)
 
 
 @main.command()
@@ -1067,65 +1064,6 @@ def math_imtex(formula_text, outpath):
     )
 
 
-class Shell(cmd.Cmd):
-    prompt = ">"
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # 只在交互模式下 chdir，避免污染 CLI 的 CWD
-        os.chdir(os.path.dirname(sys.executable))
-        self.intro = (
-            f"\nSuperMemo 增强工具(交互模式), Ver:{__version__}。输入 smtk 查看帮助。\n"
-            f"cwd: {os.path.dirname(sys.executable).lower()}\n"
-        )
-
-    def do_smtk(self, arg: str):
-        if arg.strip() != "":
-            try:
-                args_list = shlex.split(arg)
-            except ValueError as e:
-                print(f"参数解析错误: {e}")
-                return
-            sys.argv = ["smtk"] + args_list
-        else:
-            sys.argv = ["smtk"]
-        try:
-            main(standalone_mode=False)
-        except click.exceptions.NoArgsIsHelpError as info:
-            print(info)
-        except SystemExit:
-            pass
-        except Exception as e:
-            print(f"执行出错: {e}")
-
-    def default(self, arg: str):
-        print(f"未知命令: {arg}. 请输入 'smtk' 查看可用命令.")
-
-    def do_exit(self, arg):
-        """退出程序"""
-        return True
-
-    def emptyline(self):
-        """直接按回车时，什么都不做"""
-
-
-def is_launched_from_gui():
-    """检查是否从 GUI (如双击) 启动"""
-    if os.name != "nt":
-        return False
-
-    # 有命令行参数 → 命令行调用，不是 GUI 双击
-    if len(sys.argv) > 1:
-        return False
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    # 创建一个长度为1的数组，API会返回实际连接的总进程数
-    process_array = (ctypes.c_uint * 1)()
-    num_processes = kernel32.GetConsoleProcessList(process_array, 1)
-
-    # 如果返回的进程数 <= 2，大概率是从GUI启动的
-    return num_processes <= 2
-
-
 if __name__ == "__main__":
     # (?i)忽略大小写, 注意属性引号可能是零个或者一个
     # r"(?i)(?s)<p>(?!<b>)\s*.*?</p>"
@@ -1138,18 +1076,10 @@ if __name__ == "__main__":
     # main.commands["imgfit"](["--trace", "--ignore"], standalone_mode=False)
     # main.commands["math"](["card", "--trace"], standalone_mode=False)
     # main.commands["pathpix"](["Reading-And-Review", "--clean"], standalone_mode=False)
-    if is_launched_from_gui():
-        try:
-            import pyi_splash  # type: ignore
 
-            pyi_splash.close()
-        except ImportError:
-            pass
-        Shell().cmdloop()
-    else:
-        try:
-            main()
-        except click.exceptions.NoArgsIsHelpError:
-            pass
-        except SystemExit:
-            pass
+    try:
+        main()
+    except click.exceptions.NoArgsIsHelpError:
+        pass
+    except SystemExit:
+        pass
