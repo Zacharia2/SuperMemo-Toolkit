@@ -150,6 +150,13 @@ class Trace:
             # 监控模式：监听 → 追踪 → 失活/切换后回到监听
             last_kno_path = None
             while not self.__stoped:
+                # 如果 SM 进程没启动，先等它启动再继续
+                if Trace.exe_is_runing() is False:
+                    while True:
+                        time.sleep(2)
+                        if Trace.exe_is_runing() is True:
+                            break
+
                 active_kno_path = self._get_active_kno_path()
                 if active_kno_path is None or active_kno_path == last_kno_path:
                     time.sleep(0.5)
