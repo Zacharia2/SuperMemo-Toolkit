@@ -1,6 +1,6 @@
 import html
 
-from supermemo_toolkit.utilscripts.ankinet import invoke
+from supermemo_toolkit.ansm_conv.ankinet import invoke
 
 
 class qa_to_anki:

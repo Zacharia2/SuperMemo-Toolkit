@@ -2,7 +2,7 @@ import pystache
 import pystache.defaults
 from premailer import transform
 
-from supermemo_toolkit.utilscripts.ankinet import invoke
+from supermemo_toolkit.ansm_conv.ankinet import invoke
 
 # note_id_list = invoke("findNotes", query="deck:24意境语义红宝石")
 # notesInfo = invoke("notesInfo", notes=note_id_list)
