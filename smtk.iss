@@ -107,12 +107,11 @@ CloseApplications=yes
 RestartApplications=no
 
 [Languages]
-Name: "chinesesimp"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 Name: "english";    MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "addtopath";   Description: "将 smtk CLI 加入 PATH（可在任意目录运行 smtk 命令）"; GroupDescription: "环境变量:"; Flags: checkedonce
+Name: "addtopath";   Description: "将 smtk 命令加入 PATH（可在任意目录运行 smtk 命令）"; GroupDescription: "环境变量:"; Flags: checkedonce
 
 [Files]
 Source: "dist\smtk\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
