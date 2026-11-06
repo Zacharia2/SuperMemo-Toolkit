@@ -4,6 +4,8 @@ import logging
 import os
 import re
 import shutil
+import sys
+import threading
 import time
 import uuid
 from collections import defaultdict
@@ -20,65 +22,202 @@ from tqdm import tqdm
 from supermemo_toolkit.utilscripts import config
 from supermemo_toolkit.utilscripts.ulils import makeNameSafe
 
+# ============================================================
+# 日志基础设施
+# ============================================================
 config_dir = config.config_dir()
-if os.path.exists(config_dir):
-    LOG_FILE = os.path.join(config_dir, "smtk.log.txt")
-elif not os.path.exists(config_dir):
-    os.makedirs(config_dir)
-    LOG_FILE = os.path.join(config_dir, "smtk.log.txt")
+os.makedirs(config_dir, exist_ok=True)
+LOG_FILE = os.path.join(config_dir, "pathpix.log")
 
 
 def setup_logger():
-    """设置日志记录器，添加文件处理器和格式化器"""
-    # 创建记录器并设置等级
-    mlogger = logging.getLogger(__name__)
-    mlogger.setLevel(logging.INFO)
+    """幂等、utf-8、追加写、不向 root 传播。"""
+    lg = logging.getLogger("smtk")
+    lg.setLevel(logging.INFO)
+    if lg.handlers:
+        return lg
+    lg.propagate = False
 
-    # 创建文件处理器并设置等级
-    file_handler = logging.FileHandler(LOG_FILE, mode="w")
-    file_handler.setLevel(logging.INFO)
-
-    # 创建格式化器并设置到处理器
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    fh = logging.FileHandler(LOG_FILE, mode="a", encoding="utf-8")
+    fh.setFormatter(
+        logging.Formatter(
+            "%(asctime)s [%(levelname)-7s] %(threadName)s %(lineno)d - %(message)s"
+        )
     )
-    file_handler.setFormatter(formatter)
+    lg.addHandler(fh)
 
-    # 添加处理器到记录器
-    mlogger.addHandler(file_handler)
-
-    return mlogger
+    ch = logging.StreamHandler(sys.stderr)
+    ch.setLevel(logging.WARNING)
+    ch.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+    lg.addHandler(ch)
+    return lg
 
 
 logger = setup_logger()
-report_list = []
 
 
-def report(msg: dict):
-    # def msg: dict : {msg，htm_path}
-    logger.warning(msg["msg"])
-    if msg["htm_path"]:
-        report_list.append(msg["htm_path"])
+# ============================================================
+# 失败收集 & 扫描豁免
+# ============================================================
+report_list: list[str] = []
+_unreadable_htms: set[str] = set()
+
+
+def warn(msg: str, htm_path: str | None = None) -> None:
+    """轻量警告：不打 traceback，进 report_list。"""
+    if htm_path:
+        logger.warning("[%s] %s", htm_path, msg, stacklevel=2)
+    else:
+        logger.warning("%s", msg, stacklevel=2)
+    if htm_path:
+        report_list.append(htm_path)
+
+
+def error(
+    msg: str, htm_path: str | None = None, *, exc: BaseException | None = None
+) -> None:
+    """硬错误：有 exc 就带 traceback，进 report_list。"""
+    prefix = f"[{htm_path}] " if htm_path else ""
+    if exc is not None:
+        logger.error("%s%s", prefix, msg, exc_info=exc, stacklevel=2)
+    else:
+        logger.error("%s%s", prefix, msg, stacklevel=2)
+    if htm_path:
+        report_list.append(htm_path)
+
+
+def mark_unreadable(htm_path: str) -> None:
+    """扫描失败的文件：本轮不清图，防止误删。"""
+    _unreadable_htms.add(os.path.normcase(htm_path))
+
+
+def reset_report() -> None:
+    report_list.clear()
+    _unreadable_htms.clear()
+
+
+# ============================================================
+# 手写进度条（TTY 原地刷，非 TTY 降频打行，多线程安全）
+# ============================================================
+class Progress:
+    _lock = threading.Lock()
+
+    def __init__(
+        self,
+        desc="",
+        total=None,
+        stream=sys.stderr,
+        min_interval=0.05,
+        fallback_every=500,
+    ):
+        self.desc = desc
+        self.total = total
+        self.stream = stream
+        self.min_interval = min_interval
+        self.fallback_every = fallback_every
+        try:
+            self.enabled = stream.isatty()
+        except Exception:
+            self.enabled = False
+        self.n = 0
+        self._last_t = 0.0
+        self._last_len = 0
+        self._t0 = time.monotonic()
+        try:
+            self._width = shutil.get_terminal_size((80, 24)).columns - 1
+        except OSError:
+            self._width = 79
+
+    def _fmt(self):
+        dt = time.monotonic() - self._t0
+        rate = self.n / dt if dt > 0.1 else 0
+        if self.total:
+            s = f"{self.desc} [{self.n}/{self.total}] ({rate:.0f}/s)"
+        else:
+            s = f"{self.desc} [{self.n}] ({rate:.0f}/s)"
+        return s[: self._width]
+
+    def update(self, n=1):
+        self.n += n
+        with self._lock:
+            if not self.enabled:
+                if self.n % self.fallback_every == 0:
+                    self.stream.write(self._fmt() + "\n")
+                    self.stream.flush()
+                return
+            now = time.monotonic()
+            if now - self._last_t < self.min_interval and self.n != self.total:
+                return
+            self._last_t = now
+            s = self._fmt()
+            pad = " " * max(0, self._last_len - len(s))
+            self.stream.write("\r\033[K" + s + pad)
+            self.stream.flush()
+            self._last_len = len(s)
+
+    def close(self):
+        with self._lock:
+            if self.enabled:
+                self.stream.write("\r\033[K")
+            else:
+                self.stream.write(self._fmt() + "\n")
+            self.stream.flush()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        self.close()
+
+
+# ============================================================
+# 彩色输出
+# ============================================================
+_COLOR = sys.stdout.isatty()
+_CODES = {
+    "green": "\033[0;32m",
+    "red": "\033[0;31m",
+    "yellow": "\033[1;33m",
+    "reset": "\033[0m",
+}
+
+
+def cprint(msg: str, color: str | None = None):
+    if color and _COLOR:
+        sys.stdout.write(f"{_CODES[color]}{msg}{_CODES['reset']}\n")
+    else:
+        sys.stdout.write(f"{msg}\n")
+    sys.stdout.flush()
+
+
+def open_log():
+    try:
+        if os.name == "nt":
+            os.startfile(LOG_FILE)
+        else:
+            cprint(f"日志文件：{LOG_FILE}")
+    except Exception as e:
+        cprint(f"无法打开日志 {LOG_FILE}: {e}", "red")
+
+
+# ============================================================
+# 基础工具
+# ============================================================
+def mkdir(path: str):
+    if not os.path.exists(path):
+        os.makedirs(path)
+        logger.debug("mkdir: %s", path)
 
 
 def copy_to_elements(file_path: str, target_folder: str) -> str:
     # unescape_fs_path = html.unescape(file_path)
     old_full_file_name = os.path.basename(file_path)
     _, ext = os.path.splitext(old_full_file_name)
-    new_full_file_name = (
-        # makeNameSafe(trans_pinyin(full_to_half(name)))
-        "im5_uuid_" + str(uuid.uuid4()) + ext
-    )
+    new_full_file_name = "im5_uuid_" + str(uuid.uuid4()) + ext
     target = os.path.join(target_folder, new_full_file_name)
     mkdir(target_folder)
     shutil.copyfile(file_path, target)
     return target
-
-
-def mkdir(path: str):
-    if not os.path.exists(path):
-        os.makedirs(path)
-        print("创建文件夹:: " + path)
 
 
 def is_in_elements_directory(fs_path, directory):
@@ -93,64 +232,55 @@ def is_in_elements_directory(fs_path, directory):
     """
     # 获取文件夹路径
     directory_name = os.path.dirname(fs_path)
-    # 判断给定路径是否以指定目录开头
     return directory_name.startswith(directory)
+
+
+# ============================================================
+# 网络下载
+# ============================================================
+MAX_IMG_BYTES = 20 * 1024 * 1024
 
 
 def checkUrlValidity(url: str) -> bool:
     try:
-        response = requests.get(url, stream=True, allow_redirects=True)
-        return response.status_code == 200
-    except requests.exceptions.ConnectionError as e:
-        print("网络连接异常: ", e)
-        return False
-    except requests.exceptions.Timeout as e:
-        print("连接超时: ", e)
-        return False
-    except requests.exceptions.HTTPError as e:
-        print(f"HTTP错误, 状态码: {e.response.status_code}, {e}")
-        return False
+        r = requests.get(url, stream=True, allow_redirects=True, timeout=(5, 30))
+        return r.status_code == 200
     except requests.RequestException as e:
-        print("RequestException ", e)
-        return False
-    except ValueError as e:
-        print("响应解析异常: ", e)
+        logger.warning("URL 检查失败 %s: %s", url, e)
         return False
 
 
 def fetch_image(url: str):
-    """
-    下载图像文件，返回(图片类型, 图片名称, 图片数据) | None
-    """
-    sha1_hash = hashlib.sha1()
-    response = requests.get(url, stream=True)
+    """下载图像，返回 (mime, name, bytes) 或 None。"""
+    try:
+        response = requests.get(url, stream=True, timeout=(5, 30))
+    except requests.RequestException as e:
+        logger.warning("下载失败 %s: %s", url, e)
+        return None
+
     content_type = response.headers.get("content-type")
-    content = response.content
-    content_mime = ""
-    # 1.生成 sha1_hash 作为文件名
-    # Read and update hash in chunks of 4K
-    field_length = 4096
-    for byte_block in [
-        content[i : i + field_length] for i in range(0, len(content), field_length)
-    ]:
-        sha1_hash.update(byte_block)
+    chunks, total = [], 0
+    for chunk in response.iter_content(64 * 1024):
+        total += len(chunk)
+        if total > MAX_IMG_BYTES:
+            logger.warning("图片超过 %d 字节，跳过 %s", MAX_IMG_BYTES, url)
+            return None
+        chunks.append(chunk)
+    content = b"".join(chunks)
+
+    content_mime = (
+        content_type.split(";")[0] if content_type else magic.from_buffer(content, True)
+    )
+
+    sha1_hash = hashlib.sha1()
+    for i in range(0, len(content), 4096):
+        sha1_hash.update(content[i : i + 4096])
     file_name = f"im_{sha1_hash.hexdigest()}"
-
-    # 2.处理 content_type 中可能的字符编码
-    # 如：image/jpeg; charset=utf-8
-    if content_type:
-        content_mime = content_type.split(";")[0]
-    else:
-        # 3.通过文件内容判断文件图片类型，作为判断是否为图片类型的备选措施。
-        # filetype = imghdr.what(None, content)
-        content_mime = magic.from_buffer(content, True)
-
     # 只有当 content_type 为 image 类型 否则或者 filetype 为 image 类型。
     # 才返回数据，否则返回None。
     if content_mime and "image" in content_mime:
         return content_mime, file_name, content
-    else:
-        return None
+    return None
 
 
 def is_html_ext_file(file_path):
@@ -184,9 +314,7 @@ def is_http_url_scheme(string):
 
 
 def is_data_url_scheme(string):
-    parsed_url = urlparse(string)
-    if parsed_url.scheme == "data":
-        return True
+    return urlparse(string).scheme == "data"
 
 
 def is_relative_path(string):
@@ -217,6 +345,9 @@ def relativization_path(win_path):
     return src_path
 
 
+# ============================================================
+# 图片下载 & 转换
+# ============================================================
 def im_download_and_convert(url, web_pic_folder, collection_temp_folder, htm_path):
     """给定url, 下载图片并转换, 返回保存图片的绝对路径
 
@@ -240,23 +371,13 @@ def im_download_and_convert(url, web_pic_folder, collection_temp_folder, htm_pat
     # file_name = "im_" + now + "_uuid_" + str(uuid.uuid4())
 
     if not checkUrlValidity(url):
-        report(
-            {
-                "msg": f"警告! File:{htm_path}, 无效资源链接 {url}",
-                "htm_path": htm_path,
-            }
-        )
+        warn(f"无效资源链接 {url}", htm_path)
         return None
     fetched_image = fetch_image(url)
-
     if not fetched_image:
-        report(
-            {
-                "msg": f"警告! File:{htm_path}, 非图片资源链接 {url}",
-                "htm_path": htm_path,
-            }
-        )
+        warn(f"非图片资源链接 {url}", htm_path)
         return None
+
     (content_type, file_name, im_bytes) = fetched_image
 
     if content_type in supports_im_type:
@@ -282,32 +403,24 @@ def im_download_and_convert(url, web_pic_folder, collection_temp_folder, htm_pat
 
         # 转换图片格式。
         with Image.open(temp_file_path) as im:
-            print(im.format, im.size, im.mode)
+            logger.debug("convert %s %s %s", im.format, im.size, im.mode)
             # 这里是输出路径。
             mkdir(web_pic_folder)
             saved_path = os.path.join(web_pic_folder, file_name + ".png")
             im.save(saved_path, "png")
             return saved_path
     except Exception as e:
-        report(
-            {
-                "msg": f"发生一个异常: {e}! \n\tFile:{htm_path}, \n\tCannot convert {url}",
-                "htm_path": htm_path,
-            }
-        )
+        warn(f"图片转换失败 {url}: {e}", htm_path)
 
 
 def im_data_url_and_convert(htm_path):
-    print("这是一个Data URI scheme, 暂不支持; svglib、pyvips。文件:", htm_path)
+    warn("Data URI 图片暂不支持，跳过", htm_path)
 
 
-def modify_img_src(
-    html_content,
-    elements_folder,
-    collection_temp_folder,
-    htm_path,
-):
-    # im_saved_path, elements_path, collection_temp_path, htm_file_path
+# ============================================================
+# HTML 修改
+# ============================================================
+def modify_img_src(html_content, elements_folder, collection_temp_folder, htm_path):
     soup = BeautifulSoup(html_content, "html.parser")
     elements_folder = os.path.normpath(elements_folder)
     web_pic_folder = os.path.normpath(os.path.join(elements_folder, "web_pic"))
@@ -317,7 +430,7 @@ def modify_img_src(
     # 过滤元素。去掉没有src属性以及属性值为空的。
     filtered_im_list = list(
         filter(
-            lambda im_node: "src" in im_node.attrs and im_node.attrs["src"] != "",
+            lambda im: "src" in im.attrs and im.attrs["src"] != "",
             img_tags,
         )
     )
@@ -328,14 +441,12 @@ def modify_img_src(
         im_src = im.attrs["src"]
         if is_http_url_scheme(im_src):
             im_web_local_path = im_download_and_convert(
-                im_src,
-                web_pic_folder,
-                collection_temp_folder,
-                htm_path,
+                im_src, web_pic_folder, collection_temp_folder, htm_path
             )
             if im_web_local_path:
-                standard_path = os.path.normpath(im_web_local_path)
-                im.attrs["src"] = relativization_path(standard_path)
+                im.attrs["src"] = relativization_path(
+                    os.path.normpath(im_web_local_path)
+                )
                 is_modify = True
         elif is_data_url_scheme(im_src):
             # 如果是 Data URI scheme
@@ -369,12 +480,7 @@ def modify_img_src(
                     )
                     is_modify = True
             else:
-                report(
-                    {
-                        "msg": f"{htm_path}, local-img {fs_path} not exists !",
-                        "htm_path": htm_path,
-                    }
-                )
+                warn(f"本地图片不存在 {fs_path}", htm_path)
         elif is_relative_path(im_src):
             is_modify = False
     if is_modify:
@@ -413,7 +519,7 @@ def secure_file_write(modified_content, target_file, temp_folder):
     except Exception as e:
         # 发生异常时回滚备份文件
         shutil.move(backup_file, target_file)
-        print(f"写入文件时发生错误：{e!s}")
+        error("写入文件失败", target_file, exc=e)
     finally:
         # 删除临时文件和备份文件
         if os.path.exists(temp_file):
@@ -422,6 +528,9 @@ def secure_file_write(modified_content, target_file, temp_folder):
             os.remove(backup_file)
 
 
+# ============================================================
+# 遍历 & 读取
+# ============================================================
 def collect_documents(elements_folder):
     """在遍历查找HTM文档并返回文件路径列表。
 
@@ -431,74 +540,50 @@ def collect_documents(elements_folder):
     Returns:
         tuple: (path, mtime)
     """
-    htm_file_list: list[tuple[str, float]] = []
-    count_processed = 0
-
+    htm_file_list = []
     stack = [elements_folder]
-    while stack:
-        current_path = stack.pop()
-        for entry in os.scandir(current_path):
-            if entry.is_file() and is_html_ext_file(entry.path):
-                htm_file_list.append((entry.path, os.path.getmtime(entry.path)))
-                count_processed += 1
-                # if count_processed % 100 == 0:
-                print(
-                    "PathPix:: 正在计算HTM文件总数",
-                    f"[{count_processed}]",
-                    end="\033[K\r",
-                )
-            if entry.is_dir():
-                stack.append(entry.path)
-    print(f"\nPathPix:: 共找到 {count_processed} 个HTM文件")
+    with Progress("PathPix:: 扫描 HTM") as p:
+        while stack:
+            current = stack.pop()
+            for entry in os.scandir(current):
+                if entry.is_file() and is_html_ext_file(entry.path):
+                    htm_file_list.append((entry.path, os.path.getmtime(entry.path)))
+                    p.update()
+                if entry.is_dir():
+                    stack.append(entry.path)
+    cprint(f"PathPix:: 共找到 {len(htm_file_list)} 个 HTM 文件", "green")
     return htm_file_list
 
 
-def read_in_list(path_list: list) -> list:
-    start_time = time.time()
+def read_in_list(path_list):
+    start_t = time.time()
     path_data = []
-    for index, htm_path in enumerate(path_list):
-        try:
-            with open(htm_path, "rb") as f:
-                raw_data = f.read()
+    with Progress("PathPix:: 读取文件", total=len(path_list)) as p:
+        for htm_path in path_list:
+            p.update()
+            try:
+                with open(htm_path, "rb") as f:
+                    raw_data = f.read()
                 file_type = magic.from_buffer(raw_data[:3072], mime=True)
-                if not (
-                    file_type == "text/html"
-                    or file_type == "text/xml"
-                    or file_type == "text/plain"
-                ):
+                if file_type not in ("text/html", "text/xml", "text/plain"):
                     continue
                 best = from_bytes(raw_data).best()
-                if best:
-                    encoding = best.encoding
-                else:
-                    encoding = None
-                    report(
-                        {
-                            "msg": f"{htm_path}, 无法检测编码",
-                            "htm_path": htm_path,
-                        }
-                    )
+                if not best:
+                    error("无法检测编码", htm_path)
+                    mark_unreadable(htm_path)
                     continue
-            path_data.append(
-                (
-                    htm_path,
-                    raw_data.decode(encoding=encoding, errors="xmlcharrefreplace"),
+                path_data.append(
+                    (
+                        htm_path,
+                        raw_data.decode(best.encoding, errors="xmlcharrefreplace"),
+                    )
                 )
-            )
-        except Exception as e:
-            report(
-                {
-                    "msg": f"{htm_path}, {e}",
-                    "htm_path": htm_path,
-                }
-            )
-        print(
-            "PathPix:: 正在读取文件数据",
-            f"[{index + 1}/{len(path_list)}]",
-            end="\033[K\r",
-        )
-    end_time = time.time()
-    print("\nPathPix:: Done!", f" 验证并读取数据耗时 {end_time - start_time:.2f} 秒。")
+            except Exception as e:
+                error("读取文件失败", htm_path, exc=e)
+                mark_unreadable(htm_path)
+    cprint(
+        f"PathPix:: Done! 验证并读取数据耗时 {time.time() - start_t:.2f} 秒。", "green"
+    )
     return path_data
 
 
@@ -518,41 +603,39 @@ def relative_and_localize(wait_htm_path_list, elements_folder, collection_temp_f
     for htm_path, htm_data in tqdm(htm_files, desc="Doc-LinkCP"):
         try:
             modified_content = modify_img_src(
-                htm_data,
-                elements_folder,
-                collection_temp_folder,
-                htm_path,
+                htm_data, elements_folder, collection_temp_folder, htm_path
             )
 
             if modified_content:
                 secure_file_write(modified_content, htm_path, collection_temp_folder)
                 processed_htm_files.append(htm_path)
         except Exception as e:
-            report(
-                {
-                    "msg": f"{htm_path}, {e}",
-                    "htm_path": htm_path,
-                }
-            )
+            error("处理失败", htm_path, exc=e)
 
-    if len(report_list) != 0:
-        print("\033[0;31;40m", "一些文件处理失败, 请查看log文件", "\033[0m")
-        os.startfile(LOG_FILE)
-    if len(processed_htm_files) == 0:
-        print("\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
+    if report_list:
+        cprint("一些文件处理失败，请查看日志", "red")
+    if not processed_htm_files:
+        cprint("PathPix:: 无事可做。", "green")
     else:
-        print("\033[0;32m", "以下文件已修改：", "\033[0m")
-        for item in processed_htm_files:
-            print(item)
+        cprint(f"以下 {len(processed_htm_files)} 个文件已修改：", "green")
+        for item in processed_htm_files[:20]:
+            cprint(f"  {item}")
+        if len(processed_htm_files) > 20:
+            cprint(f"  ... 其余 {len(processed_htm_files) - 20} 个见日志")
 
 
+# ============================================================
+# 字节级 img src 提取（不变）
+# ============================================================
 class FindImgSrc:
     _WS = b" \t\r\n\f"
     _SEP = b"=/>"
     _QUOTES = (0x22, 0x27)
     _EQ = 0x3D
 
-    _IMG_TAG_RE = re.compile(rb'<img(?=[\s/>])(?:[^>"\']|"[^"]*"|\'[^\']*\')*>', re.IGNORECASE)
+    _IMG_TAG_RE = re.compile(
+        rb'<img(?=[\s/>])(?:[^>"\']|"[^"]*"|\'[^\']*\')*>', re.IGNORECASE
+    )
 
     @staticmethod
     def _iter_attrs(raw: bytes):
@@ -607,7 +690,7 @@ class FindImgSrc:
 
 
 # ============================================================
-# 路径规范化工具
+# 路径规范化
 # ============================================================
 def _to_short(abs_path: str) -> str:
     """绝对路径 → 形如 \\local_pic\\xxx.jpeg"""
@@ -657,14 +740,18 @@ def _scan_htm_refs(htm_abs_paths, desc):
         try:
             with open(p, "rb") as f:
                 raw = f.read()
-            return p, FindImgSrc.find_img_srcs(raw)
-        except (OSError, UnicodeDecodeError):
-            return p, []
+            return p, FindImgSrc.find_img_srcs(raw), None
+        except Exception as e:
+            return p, [], e
 
     total = len(htm_abs_paths)
     with ThreadPoolExecutor() as ex:
-        for htm_abs, srcs in tqdm(ex.map(one, htm_abs_paths), total=total, desc=desc):
-            if not srcs:
+        for htm_abs, srcs, err in tqdm(
+            ex.map(one, htm_abs_paths), total=total, desc=desc
+        ):
+            if err is not None:
+                error("扫描引用失败", htm_abs, exc=err)
+                mark_unreadable(htm_abs)
                 continue
             short = _normalize_htm_key(htm_abs)
             for im in srcs:
@@ -686,7 +773,7 @@ def diff_scanhtm(elements_folder, previous_scan_path):
     now_scaned_docs = dict(collect_documents(elements_folder))
 
     if not previous_scaned_docs:
-        print("PathPix:: 未检测到历史记录，本次将会全部整理。")
+        cprint("PathPix:: 未检测到历史记录，本次将会全部整理。", "yellow")
         return list(now_scaned_docs), now_scaned_docs, []
 
     diff_docs = [
@@ -711,11 +798,10 @@ def 获取图片引用记数本(pre_record_path, htm_paths):
                 for img, paths in raw.items()
             }
 
-    print("PathPix:: 未检测到图片记数本，全量扫描。")
+    cprint("PathPix:: 未检测到图片记数本，全量扫描。", "yellow")
     index = _scan_htm_refs(htm_paths, desc="收集被引用的图片")
     config.dump_config(
-        pre_record_path,
-        {img: sorted(paths) for img, paths in index.items()},
+        pre_record_path, {img: sorted(paths) for img, paths in index.items()}
     )
     return index
 
@@ -797,19 +883,24 @@ def 获取磁盘图片集合(web_pic, local_pic, cache_path):
 
 
 # ============================================================
-# 主流程
+# 主流程：清理未使用图片
 # ============================================================
 def organize_unused_im(elements_folder):
+    reset_report()
+    logger.info("======== organize_unused_im: %s ========", elements_folder)
+
     web_pic = os.path.join(elements_folder, "web_pic")
     local_pic = os.path.join(elements_folder, "local_pic")
     temp_dir = os.path.normpath(os.path.join(elements_folder, "../", "temp"))
     unused_pic = os.path.join(temp_dir, "unused_im")
 
     if not (os.path.exists(web_pic) or os.path.exists(local_pic)):
-        print("PathPix:: 未处理过此集合, web_pic 和 local_pic 文件夹不存在。")
+        cprint(
+            "PathPix:: 未处理过此集合，web_pic 和 local_pic 文件夹不存在。", "yellow"
+        )
         return
 
-    print("PathPix::", "清理web_pic, local_pic文件夹中未被使用的图片")
+    cprint("PathPix:: 清理 web_pic、local_pic 文件夹中未被使用的图片")
 
     key = makeNameSafe(elements_folder).lower()
     配置_扫描路径 = os.path.join(config_dir, f"previous_scaned_docs_{key}.json")
@@ -846,6 +937,16 @@ def organize_unused_im(elements_folder):
     磁盘差集 = 在磁盘中的图片路径 - set(记数本.keys())
     等待删除的图片路径 = list(孤儿图 | 磁盘差集)
 
+    # ===== 有扫描失败就保守跳过，宁可不删也不误删 =====
+    if _unreadable_htms:
+        cprint(
+            f"检测到 {len(_unreadable_htms)} 个 htm 扫描失败，本轮跳过清理以防误删。",
+            "yellow",
+        )
+        if report_list:
+            open_log()
+        return
+
     # 8. 移动
     if 等待删除的图片路径:
         mkdir(unused_pic)
@@ -856,12 +957,12 @@ def organize_unused_im(elements_folder):
                 continue
             dst = os.path.join(unused_pic, makeNameSafe(rel))
             try:
-                print("处理: ", rel)
+                logger.info("移到 unused: %s", rel)
                 shutil.move(src, dst)
             except Exception as e:
-                print(f"移动至unused_pic时发生错误: {e!s}")
+                error("移动图片失败", src, exc=e)
     else:
-        print("\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
+        cprint("PathPix:: 无事可做。", "green")
 
     # 8.5 记数本落盘前，把孤儿图剔除
     for img in 孤儿图:
@@ -878,14 +979,23 @@ def organize_unused_im(elements_folder):
 
     # 10. 落盘
     config.dump_config(
-        配置_记数本路径,
-        {img: sorted(paths) for img, paths in 记数本.items()},
+        配置_记数本路径, {img: sorted(paths) for img, paths in 记数本.items()}
     )
     config.dump_config(配置_扫描路径, 现在扫描的文档列表)
 
+    logger.info(
+        "======== organize_unused_im done: failed=%d ========", len(set(report_list))
+    )
+    if report_list:
+        open_log()
 
+
+# ============================================================
+# 单文件处理
+# ============================================================
 def single_file(fullpath: str):
-    # fullpath (str): D:/SuperMemo/systems/ABC of SuperMemo 19/elements/26690.HTM
+    reset_report()
+    logger.info("======== single_file: %s ========", fullpath)
 
     elements_folder = os.path.normpath(
         os.path.join(fullpath.split("elements")[0], "elements")
@@ -895,49 +1005,59 @@ def single_file(fullpath: str):
     )
     web_pic_folder = os.path.normpath(os.path.join(elements_folder, "web_pic"))
     local_pic_folder = os.path.normpath(os.path.join(elements_folder, "local_pic"))
-    print("元素位置：", fullpath)
-    print("图片位置：", [web_pic_folder, local_pic_folder])
-    print("临时文件：", collection_temp_folder)
-    relative_and_localize(
-        [fullpath],
-        elements_folder,
-        collection_temp_folder,
-    )
+    cprint(f"元素位置：{fullpath}")
+    cprint(f"图片位置：{[web_pic_folder, local_pic_folder]}")
+    cprint(f"临时文件：{collection_temp_folder}")
+
+    relative_and_localize([fullpath], elements_folder, collection_temp_folder)
+
+    logger.info("======== single_file done: failed=%d ========", len(set(report_list)))
+    if report_list:
+        open_log()
 
 
+# ============================================================
+# 入口：批量处理
+# ============================================================
 def start(elements_folder):
+    reset_report()
+    logger.info("======== start: %s ========", elements_folder)
+
     collection_temp_folder = os.path.normpath(
         os.path.join(elements_folder, "../", "temp")
     )
     web_pic_folder = os.path.normpath(os.path.join(elements_folder, "web_pic"))
     local_pic_folder = os.path.normpath(os.path.join(elements_folder, "local_pic"))
-    print("集合元素：", elements_folder)
-    print("图片位置：", [web_pic_folder, local_pic_folder])
-    print("临时文件：", collection_temp_folder)
+    cprint(f"集合元素：{elements_folder}")
+    cprint(f"图片位置：{[web_pic_folder, local_pic_folder]}")
+    cprint(f"临时文件：{collection_temp_folder}")
 
     # 读取旧列表,transfer_images、pathpix、organize_unused_im，他们diff的区别在于每个人执行的时间不同。
     # 所以似乎不能混用同一个历史记录？？？
     previous_scan_conf_path = os.path.join(
         config_dir, f"previous_scan_{makeNameSafe(elements_folder).lower()}.json"
     )
+
     diff_list, now_scan, _ = diff_scanhtm(elements_folder, previous_scan_conf_path)
-    if len(diff_list) > 0:
-        relative_and_localize(
-            diff_list,
-            elements_folder,
-            collection_temp_folder,
-        )
+    if diff_list:
+        relative_and_localize(diff_list, elements_folder, collection_temp_folder)
     else:
-        print("\n\033[0;32m", "PathPix:: 无事可做。", "\033[0m")
+        cprint("PathPix:: 无事可做。", "green")
 
-    # 把处理失败的文件剔除掉，下次重新试过一次。
-    for htm_path in report_list:
-        del now_scan[htm_path]
+    # 失败文件下次重试；pop 防 KeyError
+    for htm_path in set(report_list):
+        now_scan.pop(htm_path, None)
 
-    # 保存now_scan
     config.dump_config(previous_scan_conf_path, now_scan)
 
+    logger.info("======== start done: failed=%d ========", len(set(report_list)))
+    if report_list:
+        open_log()
 
+
+# ============================================================
+# 集合间转移图片
+# ============================================================
 def _diff_by_case(a, b) -> list[str]:
     """a 中有、b 中没有（大小写不敏感），返回 a 的原始写法。"""
     a_map = {os.path.normcase(x): x for x in a}
@@ -947,10 +1067,17 @@ def _diff_by_case(a, b) -> list[str]:
 
 def transfer_images(src_elements_root: str, dst_elements_root: str):
     """仅转移web_pic和local_pic文件夹中缺失的图片，从src_kno移动到dst_kno。"""
+    reset_report()
+    logger.info(
+        "======== transfer_images: %s -> %s ========",
+        src_elements_root,
+        dst_elements_root,
+    )
+
     dst_web_pic = os.path.join(dst_elements_root, "web_pic")
     dst_local_pic = os.path.join(dst_elements_root, "local_pic")
 
-    print("PathPix::", "收集dst_kno缺失的图片，从src_kno移动到目的位置。")
+    cprint("PathPix:: 收集 dst 缺失的图片，从 src 移动到目的位置。")
 
     # 1. 并行扫描 dst 的所有 htm，得到 {img_short: {htm_short}}
     htm_paths = [p for p, _ in collect_documents(dst_elements_root)]
@@ -967,6 +1094,9 @@ def transfer_images(src_elements_root: str, dst_elements_root: str):
     # 3. 差集 = 缺失的图片
     缺失图片 = _diff_by_case(被引用的图片, 在磁盘中的图片路径)
 
+    if _unreadable_htms:
+        cprint(f"警告：{len(_unreadable_htms)} 个 htm 扫描失败，可能漏搬图。", "yellow")
+
     # 4. 从 src 搬到 dst
     for short in 缺失图片:
         rel = short.lstrip("\\/")
@@ -975,7 +1105,9 @@ def transfer_images(src_elements_root: str, dst_elements_root: str):
         if os.path.exists(src_path):
             mkdir(os.path.dirname(dst_path))
             shutil.move(src_path, dst_path)
-            print(f"已移动缺失图片: {rel}")
+            logger.info("移动缺失图片: %s", rel)
+        else:
+            warn(f"源集合缺图 {rel}", dst_path)
 
     # 5. 搬完图，dst 磁盘变了，缓存作废
     if 缺失图片 and os.path.exists(配置_磁盘缓存):
@@ -984,6 +1116,14 @@ def transfer_images(src_elements_root: str, dst_elements_root: str):
     # dst htm ──扫描──→ 被引用的图片 ─┐
     #                               ├─ 差集 ─→ 缺失图片 ─→ 从 src 搬到 dst
     # dst 磁盘 ──扫描──→ 磁盘图片 ───┘
+
+    logger.info(
+        "======== transfer_images done: moved=%d failed=%d ========",
+        len(缺失图片),
+        len(set(report_list)),
+    )
+    if report_list:
+        open_log()
 
 
 # 区分文件和文件夹路径。文件就使用path，文件夹就使用folder
