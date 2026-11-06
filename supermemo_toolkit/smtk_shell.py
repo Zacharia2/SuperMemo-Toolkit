@@ -8,7 +8,6 @@ import os
 import re
 import shlex
 import sys
-import time
 import traceback
 from pathlib import Path
 
@@ -360,7 +359,6 @@ def _run_smtk(args: list[str]) -> None:
     cmd_line = ("smtk " + _display_args(args)) if args else "smtk"
     print(f"» {cmd_line}", file=sys.stderr)
 
-    t0 = time.perf_counter()
     try:
         main(standalone_mode=False)
     except click.exceptions.NoArgsIsHelpError as e:
@@ -394,10 +392,6 @@ def _run_smtk(args: list[str]) -> None:
             os.environ.pop("PROMPT_TOOLKIT_COLOR_DEPTH", None)
         else:
             os.environ["PROMPT_TOOLKIT_COLOR_DEPTH"] = old_env_depth
-
-        elapsed = time.perf_counter() - t0
-        if elapsed >= 0.5:
-            print(f"[{elapsed:.2f}s]", file=sys.stderr)
 
 
 # ── 启动时收集 ─────────────────────────────────────────────────
