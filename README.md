@@ -203,6 +203,12 @@ AutoTTS 卡片朗读 文本转语音
 
 本软件遵守开源协议，协议类型为：GPLv2。
 
+## A cup of coffee
+
+<center>
+<img src="docs/donate.png" alt="Donate" width="200">
+</center>
+
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=Zacharia2/SuperMemo-Toolkit&type=Date)](https://star-history.com/#Zacharia2/SuperMemo-Toolkit&Date)
