@@ -12,6 +12,7 @@ import win32gui
 from edge_tts.voices import list_voices
 from tabulate import tabulate
 
+from supermemo_toolkit import __version__
 from supermemo_toolkit.ansm_conv.sm2anki import qa_to_anki
 from supermemo_toolkit.autotts.autotts import run_auto_tts
 from supermemo_toolkit.database.force_reload import ForceReload
@@ -38,7 +39,6 @@ from supermemo_toolkit.utilscripts.ulils import makeNameSafe
 
 sm_location: str = smtk_config.read_smtk_conf().get(smtk_config.PROGRAM).lower()
 smtk_config_file_path = os.path.join(smtk_config.config_dir(), "conf.json")
-__version__ = "0.2.10"
 
 
 @click.group(

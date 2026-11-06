@@ -1,6 +1,6 @@
 [project]
 name = "supermemo-toolkit"
-version = "0.2.10"
+dynamic = ["version"]
 description = "SuperMemo 增强工具(CLI命令行)。包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、卡片朗读等。"
 readme = "README.md"
 keywords = ["supermemo", "cli-app", "toolkit"]
@@ -23,10 +23,10 @@ dependencies = [
     "miniaudio>=1.71",
     "numpy>=2.5.4",
     "pillow>=13.0.0",
+    "prompt-toolkit>=3.0.53",
     "pymem>=1.14.0",
     "pyperclip>=1.11.0",
     "pypinyin>=0.55.0",
-    "pyreadline3>=3.5.6; sys_platform == 'win32'",
     "pystray>=0.19.5",
     "python-magic>=0.4.27; sys_platform != 'win32'",
     "python-magic-bin>=0.4.14; sys_platform == 'win32'",
@@ -54,10 +54,15 @@ documentation = "https://github.com/Zacharia2/SuperMemo-Toolkit"
 
 [project.scripts]
 smtk = "supermemo_toolkit.smtk:main"
+smtk-shell = "supermemo_toolkit.smtk_shell:run_shell"
 smtk-ui = "launcher:main"
 
 [tool.pdm.build]
 includes = ["supermemo_toolkit/**", "launcher.pyw", "launcher.vbs"]
+
+[tool.pdm.version]
+source = "file"
+path = "supermemo_toolkit/__init__.py"
 
 [[tool.pdm.source]]
 name = "tuna"
