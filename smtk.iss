@@ -118,8 +118,8 @@ Source: "dist\smtk\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs cre
 
 [Icons]
 ; 开始菜单 —— 只给 GUI 和交互终端建快捷方式
-Name: "{group}\{#MyAppName} (GUI)";   Filename: "{app}\launcher.exe";   WorkingDir: "{app}"
-Name: "{group}\smtk 交互终端";        Filename: "{app}\smtk-shell.exe"; WorkingDir: "{app}"
+Name: "{group}\SMTK 常用功能图形界面";   Filename: "{app}\launcher.exe";   WorkingDir: "{app}"
+Name: "{group}\SMTK 交互终端";        Filename: "{app}\smtk-shell.exe"; WorkingDir: "{app}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 ; 桌面
 Name: "{autodesktop}\{#MyAppName}";   Filename: "{app}\launcher.exe";   WorkingDir: "{app}"; Tasks: desktopicon
