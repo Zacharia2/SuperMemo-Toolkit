@@ -5,7 +5,7 @@ SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换
 <center>
 <img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261106183709347-1145095935.png" width="400"/>
 <img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261106183046434-1546553435.png" width="400"/>
-<img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261106184051907-144136433.png" width="800"/>
+<img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261107152303570-431994600.png" width="800"/>
 </center>
 
 ## 1. Install
