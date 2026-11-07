@@ -39,7 +39,7 @@ exe_smtk = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon="Icon.png",
+    icon="supermemo_toolkit/Icon.png",
 )
 
 # ==========================================
@@ -81,14 +81,14 @@ exe_shell = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon="Icon.png",
+    icon="supermemo_toolkit/Icon.png",
 )
 
 # ==========================================
 # 3. launcher.exe —— GUI 启动器
 # ==========================================
 a_launcher = Analysis(
-    ["launcher.pyw"],
+    ["supermemo_toolkit/launcher.py"],
     pathex=[],
     binaries=[],
     datas=[],
@@ -119,7 +119,7 @@ exe_launcher = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon="Icon.png",
+    icon="supermemo_toolkit/Icon.png",
 )
 
 # ==========================================

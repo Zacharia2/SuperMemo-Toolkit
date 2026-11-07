@@ -1,6 +1,7 @@
 import asyncio
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -27,6 +28,7 @@ from supermemo_toolkit.latex2img.renderer import FormulaRenderer
 from supermemo_toolkit.pathpix import im_sort_out
 from supermemo_toolkit.pathpix.epub_imgfit import EpubImageFit
 from supermemo_toolkit.pathpix.gui import run_pathpix_ui
+from supermemo_toolkit.utilscripts.shortcut import install_shortcut
 from supermemo_toolkit.time_rewind.time_rewind import (
     GitError,
     SuperMemoBackup,
@@ -1062,6 +1064,27 @@ def math_imtex(formula_text, outpath):
         color=(0.1, 0.8, 0.8),
         out=outpath,
     )
+
+
+if not (getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")):
+
+    @main.group()
+    def integrate():
+        """系统集成：桌面快捷方式与图形界面启动器（仅 wheel 包可用）"""
+        pass
+
+    @integrate.command()
+    def shortcut():
+        """创建 launcher 快捷方式到桌面"""
+        install_shortcut()
+
+    @integrate.command()
+    def launcher():
+        """部分常用功能 smtk 图形界面"""
+        script = Path(__file__).with_name("launcher.py").resolve()
+        pythonw = Path(sys.executable).with_name("pythonw.exe")
+        exe = pythonw if pythonw.exists() else Path(sys.executable)
+        subprocess.Popen([str(exe), str(script)], close_fds=True)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 Option Explicit
+' [deprecated] 过时，使用whl安装和smtk integrate代替
 
 ' ============================================================
 ' SuperMemo Toolkit 启动器
@@ -38,7 +39,7 @@ g_re.IgnoreCase = True
 g_re.Global = False
 
 scriptDir  = fso.GetParentFolderName(WScript.ScriptFullName)
-scriptPath = scriptDir & "\launcher.pyw"
+scriptPath = scriptDir & "\launcher.py"
 
 If Not fso.FileExists(scriptPath) Then
     MsgBox "Script not found: " & scriptPath, 16, "Error"

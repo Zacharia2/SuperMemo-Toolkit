@@ -53,12 +53,11 @@ repository = "https://github.com/Zacharia2/SuperMemo-Toolkit"
 documentation = "https://github.com/Zacharia2/SuperMemo-Toolkit"
 
 [project.scripts]
+# inno有图形界面和快捷方式，whl仅仅只有命令
 smtk = "supermemo_toolkit.smtk:main"
-smtk-shell = "supermemo_toolkit.smtk_shell:run_shell"
-smtk-ui = "launcher:main"
 
 [tool.pdm.build]
-includes = ["supermemo_toolkit/**", "launcher.pyw", "launcher.vbs"]
+excludes = ["docs/**"]
 
 [tool.pdm.version]
 source = "file"
@@ -66,12 +65,12 @@ path = "supermemo_toolkit/__init__.py"
 
 [[tool.pdm.source]]
 name = "tuna"
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+url = "https://repo.huaweicloud.com/repository/pypi/simple/"
 verify_ssl = true
 
 [[tool.uv.index]]
 name = "tuna"
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+url = "https://repo.huaweicloud.com/repository/pypi/simple/"
 default = true
 
 [build-system]
