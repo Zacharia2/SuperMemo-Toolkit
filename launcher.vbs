@@ -1,5 +1,23 @@
 Option Explicit
 
+' ============================================================
+' SuperMemo Toolkit 启动器
+'
+' 职责：在 Windows 上定位可用的 Python，用 pythonw.exe 启动同目录的
+'       launcher.pyw（GUI 模式，不弹控制台）。
+'
+' 扫描顺序：注册表 → 标准安装目录 → pyenv-win → conda → uv → py launcher → %PATH%
+' 每个候选都要探测版本号，选出最高版本；同版本时优先 pythonw.exe。
+'
+' 两个必须知道的坑：
+'   1. pythonw.exe 是 GUI 子系统程序，stdout 不连接到重定向句柄，
+'      `pythonw.exe --version > file` 得到的文件必然为空。
+'      因此探测版本时优先用同目录的 python.exe（控制台子系统）。
+'   2. VBS 的 On Error 是过程级而非块级，子过程末尾的 On Error GoTo 0
+'      会清掉调用者的 Resume Next 保护。所有被调用的子过程末尾统一用
+'      On Error Resume Next 收尾，把保护"还"给调用者。
+' ============================================================
+
 Dim fso, sh, scriptDir, scriptPath
 Dim bestPython, bestVersion
 Dim g_re
@@ -9,9 +27,12 @@ Dim g_tmpFile
 
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set sh  = CreateObject("WScript.Shell")
+
+' 已探测过的路径 → 版本号缓存。文本比较，避免大小写不同造成重复探测。
 Set g_probed = CreateObject("Scripting.Dictionary")
 g_probed.CompareMode = 1  ' vbTextCompare
 
+' 全局复用的正则对象，各处临时改 Pattern 使用。
 Set g_re = CreateObject("VBScript.RegExp")
 g_re.IgnoreCase = True
 g_re.Global = False
@@ -29,8 +50,9 @@ bestVersion    = ""
 g_fallbackPy   = ""
 g_fallbackVer  = ""
 
-' [修复8] 临时文件加随机后缀，防止多实例并发冲突
-' [区域设置] 同时替换 . 和 , 两种小数点符号
+' 临时文件用于捕获子进程输出。
+' 文件名加随机后缀，防止多个实例并发时互相覆盖。
+' Timer 的小数点符号随区域设置可能是 . 或 ,，两种都替换掉。
 g_tmpFile = sh.ExpandEnvironmentStrings("%TEMP%") & "\qvbs_probe_" & _
             Replace(Replace(CStr(Timer), ".", ""), ",", "") & ".tmp"
 
@@ -48,6 +70,8 @@ ScanPyLauncher
 ScanPath
 
 ' ---- 最终选择 ----
+' 如果没找到任何能确定版本的 Python，退而使用第一个探测失败的候选
+' （例如只在 PYTHONPATH 里出现、版本号取不到的 pythonw.exe）。
 If bestPython = "" And g_fallbackPy <> "" Then
     bestPython  = g_fallbackPy
     bestVersion = g_fallbackVer
@@ -74,6 +98,8 @@ On Error GoTo 0
 ' 工具函数
 ' ============================================================
 
+' 枚举 folderPath 的直接子目录，返回 Array("路径|目录名", ...)。
+' 无子目录或读取失败时返回 Array("")，调用方需判空字符串。
 Function CollectSubFolders(folderPath)
     Dim arr(), cnt, f, subFld, tmp(), i
     cnt = 0
@@ -115,11 +141,17 @@ End Function
 
 ' ------------------------------------------------------------------
 ' ExtractVersionFromName
-' [修复4-重做] 先剥离 python 前缀再跑主正则，防止 "python3.11.5"
-'   在位置 7 的 "." 处错误匹配出 11.5.0.9999。
-'   原始 s 只留给 pythonNNN 回退分支。
-' [优化] 主正则 lookahead 加入 +，兼容 "3.11.5+20240101" 等目录名
-' [清理] 移除已不再使用的局部变量
+'   从目录名/注册表键名中猜测 Python 版本，返回内部版本串，
+'   失败返回 ""，调用方会转而用 --version 或 FILEVERSION 探测。
+'
+'   内部版本串格式：major.minor.patch.rank[.preNum]
+'     rank: 9999=正式版, 1=dev, 2=a, 3=b, 4=rc
+'     这样正式的 3.11.5 会排在 3.11.5rc1 之前，符合语义。
+'
+'   为什么不直接用原始字符串跑正则：
+'     "python3.11.5" 里位置 7 的 "." 会被 ^|[_\.\-] 当成版本分隔符，
+'     结果误匹配出 "11.5.0.9999"。所以先剥离 "python" 前缀，
+'     用剥离后的 sMain 跑主正则；原始 s 只留给 "python312" 这种回退。
 ' ------------------------------------------------------------------
 Function ExtractVersionFromName(name)
     Dim s, sMain, rest, matches, digits
@@ -127,7 +159,6 @@ Function ExtractVersionFromName(name)
     If name = "" Then Exit Function
     s = LCase(name)
 
-    ' 先剥离 "python" 前缀：用 sMain 跑主正则，原始 s 留给回退分支
     sMain = s
     If Left(sMain, 6) = "python" Then
         rest = Mid(sMain, 7)
@@ -136,12 +167,8 @@ Function ExtractVersionFromName(name)
 
     On Error Resume Next
 
-    ' ---- 主正则：用剥离后的 sMain ----
-    ' 验证:
-    '   "python3.11.5" → sMain="3.11.5"  → ^命中 → 3.11.5.9999
-    '   "python-3.11.5" → sMain="-3.11.5" → -命中 → 3.11.5.9999
-    '   "Python312"     → sMain="312"     → 主正则失败 → 回退 python312 → 3.12.0.9999
-    '   "cuda12.6"      → sMain="cuda12.6"(无python前缀) → 主正则失败 → 回退也失败 → ""
+    ' 主正则：匹配 "3.11"、"3.11.5"、"3.11.5rc1"、"3.11.5+20240101" 等形式。
+    ' lookahead 加入 + 是为了兼容 uv 的 "3.11.5+20240101" 目录名。
     Err.Clear
     g_re.Pattern = "(?:^|[_\.\-])(\d+)\.(\d+)(?:\.(\d+))?(?:\.?(a|b|rc|dev)(\d+))?(?=[_\.\-\+]|$)"
     Set matches = g_re.Execute(sMain)
@@ -153,7 +180,8 @@ Function ExtractVersionFromName(name)
     End If
     Err.Clear
 
-    ' ---- 回退：pythonNNN 格式，用原始 s ----
+    ' 回退：处理 "python312" 这种没有点号的目录名。
+    ' 用原始 s（含 python 前缀）来匹配。
     g_re.Pattern = "python(\d+)"
     Set matches = g_re.Execute(s)
     If Err.Number = 0 And IsObject(matches) Then
@@ -175,7 +203,7 @@ Function ExtractVersionFromName(name)
     On Error GoTo 0
 End Function
 
-' 从正则 Match 对象构造版本号字符串
+' 把正则 Match 对象构造成内部版本串，规则见 ExtractVersionFromName 头部。
 Function BuildVersionFromMatch(m)
     Dim major, minor, patch, prerelease, prereleaseNum, rank
     major         = m.SubMatches(0)
@@ -201,10 +229,25 @@ Function BuildVersionFromMatch(m)
 End Function
 
 ' ------------------------------------------------------------------
-' Consider: 候选评估
+' Consider: 评估一个候选可执行文件
+'
+' version 参数是调用方从目录名/注册表键名猜到的版本，可为 ""。
+' 处理流程：
+'   1. 查缓存，命中直接用。
+'   2. 版本为 "" 时进入探测。pythonw.exe 和 python.exe 会互相查缓存，
+'      因为同目录两者必然同版本——先被扫描的一方负责探测，
+'      后被扫描的一方直接命中缓存，每个目录最多一次进程启动。
+'   3. pythonw.exe 探测失败时（gui 子系统拿不到 --version 输出），
+'      主动去探测同目录 python.exe，而不是直接标 fallback。
+'   4. 探测结果为空则记为 fallback（0.0.0.9999），
+'      只有完全没有可用候选时才会被启用。
+'
+' 注意回填 python.exe 缓存时必须先 Exists 判断：
+' python.exe 可能先被扫描且探测失败，缓存里已有它的 "0.0.0.9999"，
+' 此时直接用 Add 会抛运行时错误 457。
 ' ------------------------------------------------------------------
 Sub Consider(ByVal path, ByVal version)
-    Dim probePath, altPath, cacheKey, isFallback, cmp, altVer
+    Dim probePath, altPath, altPathFs, cacheKey, isFallback, cmp, altVer
     On Error Resume Next
     Err.Clear
 
@@ -221,11 +264,24 @@ Sub Consider(ByVal path, ByVal version)
         probePath = path
 
         If LCase(Right(probePath, 11)) = "pythonw.exe" Then
-            altPath = LCase(Left(probePath, Len(probePath) - 11) & "python.exe")
-            altVer  = ""
+            ' pythonw.exe：优先借同目录 python.exe 的版本（-11 保留末尾反斜杠）。
+            altPathFs = Left(probePath, Len(probePath) - 11) & "python.exe"
+            altPath   = LCase(altPathFs)
+            altVer    = ""
             If g_probed.Exists(altPath) Then
                 altVer = g_probed.Item(altPath)
                 If altVer = "0.0.0.9999" Then altVer = ""
+            End If
+            ' 缓存没有就主动探测 python.exe（可靠），而不是等 pythonw 自己吐版本。
+            If altVer = "" And fso.FileExists(altPathFs) Then
+                altVer = ProbePythonVersion(altPathFs)
+                If altVer <> "" Then
+                    If g_probed.Exists(altPath) Then
+                        g_probed.Item(altPath) = altVer
+                    Else
+                        g_probed.Add altPath, altVer
+                    End If
+                End If
             End If
             If altVer <> "" Then
                 version = altVer
@@ -237,7 +293,8 @@ Sub Consider(ByVal path, ByVal version)
                 version = "0.0.0.9999"
             End If
         Else
-            ' python.exe 是 10 个字符，减 10 保留末尾反斜杠
+            ' python.exe：优先借同目录 pythonw.exe 的缓存（-10 保留末尾反斜杠）。
+            ' python.exe 自己能正常输出 --version，不需要主动探测 pythonw。
             altPath = LCase(Left(probePath, Len(probePath) - 10) & "pythonw.exe")
             altVer  = ""
             If g_probed.Exists(altPath) Then
@@ -266,7 +323,7 @@ Sub Consider(ByVal path, ByVal version)
             g_fallbackVer = version
         End If
         Err.Clear
-        On Error GoTo 0
+        On Error Resume Next
         Exit Sub
     End If
 
@@ -279,6 +336,7 @@ Sub Consider(ByVal path, ByVal version)
             bestPython  = path
             bestVersion = version
         ElseIf cmp = 0 Then
+            ' 同版本时优先 pythonw.exe（不弹控制台）。
             If LCase(Right(path, 11)) = "pythonw.exe" And _
                LCase(Right(bestPython, 11)) <> "pythonw.exe" Then
                 bestPython  = path
@@ -288,18 +346,37 @@ Sub Consider(ByVal path, ByVal version)
     End If
 
     Err.Clear
-    On Error GoTo 0
+    On Error Resume Next
 End Sub
 
+' ------------------------------------------------------------------
+' ProbePythonVersion
+'   通过 `--version` 或文件资源获取 Python 版本，返回内部版本串或 ""。
+'
+'   关键点：pythonw.exe 是 GUI 子系统程序，stdout 不连接到重定向句柄，
+'   所以 "pythonw.exe --version > file" 拿到的文件是空的。
+'   传入 pythonw.exe 时自动切换到同目录 python.exe 探测。
+'
+'   文本探测失败时回退到读 PE 资源里的 FILEVERSION，
+'   只取前两段（Python 的 FILEVERSION 第三段是 build 号而非 patch 号）。
+' ------------------------------------------------------------------
 Function ProbePythonVersion(exePath)
-    Dim cmdStr, output, ts, ver, fv, m2
+    Dim cmdStr, output, ts, ver, fv, m2, probeTarget, siblingPy
     ProbePythonVersion = ""
     output = ""
 
     On Error Resume Next
     Err.Clear
 
-    cmdStr = "cmd /c """ & """" & exePath & """ --version >""" & g_tmpFile & """ 2>&1"""
+    probeTarget = exePath
+    If LCase(Right(exePath, 11)) = "pythonw.exe" Then
+        siblingPy = Left(exePath, Len(exePath) - 11) & "python.exe"
+        If fso.FileExists(siblingPy) Then
+            probeTarget = siblingPy
+        End If
+    End If
+
+    cmdStr = "cmd /c """ & """" & probeTarget & """ --version >""" & g_tmpFile & """ 2>&1"""
     sh.Run cmdStr, 0, True
 
     If fso.FileExists(g_tmpFile) Then
@@ -313,8 +390,14 @@ Function ProbePythonVersion(exePath)
         fso.DeleteFile g_tmpFile, True
     End If
 
+    On Error Resume Next
+    Err.Clear
     ver = ParseVersionFromText(output)
 
+    ' ParseVersionFromText 末尾的 On Error GoTo 0 会清掉本过程的保护，
+    ' 这里重新武装，确保下面 GetFileVersion 回退路径安全。
+    On Error Resume Next
+    Err.Clear
     If ver = "" And fso.FileExists(exePath) Then
         Err.Clear
         fv = fso.GetFileVersion(exePath)
@@ -331,10 +414,11 @@ Function ProbePythonVersion(exePath)
     End If
 
     Err.Clear
-    On Error GoTo 0
+    On Error Resume Next
     ProbePythonVersion = ver
 End Function
 
+' 从 `Python 3.11.5` / `Python 3.13.0rc1` 等文本中提取版本号。
 Function ParseVersionFromText(text)
     Dim matches, major, minor, patch, pre, preNum, rank
     ParseVersionFromText = ""
@@ -374,6 +458,7 @@ Function ParseVersionFromText(text)
     On Error GoTo 0
 End Function
 
+' 把字符串安全地转为 Long，失败返回 0（避免 VBS 抛错中断）。
 Function SafeLong(s)
     Dim v
     On Error Resume Next
@@ -394,6 +479,7 @@ Function IsPureDigits(s)
     IsPureDigits = True
 End Function
 
+' 按内部版本串逐段比较。非数字段按 0 处理，缺少的段补齐为 0。
 Function CompareVersions(v1, v2)
     Dim a, b, i, maxLen, n1, n2
     a = Split(v1, ".")
@@ -410,6 +496,8 @@ Function CompareVersions(v1, v2)
     CompareVersions = 0
 End Function
 
+' 在 dirPath 下检查 pythonw.exe / python.exe 并交给 Consider。
+' 优先 pythonw.exe（GUI 启动不弹控制台）。
 Sub AddIfPythonExe(dirPath, dirName)
     Dim candidate, ver
     On Error Resume Next
@@ -436,15 +524,17 @@ Sub AddIfPythonExe(dirPath, dirName)
     End If
 
     Err.Clear
-    On Error GoTo 0
+    On Error Resume Next
 End Sub
 
 ' ============================================================
 ' 扫描入口
 ' ============================================================
 
+' 扫描注册表 SOFTWARE\Python\PythonCore 下的所有版本。
+' 官方安装器会在这里写 InstallPath；部分版本还提供 ExecutablePath。
 Sub ScanRegistry(hive, keyPath)
-    Dim regProv, subKeys, ret, i
+    Dim regProv, subKeys, ret
     Dim versionKey, ver, installPath, exePath, candidate
 
     On Error Resume Next
@@ -489,6 +579,10 @@ Sub ScanRegistry(hive, keyPath)
     Err.Clear : On Error GoTo 0
 End Sub
 
+' 扫描常见的 Python 安装根目录。两层深度：
+'   第一层是 Python 安装根（如 ...\Programs\Python\Python311）
+'   第二层是根下再套一层的结构（如 C:\Python\3.11.5\）
+' %ProgramFiles% 只扫名字里含 "python" 的子目录，避免全盘遍历。
 Sub ScanStandardDirs()
     Dim roots, root, entries, parts, dirPath, dirName, i, j
     Dim innerEntries, pfDirs, pf
@@ -543,6 +637,7 @@ Sub ScanStandardDirs()
     Next
 End Sub
 
+' pyenv-win：版本目录位于 %USERPROFILE%\.pyenv\pyenv-win\versions 下。
 Sub ScanPyenvWin()
     Dim root, entries, parts, i
     root = sh.ExpandEnvironmentStrings("%USERPROFILE%\.pyenv\pyenv-win\versions")
@@ -556,6 +651,7 @@ Sub ScanPyenvWin()
     Next
 End Sub
 
+' 扫描 Anaconda/Miniconda 的安装根和 envs 目录。
 Sub ScanConda()
     Dim roots, root, envsRoot, entries, parts, i
     roots = Array( _
@@ -595,6 +691,7 @@ Sub ScanConda()
     End If
 End Sub
 
+' uv 管理的 Python 安装。%UV_PYTHON_INSTALL_DIR% 是用户自定义覆盖路径。
 Sub ScanUv()
     Dim root
     root = sh.ExpandEnvironmentStrings("%UV_PYTHON_INSTALL_DIR%")
@@ -617,6 +714,8 @@ Sub ScanUvRoot(root)
     Next
 End Sub
 
+' 调用 py.exe -0p 列出所有已注册的解释器及其路径。
+' 输出形如 " -V:3.11 *        C:\Users\...\python.exe"，用正则解析。
 Sub ScanPyLauncher()
     Dim pyExe, tryPaths, tp, cmdStr
     Dim output, ts, re2, ms, mm, pyPath
@@ -662,7 +761,7 @@ Sub ScanPyLauncher()
     Set re2 = CreateObject("VBScript.RegExp")
     re2.IgnoreCase = True
     re2.Global = True
-    ' py -0p 输出以空格对齐；匹配 "版本号...空白...驱动器路径" 格式
+    ' 匹配 "版本号 ... 空白 ... 盘符路径" 格式。
     re2.Pattern = "(\d+\.\d+)[^\r\n]*?[ \t]+([A-Za-z]:\\[^\r\n]+)"
     Set ms = re2.Execute(output)
     If Err.Number = 0 And IsObject(ms) Then
@@ -678,12 +777,19 @@ Sub ScanPyLauncher()
 End Sub
 
 ' ------------------------------------------------------------------
-' ScanPath: 遍历 %PATH%，收集其中的 pythonw.exe / python.exe
-'   - 跳过空项、"."、".."、成对引号、尾部反斜杠
-'   - 跳过 WindowsApps（App Execution Alias 存根，探测会拉起商店）
-'     [修复] 用 GetFileName 精确比对，避免误杀 D:\MyWindowsApps
-'   - 每次迭代重新武装 On Error Resume Next，
-'     抵消 Consider 末尾 On Error GoTo 0 的影响
+' ScanPath: 遍历 %PATH%，查找其中的 pythonw.exe / python.exe。
+'
+' 边界处理：
+'   - 跳过空项、"."、".."
+'   - 剥离成对的首尾引号（%PATH% 里某些项带引号）
+'   - 保留 pFull 给 FolderExists（C:\ 这种根目录不能去尾反斜杠）
+'   - 去掉尾反斜杠的 p 用于 GetFileName / 路径拼接
+'   - 跳过 WindowsApps：里面是 Microsoft Store 的 App Execution Alias
+'     存根，调用会弹出商店。用 GetFileName 精确比对，避免误杀
+'     D:\MyWindowsApps 这种名字相似的普通目录。
+'
+' 每轮循环开头重新 On Error Resume Next：
+' Consider 内部可能重置错误处理，这里需要在每次访问 fso 前重新武装。
 ' ------------------------------------------------------------------
 Sub ScanPath()
     Dim pathStr, parts, i, p, pFull, dirName
@@ -698,20 +804,16 @@ Sub ScanPath()
     parts = Split(pathStr, ";")
     For i = 0 To UBound(parts)
 
-        ' [修复] 每次迭代重新武装，防止上轮 Consider 的 On Error GoTo 0 残留
         On Error Resume Next
 
         p = Trim(parts(i))
 
-        ' 剥成对的首尾引号
         If Len(p) >= 2 Then
             If Left(p, 1) = """" And Right(p, 1) = """" Then
                 p = Mid(p, 2, Len(p) - 2)
             End If
         End If
 
-        ' pFull 保留尾斜杠（供 FolderExists，兼容 C:\ 这种根）
-        ' p     剥掉尾斜杠（供 GetFileName / AddIfPythonExe 拼接）
         pFull = p
         If Len(p) > 1 And Right(p, 1) = "\" Then
             p = Left(p, Len(p) - 1)
@@ -719,13 +821,11 @@ Sub ScanPath()
 
         If p <> "" And p <> "." And p <> ".." Then
 
-            ' [修复3] 用 GetFileName 精确比对，
-            '         D:\MyWindowsApps 不再被误跳
             If LCase(fso.GetFileName(p)) = "windowsapps" Then
                 ' 跳过 Microsoft Store 的 App Execution Alias 存根
             ElseIf fso.FolderExists(pFull) Then
                 dirName = fso.GetFileName(p)
-                If dirName = "" Then dirName = p     ' 盘符根 fallback：C:\ → "C:"
+                If dirName = "" Then dirName = p     ' 盘符根：C:\ → "C:"
                 AddIfPythonExe p, dirName
             End If
 
