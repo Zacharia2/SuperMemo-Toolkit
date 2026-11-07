@@ -1070,7 +1070,7 @@ if not (getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS")):
 
     @main.group()
     def integrate():
-        """系统集成：桌面快捷方式与图形界面启动器（仅 wheel 包可用）"""
+        """系统集成，桌面快捷方式与图形界面启动器（仅 wheel 包可用）"""
         pass
 
     @integrate.command()
