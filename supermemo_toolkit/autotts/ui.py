@@ -13,11 +13,11 @@ class WinGUI(Tk):
 
         # 【修复】先保持不透明，等窗口完全加载后，延迟 100ms 再应用透明度。
         # 防止与其他 Tkinter 窗口（如 Launcher）发生启动渲染冲突。
-        self.attributes("-alpha", 1.0)
+        self.attributes("-alpha", 0.95)
         self.after(100, self._apply_alpha)
 
     def _apply_alpha(self):
-        self.attributes("-alpha", 0.6)
+        self.attributes("-alpha", 0.5)
 
     def __win(self):
         self.title("AutoTTS")

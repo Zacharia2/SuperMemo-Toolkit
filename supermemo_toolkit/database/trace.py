@@ -33,6 +33,7 @@ class Trace:
         self.__stoped = False
         self.his_id = []
         self.telwind_hwnd: int | None = None
+        self.app: Application | None = None
 
     def _get_process_start_timestamp(self, pid):
         """
@@ -95,6 +96,7 @@ class Trace:
             """
             reader = ElementNo()
             self.telwind_hwnd = reader.telwind_hwnd
+            self.app = reader.app
             text_reg = TextRegistry(active_kno_path)
             try:
                 last_id = None
@@ -181,6 +183,7 @@ class Trace:
             )
             app = Application(backend="win32").connect(class_name="TElWind")
             self.telwind_hwnd = app.window(class_name="TElWind").handle
+            self.app = app
         except Exception as e:  # noqa: BLE001
             if isinstance(e, ElementNotFoundError):
                 messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))

@@ -26,20 +26,10 @@ class AutoTTS:
         self.logger = logging.getLogger(__name__)
 
         if not onlyat:
-            warnings.filterwarnings(
-                "ignore", message=".*32-bit application should be automated.*"
-            )
-            try:
-                self.app: Application = Application(backend="win32").connect(
-                    class_name="TElWind"
-                )
-            except Exception as e:  # noqa: BLE001
-                if isinstance(e, ElementNotFoundError):
-                    messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
-                else:
-                    messagebox.showerror("错误", e)
-                sys.exit()
             self.trace: Trace = Trace()
+            self.app = self.trace.app
+            if self.app is None:
+                raise RuntimeError("AutoTTS 初始化失败，无法连接到 SuperMemo")
 
         self.switcher = AudioSwitcher()
         self.window: Win = None
@@ -302,22 +292,31 @@ def supermemo_ver():
 
 def run_auto_tts(onlyat: bool = False):
     if onlyat:
+        autotts = AutoTTS(onlyat=True)
         controller = Controller()
-        autotts_window = Win(controller, onlyat)
-        autotts = AutoTTS(onlyat)
+        autotts_window = Win(controller, onlyat=True)
         autotts.set_autotts_window(autotts_window)
         controller.set_autotts(autotts)
     else:
         sm_ver = supermemo_ver()
+        if sm_ver is None:
+            return  # supermemo_ver 里已经弹过错误框，直接结束
+
+        try:
+            autotts = AutoTTS(onlyat=False)  # 先连 SuperMemo
+        except Exception:  # noqa: BLE001
+            return
+
         controller = Controller(sm_ver)
-        autotts_window = Win(controller, onlyat, sm_ver)
-        autotts = AutoTTS(onlyat)
+        autotts_window = Win(controller, onlyat=False, sm_ver=sm_ver)  # 成功后再建窗口
         autotts.set_autotts_window(autotts_window)
         controller.set_autotts(autotts)
+
         if sm_ver not in ["sm15", "sm16"]:
-            autotts.start_trace()  # 或 mode="o"
+            autotts.start_trace()
         else:
-            autotts_window.after(500, controller.run_legacy_autotts())
+            autotts_window.after(500, controller.run_legacy_autotts)
+
     autotts_window.mainloop()
 
 
