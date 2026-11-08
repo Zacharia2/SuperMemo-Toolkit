@@ -72,7 +72,8 @@ reset_workspace 的实现机制（snapshot commit，复用 backup 思路）：
     - 自动 compact 已移除；折叠是用户通过托盘菜单手动触发的操作。
     - hot 分支被 compact 重置后，旧 commit 变 dangling，默认由 git 的
       2 周 unreachable 保留期管理。compact 日志记录旧 hot tip 的短 hash，
-      2 周内可 git fsck --lost-found 找回。
+      2 周内可 git fsck --lost-found 找回，或通过托盘「浏览历史」/
+      smtk time browse 在 gitk --all --reflog 中直接查看。
     - 轮询线程在 backup 期间暂停；多集合同时关闭时第二个集合的备份延迟到
       第一个完成之后。
     - CLI 与 Watcher 同时运行时，FileLock(<repo>.smtk.lock) 保证跨进程互斥。
@@ -91,8 +92,10 @@ reset_workspace 的实现机制（snapshot commit，复用 backup 思路）：
     - reset_workspace 在阶段 C4 成功之后、删除 snapshot ref 之前被强杀时，
       工作区/refs/kno 均已重置到目标（状态正确），只残留 snapshot ref。
       下次 reset 前置检测即拒绝，用户按提示 update-ref -d 清理即可。
-    - 压缩与重置子菜单在 Watcher.start() 时静态生成，运行期间新初始化
-      的集合需要重启 watcher 才会出现在菜单里。
+    - 压缩、浏览历史、重置子菜单在集合初始化状态变化后自动重建：
+      watcher 内部 backup 隐式初始化集合后立即重建；外部 CLI 执行
+      backup（可能隐式 init）或 forget 后，通过 UDP REFRESH 信号
+      通知 watcher 重建。无需重启 watcher。
 """
 
 from __future__ import annotations
@@ -628,6 +631,30 @@ def commit_tree(repo: Path, tree: str, parent: str | None, msg: str) -> str:
     if parent:
         return git_out(repo, "commit-tree", tree, "-p", parent, "-m", msg)
     return git_out(repo, "commit-tree", tree, "-m", msg)
+
+
+def open_gitk(repo: Path) -> None:
+    """用 gitk 打开仓库完整历史（--all --reflog）。
+
+    --all 显示 hot/archive 两条链；--reflog 让 compact 后脱落的旧 hot tip
+    也能在视图中出现（2 周 unreachable 保留期内可找回）。
+    只读，不取 FileLock，不修改仓库。非阻塞：Popen 后立即返回。
+    调用方应确保 repo 是已初始化的 git 仓库。
+
+    Raises:
+        RuntimeError: 启动失败（最常见原因是 gitk 未安装）。
+    """
+    try:
+        subprocess.Popen(
+            ["gitk", "--all", "--reflog"],
+            cwd=str(repo),
+            env=_git_env(repo),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError as e:
+        raise RuntimeError(f"启动 gitk 失败（可能未安装 gitk）: {e}") from e
 
 
 # ============================================================================
@@ -1806,7 +1833,12 @@ class Watcher:
                     self._idle_event.set()
 
     def _backup_only(self, c: Collection) -> None:
-        """只 backup，不 compact。"""
+        """只 backup，不 compact。
+
+        不在此处重建菜单：backup 可能隐式 init 集合，但 rebuild 由
+        调用方（_poll_loop）在 _track 之外执行，避免占 inflight 计数，
+        也避免多个集合同时关闭时重复 rebuild。
+        """
         self._update_icon("running", f"{c.name} 备份中")
         try:
             r = CollectionRepo(c).backup("shutdown")
@@ -1860,12 +1892,13 @@ class Watcher:
     def _poll_loop(self) -> None:
         """定期轮询集合激活状态，检测打开/关闭转换。
 
-        单集合探测失败只影响该集合本轮判定（状态未知则跳过、保留原状态），
-        不会终止轮询线程，其他集合的监控和自动备份不受影响。
+        单集合探测失败只影响该集合本轮判定，不会终止轮询线程。
+        监听暂停期间不做任何探测，恢复时重新同步状态，不补做暂停期间
+        错过的关闭备份。
 
-        监听暂停（_pause_event 被 set）时不做任何探测、不感知打开/关闭，
-        也不触发自动备份；恢复时重新探测当前状态，只更新图标，
-        不补做暂停期间错过的关闭备份。
+        集合关闭后 auto-backup 完成时（可能隐式 init），在 _track 之外
+        调 _rebuild_menu，让菜单包含新初始化的集合；多个集合同一轮
+        关闭只 rebuild 一次。
         """
         err_state: dict[str, bool] = {}
         was_active: dict[str, bool] = {}
@@ -1910,6 +1943,7 @@ class Watcher:
                     log.info(f"{c.name}: 检测到集合被关闭")
                 was_active[c.name] = active
 
+            did_backup = False
             for name in list(pending_close):
                 if now < pending_close[name]:
                     continue
@@ -1926,6 +1960,12 @@ class Watcher:
                     self._update_icon("active", name)
                     continue
                 self._track(lambda c=c: self._backup_only(c))
+                did_backup = True
+
+            # 本轮回调可能隐式 init 了新集合；rebuild 在 _track 外执行，
+            # 不占 inflight，多个集合同时关闭只 rebuild 一次。
+            if did_backup:
+                self._rebuild_menu()
 
     def _update_icon(self, state: str, detail: str = "") -> None:
         with self._icon_lock:
@@ -1998,7 +2038,7 @@ class Watcher:
             try:
                 # ---- 解析目标 ----
                 if name is None:
-                    targets = list(self._iter_initialized_collections())
+                    targets = self._scan_initialized()
                     if not targets:
                         log.info("compact: 无已初始化集合，跳过")
                         _notify("无已初始化集合，无需压缩")
@@ -2052,6 +2092,36 @@ class Watcher:
 
         threading.Thread(target=lambda: self._track(_do), daemon=True).start()
 
+    def _make_browse_menu(
+        self, initialized: list[Collection] | None = None
+    ) -> pystray.Menu:
+        """「浏览历史」子菜单：逐个已初始化集合，点击打开 gitk。
+
+        不提供「全部」项：N 个集合会弹 N 个 gitk 窗口，托盘误点代价高。
+        """
+        return self._make_collection_menu(
+            lambda cname: self._make_2arg(self._on_browse, cname),
+            initialized,
+        )
+
+    def _on_browse(self, icon, item, name: str) -> None:
+        """托盘菜单：在 gitk 中打开集合历史（只读，不占用 inflight）。
+
+        成功只写日志；失败写日志并切 error 图标，不发系统通知。
+        """
+        c = next((x for x in self._config.collections if x.name == name), None)
+        if c is None:
+            log.error(f"browse: collection not found: {name}")
+            self._update_icon("error", f"打开历史失败 ({name})")
+            return
+        try:
+            open_gitk(c.repo_path())
+        except Exception as e:
+            log.error(f"{name}: open gitk failed: {e}")
+            self._update_icon("error", f"{name} 打开历史失败")
+            return
+        log.info(f"{name}: opened gitk")
+
     def _on_toggle_pause(self, icon, item) -> None:
         """托盘菜单：暂停 / 恢复监听。
 
@@ -2099,48 +2169,37 @@ class Watcher:
 
         return handler
 
-    def _iter_initialized_collections(self):
-        """按配置顺序迭代已初始化的集合。
+    def _scan_initialized(self) -> list[Collection]:
+        """按配置顺序返回已初始化集合列表。
 
-        单个集合的状态检查失败（git 超时、仓库损坏）只跳过该集合并记
-        warning，不影响其他集合；调用方可放心 list()/for 遍历。
-
-        is_initialized() 内部走 git()，subprocess 的 TimeoutExpired 不
-        被捕获会向上抛，这里吞掉是为了不让一个坏仓库拖垮整张菜单或
-        整批 compact。
-
-        日志前缀不带场景名：本方法同时服务于菜单静态生成与 compact
-        批量执行，写死场景（如 "menu:"）会在另一场景下误导排查。
+        单集合探测失败只跳过并 log.warning，不影响其他集合。
+        菜单构建与 compact 批量执行共用；一次返回 list，调用方
+        不再需要生成器与 list() 包装。
         """
-        for c in self._config.collections:
-            try:
-                if CollectionRepo(c).is_initialized():
-                    yield c
-            except Exception as e:
-                log.warning(f"{c.name}: 检查初始化状态失败，跳过: {e}")
+        return [c for c in self._config.collections if self._safe_is_initialized(c)]
 
     def _make_collection_menu(
         self,
         make_handler,
+        initialized: list[Collection] | None = None,
         *,
         all_item: pystray.MenuItem | None = None,
     ) -> pystray.Menu:
-        """构造「按集合选择」子菜单（reset 与 compact 共用）。
+        """构造「按集合选择」子菜单（reset / compact / browse 共用）。
 
         Args:
             make_handler: name -> handler(icon, item)，为每个集合生成回调。
-            all_item:     可选的置顶项（如「全部」）。仅当其后存在集合项时
-                          才插入分隔线，避免空集合菜单出现孤儿分隔线。
+            initialized:  已初始化集合列表；None 时现场扫描（会跑 N 次 git，
+                          仅供一次性场景；菜单构建走 _build_menu 的一次扫描）。
+            all_item:     可选的置顶项。仅当其后存在集合项时才插分隔线。
 
         无已初始化集合时追加一条禁用的提示项，避免渲染出空子菜单
         让用户误以为菜单失效。
-
-        集合列表在调用时静态确定（即 start() 时）；运行期新初始化的
-        集合需重启 watcher 才会出现在菜单里。
         """
+        if initialized is None:
+            initialized = self._scan_initialized()
         coll_items: list[pystray.MenuItem] = [
-            pystray.MenuItem(c.name, make_handler(c.name))
-            for c in self._iter_initialized_collections()
+            pystray.MenuItem(c.name, make_handler(c.name)) for c in initialized
         ]
         items: list[pystray.MenuItem] = []
         if all_item is not None:
@@ -2152,29 +2211,91 @@ class Watcher:
             items.append(pystray.MenuItem("(无已初始化集合)", None, enabled=False))
         return pystray.Menu(*items)
 
-    def _make_compact_menu(self) -> pystray.Menu:
-        """「压缩历史」子菜单：全部 + 逐个已初始化集合。
-
-        与 reset 菜单共享 _make_collection_menu；未初始化集合在 compact
-        下只会返回 no repo，列出来是噪音，因此与 reset 一样隐藏。
-        """
+    def _make_compact_menu(
+        self, initialized: list[Collection] | None = None
+    ) -> pystray.Menu:
+        """「压缩历史」子菜单：全部 + 逐个已初始化集合。"""
         return self._make_collection_menu(
             lambda cname: self._make_2arg(self._on_compact, cname),
+            initialized,
             all_item=pystray.MenuItem("全部", self._make_2arg(self._on_compact, None)),
         )
 
-    def _make_reset_menu(self, target: str) -> pystray.Menu:
-        """「重置工作区」子菜单：针对指定 target 逐个列已初始化集合。
-
-        Args:
-            target: rev 表达式，如 "HEAD" 或 "HEAD^"。
-
-        未初始化集合没有 commit，reset 无意义，隐藏以避免用户误点后
-        收到"未初始化"提示。
-        """
+    def _make_reset_menu(
+        self, target: str, initialized: list[Collection] | None = None
+    ) -> pystray.Menu:
+        """「重置工作区」子菜单：针对指定 target 逐个列已初始化集合。"""
         return self._make_collection_menu(
             lambda cname: self._make_2arg(self._on_reset, target, cname),
+            initialized,
         )
+
+    def _safe_is_initialized(self, c: Collection) -> bool:
+        """探测集合是否已初始化。单集合失败只 warning，不抛。"""
+        try:
+            return CollectionRepo(c).is_initialized()
+        except Exception as e:
+            log.warning(f"{c.name}: 检查初始化状态失败，跳过: {e}")
+            return False
+
+    def _build_menu(self) -> pystray.Menu:
+        """构建完整托盘菜单。
+
+        一次扫描已初始化集合，供 3 个以集合为子菜单项（compact / browse /
+        reset）共用，避免 3~4 次 N 次 git 调用。
+        """
+        initialized = self._scan_initialized()
+        menu_items: list[pystray.MenuItem] = [
+            pystray.MenuItem("压缩历史", self._make_compact_menu(initialized)),
+            pystray.MenuItem("浏览历史", self._make_browse_menu(initialized)),
+            pystray.Menu.SEPARATOR,
+            pystray.MenuItem("打开配置目录", self._on_open_dir),
+        ]
+        if not _is_ui_only():
+            menu_items.append(pystray.MenuItem("打开日志", self._on_open_log))
+        menu_items.extend(
+            [
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem(
+                    "重置工作区到 HEAD",
+                    self._make_reset_menu("HEAD", initialized),
+                ),
+                pystray.MenuItem(
+                    "重置工作区到上一次提交",
+                    self._make_reset_menu("HEAD^", initialized),
+                ),
+                pystray.Menu.SEPARATOR,
+                pystray.MenuItem(
+                    "暂停监听",
+                    self._on_toggle_pause,
+                    checked=lambda item: self._pause_event.is_set(),
+                ),
+                pystray.MenuItem("退出", self._on_quit),
+            ]
+        )
+        return pystray.Menu(*menu_items)
+
+    def _rebuild_menu(self) -> None:
+        """重建托盘菜单（集合初始化状态变化时调用）。
+
+        _build_menu 在 _icon_lock 外执行（含 N 次 git），赋值 + update
+        在锁内（与 _update_icon 互斥，避免交叉修改 pystray 状态）。
+        构建或应用失败保留旧菜单，下次再试，不抛异常。
+        """
+        icon = self._holder.get("icon")
+        if icon is None:
+            return
+        try:
+            new_menu = self._build_menu()
+        except Exception as e:
+            log.debug(f"rebuild_menu build: {e}")
+            return
+        with self._icon_lock:
+            try:
+                icon.menu = new_menu
+                icon.update_menu()
+            except Exception as e:
+                log.debug(f"rebuild_menu apply: {e}")
 
     def _on_reset(self, icon, item, target: str, name: str) -> None:
         """托盘菜单：把集合工作区重置到 target（后台执行，不阻塞托盘）。
@@ -2345,7 +2466,22 @@ class Watcher:
         except Exception as e:
             log.info(f"signal_stop {e}")
 
-    def _stop_listener(self, icon) -> None:
+    @staticmethod
+    def signal_refresh():
+        """通知运行中的 watcher 重建菜单（集合初始化状态可能变化）。
+
+        用于跨进程场景：CLI 执行 backup（可能隐式 init）或 forget 后，
+        通知托盘刷新菜单。watcher 未运行时包丢失，无副作用——下次
+        启动时会重新扫描所有集合并构建菜单。
+        """
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.sendto(b"REFRESH", ("127.0.0.1", SHUTDOWN_PORT))
+            s.close()
+        except Exception as e:
+            log.debug(f"signal_refresh {e}")
+
+    def _udp_listener(self, icon) -> None:
         """启动 UDP 监听线程，接收外部关闭信号并触发优雅退出。
 
         收到 SHUTDOWN 包后调用 _shutdown(icon)：
@@ -2370,6 +2506,9 @@ class Watcher:
                         self._update_icon("running", "正在退出…")
                         self._shutdown(icon)
                         break
+                    elif data == b"REFRESH":
+                        log.info("收到菜单刷新信号，重建菜单")
+                        self._rebuild_menu()
                 except socket.timeout:
                     continue
                 except Exception:
@@ -2412,45 +2551,18 @@ class Watcher:
         self._idle_event.set()
         self._inflight = 0
         self._holder = {}
-        # 每次 start 都默认开始监听
         self._pause_event.clear()
 
-        menu_items: list[pystray.MenuItem] = [
-            pystray.MenuItem("压缩历史", self._make_compact_menu()),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("打开配置目录", self._on_open_dir),
-        ]
-        # GUI 包装器模式下日志走 stderr 管道，由 launcher 的日志窗口展示，
-        # 托盘里的"打开日志"没有意义，隐藏该项。
-        if not _is_ui_only():
-            menu_items.append(pystray.MenuItem("打开日志", self._on_open_log))
-        menu_items.extend(
-            [
-                pystray.Menu.SEPARATOR,
-                pystray.MenuItem("重置工作区到 HEAD", self._make_reset_menu("HEAD")),
-                pystray.MenuItem(
-                    "重置工作区到上一次提交", self._make_reset_menu("HEAD^")
-                ),
-                pystray.Menu.SEPARATOR,
-                pystray.MenuItem(
-                    "暂停监听",
-                    self._on_toggle_pause,
-                    checked=lambda item: self._pause_event.is_set(),
-                ),
-                pystray.MenuItem("退出", self._on_quit),
-            ]
-        )
-        menu = pystray.Menu(*menu_items)
         icon = pystray.Icon(
             "smtime",
             _make_tray_image(COLORS["waiting"]),
             TITLES["waiting"],
-            menu,
+            self._build_menu(),
         )
         self._holder["icon"] = icon
         self._thread = threading.Thread(target=self._poll_loop, daemon=True)
         self._thread.start()
-        self._stop_listener(icon)
+        self._udp_listener(icon)
         try:
             icon.run()
         finally:
@@ -2635,6 +2747,8 @@ __all__ = [
     # 高级 API
     "SuperMemoBackup",
     "Watcher",
+    # 工具函数
+    "open_gitk",
     # 配置
     "setup_logging",
 ]

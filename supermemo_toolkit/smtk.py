@@ -28,15 +28,16 @@ from supermemo_toolkit.latex2img.renderer import FormulaRenderer
 from supermemo_toolkit.pathpix import im_sort_out
 from supermemo_toolkit.pathpix.epub_imgfit import EpubImageFit
 from supermemo_toolkit.pathpix.gui import run_pathpix_ui
-from supermemo_toolkit.utilscripts.shortcut import install_shortcut
 from supermemo_toolkit.time_rewind.time_rewind import (
     GitError,
     SuperMemoBackup,
     Watcher,
+    open_gitk,
     setup_logging,
 )
 from supermemo_toolkit.title_xref import complete_title
 from supermemo_toolkit.utilscripts import config as smtk_config
+from supermemo_toolkit.utilscripts.shortcut import install_shortcut
 from supermemo_toolkit.utilscripts.ulils import makeNameSafe
 
 sm_location: str = smtk_config.read_smtk_conf().get(smtk_config.PROGRAM).lower()
@@ -788,6 +789,10 @@ def time_backup(collection, trigger):
         else:
             click.echo(f"{name}: 已备份 {r.commit[:8]}")
 
+    # 通知运行中的 watcher 刷新菜单：backup 可能隐式 init 了新集合。
+    # 放在 raise 之前，部分成功时也要通知。
+    Watcher.signal_refresh()
+
     if failed:
         raise click.ClickException(f"{failed} 个集合备份失败")
 
@@ -940,8 +945,52 @@ def time_forget(collection, yes):
 
     if ok:
         click.echo(f"{collection}: 已卸载")
+        Watcher.signal_refresh()
     else:
         click.echo(f"{collection}: 无 .git，跳过")
+
+
+@time_cmd.command(name="browse")
+@click.argument("collection", required=False)
+def time_browse(collection):
+    """用 gitk 浏览集合历史 (含 reflog 中已折叠的 commit)
+
+    指定 COLLECTION 时打开该集合；不指定时只列出可用集合，不弹窗。
+    要一次性打开全部集合，显式加 --all（每个集合弹一个 gitk 窗口）。
+    """
+    sm = _make_backup_manager()
+
+    if collection:
+        try:
+            repo = sm.collection(collection)
+        except KeyError:
+            raise click.ClickException(f"集合不存在: {collection}")
+        if not repo.is_initialized():
+            raise click.ClickException(f"{collection}: 仓库未初始化")
+        targets = [repo]
+    else:
+        initialized = sm.initialized_collections()
+        if not initialized:
+            raise click.ClickException("没有已初始化的集合。")
+        if not collection:
+            click.echo("可用集合:")
+            for c in initialized:
+                click.echo(f"  '{c.name}'")
+            return
+        targets = [sm.collection(c.name) for c in initialized]
+
+    failed = 0
+    for repo in targets:
+        try:
+            open_gitk(repo.repo_path)
+        except RuntimeError as e:
+            click.echo(f"{repo.name}: {e}", err=True)
+            failed += 1
+            continue
+        click.echo(f"{repo.name}: 已打开 gitk")
+
+    if failed:
+        raise click.ClickException(f"{failed} 个集合打开失败")
 
 
 # ==========================================
