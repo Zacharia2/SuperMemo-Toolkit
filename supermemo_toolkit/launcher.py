@@ -406,6 +406,20 @@ class LauncherApp:
         # 启动 UDP 监听用于单实例唤醒
         self._start_udp_listener()
 
+    def _force_main_geometry(self) -> None:
+        """强制恢复主窗口的尺寸与安全位置，防止 UI 重建导致挤压"""
+        try:
+            x = self.root.winfo_x()
+            y = self.root.winfo_y()
+            sw = self.root.winfo_screenwidth()
+            sh = self.root.winfo_screenheight()
+            # 如果坐标无效或跑出屏幕外，则居中显示
+            if not (0 <= x < sw - 100 and 0 <= y < sh - 100):
+                x, y = max(0, (sw - 480) // 2), max(0, (sh - 480) // 2)
+            self.root.geometry(f"480x480+{x}+{y}")
+        except Exception:  # noqa: BLE001
+            self.root.geometry("480x480")
+
     # ---------- 单实例唤醒 (UDP 通信) ----------
     def _start_udp_listener(self):
         def listen():
@@ -432,6 +446,7 @@ class LauncherApp:
 
         # 纯 Tkinter 原生恢复；先让客户区重绘好再抬升，避免只画 frame 的空帧
         self.root.deiconify()
+        self._force_main_geometry()
         self.root.update_idletasks()
         self.root.lift()
         self.root.focus_force()
@@ -801,7 +816,11 @@ class LauncherApp:
                 pass
 
         self.hud_card_widgets = None
-        self._build_ui()
+        try:
+            self._build_ui()
+        finally:
+            # 核心修复：无论 _build_ui 是否抛出异常，都强制把窗口撑回原本大小
+            self._force_main_geometry()
 
         if self.is_topmost:
             self.root.attributes("-topmost", True)
@@ -993,8 +1012,15 @@ class LauncherApp:
             self._render_dashboard(self.current_trace_text, force=True)
 
         # 先隐藏主窗口，再一次性 reveal 悬浮窗，避免两窗口重叠闪烁
-        self.root.withdraw()
-        win.reveal()
+        try:
+            win.reveal()
+            self.root.withdraw()
+        except Exception as e:
+            # 如果悬浮窗失败，主窗口绝对不能隐藏，避免用户以为程序没了
+            self.root.deiconify()
+            self._force_main_geometry()
+            messagebox.showerror("错误", f"无法打开悬浮窗: {e}", parent=self.root)
+            return
 
     def _mini_start_trace(self) -> None:
         """悬浮窗：启动内存追踪。"""
@@ -1029,6 +1055,7 @@ class LauncherApp:
         if restore_main:
             try:
                 self.root.deiconify()
+                self._force_main_geometry()
                 self.root.update_idletasks()  # 先重绘再抬升，避免空帧
                 self.root.lift()
             except Exception:
