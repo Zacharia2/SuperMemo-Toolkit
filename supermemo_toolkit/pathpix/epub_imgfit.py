@@ -42,6 +42,8 @@ class EpubImageFit:
                 f"width:{width_val};height:auto;display:block;margin:1em auto;"
                 f"*zoom:1;-ms-interpolation-mode:bicubic;"
             ),
+            # 公式图不改样式，保留原有，同renderer.py图片类名
+            "fx-img": lambda: None,
         }
 
     # ====== 判断辅助函数 ======
@@ -138,17 +140,14 @@ class EpubImageFit:
 
         return scan(img.previous_sibling, "prev") or scan(img.next_sibling, "next")
 
-    def formula_kind(self, img):
-        """判断图片是否属于公式容器。返回 'block' / 'inline' / None"""
-        p = img.find_parent(class_="smtk-formula")
-        if p is None:
-            return None
-        cls = p.get("class") or []
-        return "block" if "smtk-block" in cls else "inline"
-
     # ====== 核心分类 ======
 
     def classify(self, img, base_dir):
+        # 判断图片是否属于公式容器
+        fx_img = img.find_parent(class_="smtk-formula")
+        if fx_img is not None:
+            return "fx-img"
+
         # 1. 行内小图：向上找块级祖先，段落有文字，且图片前后有文字
         block = img.find_parent(["p", "li", "td", "div"])
         if block:
@@ -175,28 +174,12 @@ class EpubImageFit:
         stats = {}
 
         for img in soup.find_all("img"):
-            fk = self.formula_kind(img)
-
-            # 1. 块级公式图：跳过
-            if fk == "block":
-                stats["formula-block(skip)"] = stats.get("formula-block(skip)", 0) + 1
-                continue
-
-            # 2. 行内公式：跳过
-            if fk == "inline":
-                # for attr in ("width", "height", "align", "border"):
-                #     if img.has_attr(attr):
-                #         del img[attr]
-                # # 只重写 style，保留 alt（fxGetSource 依赖）和 class（fxFindImg 依赖）
-                # img["style"] = self.style["inline"](
-                #     f"{self.formula_inline_height_em}em"
-                # )
-                stats["formula-inline(skip)"] = stats.get("formula-inline(skip)", 0) + 1
-                continue
-
-            # 3. 普通图片
+            # 普通图片
             cat = self.classify(img, base_dir)
-            w, _ = self.get_image_size(img.get("src", ""), base_dir)
+
+            if cat == "fx-img":
+                stats[f"{cat}(skip)"] = stats.get(f"{cat}(skip)", 0) + 1
+                continue
 
             # 删掉会干扰的旧属性
             for attr in ("width", "height", "align", "border"):
@@ -205,6 +188,7 @@ class EpubImageFit:
             if img.has_attr("style"):
                 del img["style"]
 
+            w, _ = self.get_image_size(img.get("src", ""), base_dir)
             if cat == "inline":
                 img["style"] = self.style[cat](str(self.inline_height_em) + "em")
             elif cat == "wide":

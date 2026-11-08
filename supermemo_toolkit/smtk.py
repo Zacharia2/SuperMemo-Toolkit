@@ -446,30 +446,28 @@ def imgfit(tracing, watching, ignore, max_width):
         except Exception:
             url = path  # 如果本来就是 URL，就直接用
 
-        IMG_RE = regex.compile(
+        TOTAL_IMG_RE = regex.compile(
             r"""(?isx)
             <!--.*?-->                                         (*SKIP)(*F)
             | <(?:script|style)\b[^>]*>.*?</(?:script|style)>  (*SKIP)(*F)
             | <(?:img|image)(?=[\s/>])(?:"[^"]*"|'[^']*'|[^>"'])*>
             """
         )
-        IMG_RE_CLASS = regex.compile(
+        MAREKD_IMG_RE_ = regex.compile(
             rf"\b(?:{'|'.join([f'smtk-{x}' for x in img_fitter.style])})\b"
         )
 
         with open(path, "r", encoding="utf-8") as fs:
             htm = fs.read()
 
-        progress_count = len(IMG_RE_CLASS.findall(htm))
-        has_progress = progress_count > 0
-        if has_progress and not ignore:
-            click.echo(
-                f"[No. {text_reg.eId}] [跳过] 已存在 {progress_count} 个标记，无需重复处理。"
-            )
+        total = len(TOTAL_IMG_RE.findall(htm))
+        marked = len(MAREKD_IMG_RE_.findall(htm))
+        need = total - marked
+        if need == 0 and not ignore:
+            click.echo(f"[No. {text_reg.eId}] [跳过] 全部图片已标记。")
             return CONTINUE
 
-        count = len(IMG_RE.findall(htm))
-        if count > 0:
+        if need > 0:
             click.echo(f"[No. {text_reg.eId}] [Title: {text_reg.eTitle[:12].strip()}]")
             if tracing:
                 hwnd = find_origin_window()
