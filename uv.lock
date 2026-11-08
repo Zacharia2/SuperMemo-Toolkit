@@ -376,11 +376,11 @@ wheels = [
 
 [[package]]
 name = "click"
-version = "8.5.0"
+version = "8.5.1"
 source = { registry = "https://repo.huaweicloud.com/repository/pypi/simple/" }
-sdist = { url = "https://repo.huaweicloud.com/repository/pypi/packages/c7/0e/7fa0ef50764b67090eca4114772a2abf8b6148198475e54c660b97caeee6/click-8.5.0.tar.gz", hash = "sha256:ba0d2089de75ea0310e2dde03160e6ca10009947fb95a182f9b54021bb272e34" }
+sdist = { url = "https://repo.huaweicloud.com/repository/pypi/packages/45/37/edbf1b0707709013c0cf2e8317e03d97ed29bf4cac709fe328904ae92a38/click-8.5.1.tar.gz", hash = "sha256:9bbfada76703fd1d784b83eea012e3e8c6a001a876543ef104fa56aaaeb072b4" }
 wheels = [
-    { url = "https://repo.huaweicloud.com/repository/pypi/packages/58/50/6c0d534c5f134586a8e1ba4e330569e32f057e33372ae556463212fb4cd3/click-8.5.0-py3-none-any.whl", hash = "sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/31/7d/164b7ffc8624fe9efb4221bf9af485d5c1e41b9ae118045d2b6dc5457d8b/click-8.5.1-py3-none-any.whl", hash = "sha256:8bb5376d2006950386f8c6427613334a2acadc5f559cb80e638d00b4df957e37" },
 ]
 
 [[package]]
@@ -907,25 +907,45 @@ wheels = [
 
 [[package]]
 name = "miniaudio"
-version = "1.71"
+version = "1.72"
 source = { registry = "https://repo.huaweicloud.com/repository/pypi/simple/" }
 dependencies = [
     { name = "cffi" },
 ]
-sdist = { url = "https://repo.huaweicloud.com/repository/pypi/packages/d8/d5/e5439dc08561f73656bfeb3340fc64ab63163e101426593d8fb9a025ff1e/miniaudio-1.71.tar.gz", hash = "sha256:ff51e2887bb673e2e757752b586b3dc924d59aa5fbcae9bbc45f4a111bd3262b" }
 wheels = [
-    { url = "https://repo.huaweicloud.com/repository/pypi/packages/3a/85/44545f767ec21142ffed5f9108406d11dc8a19aafed9bd57621a0892bb60/miniaudio-1.71-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:61b86f26d653040db32d9d15b05446321dd10e45beba25b44f841e26935213d5" },
-    { url = "https://repo.huaweicloud.com/repository/pypi/packages/bd/d1/071a560000c8ce903dc919968ecce40fbe7a73213ac399051b887184f8a3/miniaudio-1.71-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:d9dc15eff711bcfc62a9d05e0c78e4bc34821a455595e049629f2fea7491a523" },
-    { url = "https://repo.huaweicloud.com/repository/pypi/packages/46/24/5873a569451cae5686fb656ebd78ffe0b5eebe48ca21ef61e227d237d20a/miniaudio-1.71-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:12bc33e7e61072b4b541c14e10ef76119d5643e6bbb98e2dec0c0738889438fb" },
-    { url = "https://repo.huaweicloud.com/repository/pypi/packages/90/9b/25785525e6b5ff9afd7f4c4279215dc09c3317ea4d837275b1ae17912b36/miniaudio-1.71-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:70fa2ea5353e6919aca59b8c5768144af009d18c3bca251749d66fb497424563" },
-    { url = "https://repo.huaweicloud.com/repository/pypi/packages/b1/6d/cbfd55fdc40256231f7b0c861e2bf79cc289bfbbe5e15869317944e6d673/miniaudio-1.71-cp313-cp313-win32.whl", hash = "sha256:1bf93aeede652926f27f430f0fd69ef0cf8a949c07b537d6a2f295602c747037" },
-    { url = "https://repo.huaweicloud.com/repository/pypi/packages/8d/8d/d5059c04b247b1079c0e48914a9ec20352910a3b9373060fb258dfd194ab/miniaudio-1.71-cp313-cp313-win_amd64.whl", hash = "sha256:4c849ccb1349f7b3553a77a66fe7e972315185f5c4c44a0bbda7ebcdd224db37" },
-    { url = "https://repo.huaweicloud.com/repository/pypi/packages/16/e7/b3e0df641d2d5283446d7960fc407195ba722b9a0789bb0a1429bf9ee855/miniaudio-1.71-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:3ef441d139264f8a5dcb9aa6fcd0b1e1e69f58715baae416ff33f045ffba6ad5" },
-    { url = "https://repo.huaweicloud.com/repository/pypi/packages/66/ea/f5940232d0c83777562e802f376a841046d78e94753450fb9a6685a44190/miniaudio-1.71-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:84139a10ef172acd762ccf120142877b037a1aaf71def99d2c75f66329f89d8b" },
-    { url = "https://repo.huaweicloud.com/repository/pypi/packages/fd/a6/6b5ae21b74fe70da935de389e01b3cce86c790ca4083f6a63c3ee922673e/miniaudio-1.71-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:8a28ff4ad23e55bbde8808ce525d3bb7d249d7612f77646b30e06fc6b7a778ac" },
-    { url = "https://repo.huaweicloud.com/repository/pypi/packages/4b/43/ef851e2e1d9dfde2b97cc053f0d79c6612088b27044698ed5d8c687f05de/miniaudio-1.71-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:33986d5d725ebcbc253551e7358689bc81b19b6950b33cec8e8c1142ca4fc0a9" },
-    { url = "https://repo.huaweicloud.com/repository/pypi/packages/1b/4a/0da61fea8b8469d51b77d43846572ef9255d54c9b6b65a552446bbd55f90/miniaudio-1.71-cp314-cp314-win32.whl", hash = "sha256:3bbeb1e068fe42475e017e8150e9e345182b583d0dd4d9e77ffa20c39935d9ec" },
-    { url = "https://repo.huaweicloud.com/repository/pypi/packages/dd/d0/ad7bfa63e1baacd2d4803ee04862bb06fcfbbb34a340bf2bf3979e0068dc/miniaudio-1.71-cp314-cp314-win_amd64.whl", hash = "sha256:154b085dd914a0e79e3d93160e1a07aacb27d66c65f9ef6a0d87c1a194f32c04" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/5b/7a/1a8fe225fc71cb7da23f6d1842a5dc6e0759f64c68210149545a452437ed/miniaudio-1.72-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:75b10edd9eb6db690cc8d592d43f2096a036acbb45213137c649fadc083c10c7" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/84/c3/07ceb6d4edfcd6883dd48f901548132d53dc6860a9fd30c35cd92d932b08/miniaudio-1.72-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:1b13f6046d737a6ce5febb04d184df4577aea0499f9d7c078e2cc0d6b9575725" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/20/b6/8ceee82e843fbde034e9e95780bfb8459601476802a56685ae60d649fa6b/miniaudio-1.72-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:fe03d3be8b50ba00769f1c3435b7c37abcd661668d4fea240589bc8321e62074" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/e3/c8/427f994dfd87c6183426d9eca34258899522fb51ebed3e0c2fbc55825ddd/miniaudio-1.72-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9df16f9f7fdf9c48ba619d79657947e5407486c78e004a07ee87aed9b56c53d7" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/5f/bf/8e2e5ba14e578c5e19c816947597792644d516ce3da8747b9d12d50c6400/miniaudio-1.72-cp313-cp313-manylinux_2_31_armv7l.whl", hash = "sha256:2e4eb013ef514dbd854cd620107c58b03e7095b4eec269f942f271da131d8f9c" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/b1/d6/bef8b0da8e4962f08ea042ad07a6db54df101644f2a4a629cbda65f5708a/miniaudio-1.72-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:1cd6415a9609bf830898b6e68d4ca6fbc00e6c0538d77a044311a8648a998605" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/c5/68/a379d277a7887aa166096f80f4cd155f7da2f5bc2a5b316fbe6daa81f474/miniaudio-1.72-cp313-cp313-musllinux_1_2_armv7l.whl", hash = "sha256:c0c2caf437b0dfc04e785cb6b7d2e7cc39cd706d07244583470ee2cc9efa2252" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/7f/e6/9727177449c81dc561e150a21106765c202096587e949fbe4b2edddbb340/miniaudio-1.72-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:bce5ee93c876f6ac889c2c3a8f1bf65146189d809fb44cce8bdef8238f6d3710" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/6c/e3/a18cd7c15363c5cea71242f9c4d2d8f9695e0f501c4af25eb4839e29ece9/miniaudio-1.72-cp313-cp313-win32.whl", hash = "sha256:7c56fa524ea776b3db529a31bcb44c470a31c8f2699c0ecd699f9019b0611594" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/a5/f4/c4368c0323c014acda70423f8ed075b8ecb434b17cf8ef6bf3133de41009/miniaudio-1.72-cp313-cp313-win_amd64.whl", hash = "sha256:8530ef731c01fba9ba1fdd77fdc06106681f9164918b165c10c88af77f9e8494" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/b7/a3/a1c288fc0da28a257d803a9b0ab4816ae6dbdc6b942a4f7012b76e23ac39/miniaudio-1.72-cp313-cp313-win_arm64.whl", hash = "sha256:7c4571055af342da5c44e40cf6a46af13486f97af55c346ddd88b1b0feee2247" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/eb/d8/552a5b40b10d160e1821ee37322da0d4994f3abb6966a5e211eae32e1f2f/miniaudio-1.72-cp314-cp314-macosx_10_15_x86_64.whl", hash = "sha256:d3881e211b1b29348cda5ad5f6802155d37309118cafd7bb1d2d2eec1f032303" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/eb/9e/fb278d5b49e26929c0fd62b7b6997217b498bcfa1338759db537ebf66a54/miniaudio-1.72-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:c0cee26e6a6968521c4e2f31557ebe79e95d08262e612ce8f16c8bf943f729bc" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/f8/7e/2505e11eacfe024281e32d08410b45dd584fb037f4d0a35bf4a8f8591546/miniaudio-1.72-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:0d0e4ab00fbc5c8c3635e655eb35d5a6356fb8f8ed3722f7581acdc6d73f96b9" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/99/c8/b5ecba8a6865bbbab05a956bf2c3addf0eb5f3e89172c0d0a89e4e9642ca/miniaudio-1.72-cp314-cp314-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:077889d39eade42479d029746f69d6f9162ca625ee5c3faec4ca7df882857e9e" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/c4/7d/98549c9ddb3de90fc0f36110ab14a82fdc95853e73d39122c5351c8d49c7/miniaudio-1.72-cp314-cp314-manylinux_2_31_armv7l.whl", hash = "sha256:6e0614fda3435c2ee54aaf33196d33f0e5da8be1b3a1c20560595c37ecc51e64" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/2e/38/37ec794d202b9074389eba272624516041c3c94038495c7feca0c2e28651/miniaudio-1.72-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:fca866a89c57310ee8d59742cac70e919d1244ecf3aba195b33387eaa4a970e7" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/24/10/507f233bb5146c2aedaed7a9de7a03f524e6b6fe982ab0b280ac404de701/miniaudio-1.72-cp314-cp314-musllinux_1_2_armv7l.whl", hash = "sha256:32c6cb6784a56678fce744ce4b8a903d77a60cd55c455e265458b2045da049bc" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/87/6e/ff4272185a6311b1efcd2a296d3997240b741f9ff1296324708ee738deeb/miniaudio-1.72-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:a884dd5c485ed4277617476ea19dcdb41fb37e8df399b7890e89d34b7d7cb77d" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/22/ea/f5e7b9de9117f6f0a9df8bfcfb1de425fb9658e567252694c1b45461bb4d/miniaudio-1.72-cp314-cp314-win32.whl", hash = "sha256:3ef8657ca35029120e255091c658b7754cb6b87cde30e699c4c723a89c53917d" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/34/53/e2dec588a4a9950a3c593b48ca9e9ad5aa8fb3b432dd316e0cf9a95f288a/miniaudio-1.72-cp314-cp314-win_amd64.whl", hash = "sha256:722138f2ef83b0417cd0e11cfb18a8cbc5085200f6661b848d20501ab4984b01" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/11/15/43792d779f0af755cf7ed9a6eec827f17120dd65528a07fbf85e50b45022/miniaudio-1.72-cp314-cp314-win_arm64.whl", hash = "sha256:6a189f1b736a255f86d9877179d0b0ccba68ff43a658d105228cc5b593029bb5" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/b7/20/e9a45414e57047f55c65b45e1c53b6f07ea37eacaf7b940fd4b2ebb7d722/miniaudio-1.72-cp314-cp314t-macosx_10_15_x86_64.whl", hash = "sha256:de6bf752d4688fd0a181ca4d55f3690edc86c5d6c64b131c4ff2dab309f62409" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/57/58/39e3c18f49e88dd672acb09dfd2dfdc227bd26ed07f12bf5e1c553b02a39/miniaudio-1.72-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:9f5553022d14ba7563d9fddcac630091b719961bf26700b193545ddbb8998018" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/fc/96/bff7a24a7eee7228b21d5b835d323348f894374557f1263c90629b48ac4f/miniaudio-1.72-cp314-cp314t-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:180ac50f781e8e4b848c9bac091e429f4c1afb019689db9ab0883ffe250187e3" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/c2/67/9c8ff4a30ba7b32d8ecf99f926564619319742d76159ddd3a89a2c0c87f3/miniaudio-1.72-cp314-cp314t-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d481d1216173e84b86f14a1a6c7d358526eb351037e1983702380a0c31c0a382" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/e9/e3/030a23144555f4a2dd9d67569f89286a724f62e4ad823dd1a8afc6b3912c/miniaudio-1.72-cp314-cp314t-manylinux_2_31_armv7l.whl", hash = "sha256:14243147c5164f8fe9377dc623062e4bb40fa4984f96df9262d4d5ca1d28d0bc" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/ae/c2/610d66ea14c5b80f8830e138699f212158afeec347af7fa702c2e420bf38/miniaudio-1.72-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:85a925ffff435f6efb99b54c07fe77bc4e574b7b0d8a6d9a72ceeb0e70371bde" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/52/6f/e874f480c9bb13e3c98a698c6ed03dbdc609ea15884f8ff366d1b62ce0c7/miniaudio-1.72-cp314-cp314t-musllinux_1_2_armv7l.whl", hash = "sha256:7838260ed28d938e9dc78cecff29c407e7e99e25a1c078d8502e4189d23cd517" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/d4/96/3292a2bbfbc2555d600a495b65a8b63306bbfd992ac1ad272f51bb974965/miniaudio-1.72-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:049962f6323801772d11c79fb8e0496336780bbe2d6c2edd954e9a769517ccda" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/a1/c4/e172cb3e20c99c58fb6ea084abcaa82c1e4e687f91c0656e23ab7f02efbf/miniaudio-1.72-cp314-cp314t-win32.whl", hash = "sha256:9b02f8261b999394e2a49d0fce6006478868a1e81ea427fb5b52dc40a6a74535" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/9c/a0/4b5ea21e8b2e70f680bb550f4eac20e0a727a66ef57d2e815380e7d3235f/miniaudio-1.72-cp314-cp314t-win_amd64.whl", hash = "sha256:64c7ffbf21a5a377ce0dcedaeded3e63c231902ad749a7708852a669d1a341a1" },
+    { url = "https://repo.huaweicloud.com/repository/pypi/packages/fb/95/6a0f6fce5a8f3435cdbb9ebc6d9407605daf3374aae52f8ac24380063cae/miniaudio-1.72-cp314-cp314t-win_arm64.whl", hash = "sha256:d17860784416d66ccd2087352f467aa8e91691bd5b1b92307c4a749e9ded34bc" },
 ]
 
 [[package]]
@@ -1722,11 +1742,11 @@ dev = [
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.15.0" },
     { name = "charset-normalizer", specifier = ">=3.5.2" },
-    { name = "click", specifier = ">=8.5.0" },
+    { name = "click", specifier = ">=8.5.1" },
     { name = "ebooklib", specifier = ">=0.21" },
     { name = "edge-tts", specifier = ">=7.3.1" },
     { name = "matplotlib", specifier = ">=3.11.2" },
-    { name = "miniaudio", specifier = ">=1.71" },
+    { name = "miniaudio", specifier = ">=1.72" },
     { name = "numpy", specifier = ">=2.5.4" },
     { name = "pillow", specifier = ">=13.0.0" },
     { name = "prompt-toolkit", specifier = ">=3.0.53" },
@@ -1737,7 +1757,7 @@ requires-dist = [
     { name = "python-magic", marker = "sys_platform != 'win32'", specifier = ">=0.4.27" },
     { name = "python-magic-bin", marker = "sys_platform == 'win32'", specifier = ">=0.4.14" },
     { name = "pywinauto", marker = "sys_platform == 'win32'", specifier = ">=0.6.9" },
-    { name = "regex", specifier = ">=2026.9.29" },
+    { name = "regex", specifier = ">=2026.11.7" },
     { name = "requests", specifier = ">=2.34.2" },
     { name = "sounddevice", specifier = ">=0.5.6" },
     { name = "svglib", specifier = ">=2.4.0" },

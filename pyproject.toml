@@ -16,11 +16,11 @@ requires-python = ">=3.13"
 dependencies = [
     "beautifulsoup4>=4.15.0",
     "charset-normalizer>=3.5.2",
-    "click>=8.5.0",
+    "click>=8.5.1",
     "ebooklib>=0.21",
     "edge-tts>=7.3.1",
     "matplotlib>=3.11.2",
-    "miniaudio>=1.71",
+    "miniaudio>=1.72",
     "numpy>=2.5.4",
     "pillow>=13.0.0",
     "prompt-toolkit>=3.0.53",
@@ -31,7 +31,7 @@ dependencies = [
     "python-magic>=0.4.27; sys_platform != 'win32'",
     "python-magic-bin>=0.4.14; sys_platform == 'win32'",
     "pywinauto>=0.6.9; sys_platform == 'win32'",
-    "regex>=2026.9.29",
+    "regex>=2026.11.7",
     "requests>=2.34.2",
     "sounddevice>=0.5.6",
     "svglib>=2.4.0",
@@ -41,7 +41,7 @@ dependencies = [
 ]
 
 # setx PYTHONUTF8 1
-# uvx uv-upsync
+# uvx uv-upsync --index-url https://mirrors.ustc.edu.cn/pypi/simple/ 
 # uvx uv-bump
 
 [dependency-groups]
@@ -64,12 +64,12 @@ source = "file"
 path = "supermemo_toolkit/__init__.py"
 
 [[tool.pdm.source]]
-name = "tuna"
+name = "huawei"
 url = "https://repo.huaweicloud.com/repository/pypi/simple/"
 verify_ssl = true
 
 [[tool.uv.index]]
-name = "tuna"
+name = "huawei"
 url = "https://repo.huaweicloud.com/repository/pypi/simple/"
 default = true
 
