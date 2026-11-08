@@ -1784,6 +1784,9 @@ class Watcher:
         self._idle_event.set()
         # set() 表示「监听已暂停」。默认不暂停。
         self._pause_event = threading.Event()
+        # 保护 _holder["_last_icon_key"] 的「检查-写入」原子性。
+        # RLock 允许 _update_icon_done 在持锁时嵌套调用 _update_icon。
+        self._icon_lock = threading.RLock()
 
     @property
     def config(self) -> BackupConfig:
@@ -1813,10 +1816,10 @@ class Watcher:
             return
         if r.skipped:
             log.info(f"{c.name}: backup skipped (no change)")
-            self._update_icon("done", f"{c.name} 无变化")
+            self._update_icon_done(f"{c.name} 无变化")
         else:
             log.info(f"{c.name}: backup {r.commit[:8]}")
-            self._update_icon("done", f"{c.name} 已备份")
+            self._update_icon_done(f"{c.name} 已备份")
 
     def _is_active_safe(self, c: Collection, err_state: dict[str, bool]) -> bool | None:
         """探测集合是否激活。
@@ -1925,13 +1928,49 @@ class Watcher:
                 self._track(lambda c=c: self._backup_only(c))
 
     def _update_icon(self, state: str, detail: str = "") -> None:
-        if self._holder.get("icon") is None:
-            return
-        key = (state, detail)
-        if key == self._holder.get("_last_icon_key"):
-            return
-        self._holder["_last_icon_key"] = key
-        _update_icon(self._holder, state, detail)
+        with self._icon_lock:
+            if self._holder.get("icon") is None:
+                return
+            key = (state, detail)
+            if key == self._holder.get("_last_icon_key"):
+                return
+            self._holder["_last_icon_key"] = key
+            _update_icon(self._holder, state, detail)
+
+    def _update_icon_done(self, detail: str = "") -> None:
+        """显示 done 状态；若监听处于暂停中，几秒后切回 paused 色。
+
+        done 是操作的临时反馈（几秒钟就够了），paused 是持久的用户选择。
+        直接写 done 会让暂停状态在视觉上"丢失"——用户看到灰色会以为
+        监听被恢复了。这里延迟几秒让用户看清操作结果，再恢复暂停图标。
+
+        延迟期间若图标已被其他状态覆盖（新操作、真正恢复监听、报错等），
+        不覆盖新状态：_check 持 _icon_lock 重新比对 _last_icon_key，
+        且再确认 _pause_event 仍 set。_on_toggle_pause 的 clear() 在
+        锁外执行，但随后的 _update_icon("waiting") 会拿锁；若 toggle
+        先写 waiting，_check 的 key 比对失败而退出；若 _check 先写
+        paused，toggle 的 waiting 随后覆盖，最终状态正确。
+        """
+        with self._icon_lock:
+            self._update_icon("done", detail)  # RLock 可重入
+            if self._stop_event is None or self._stop_event.is_set():
+                return
+            if not self._pause_event.is_set():
+                return
+            current_key = self._holder.get("_last_icon_key")
+
+        def _check() -> None:
+            _time.sleep(3.0)
+            with self._icon_lock:
+                if self._stop_event is None or self._stop_event.is_set():
+                    return
+                if not self._pause_event.is_set():
+                    return
+                if self._holder.get("_last_icon_key") != current_key:
+                    return
+                self._update_icon("paused", "监听已暂停")
+
+        threading.Thread(target=_check, daemon=True, name="pause-icon-restore").start()
 
     def _on_compact(self, icon, item, name: str | None = None) -> None:
         """托盘菜单：压缩历史（后台执行，不阻塞托盘）。
@@ -1963,7 +2002,7 @@ class Watcher:
                     if not targets:
                         log.info("compact: 无已初始化集合，跳过")
                         _notify("无已初始化集合，无需压缩")
-                        self._update_icon("done", "无已初始化集合")
+                        self._update_icon_done("无已初始化集合")
                         return
                 else:
                     c = next(
@@ -1984,7 +2023,7 @@ class Watcher:
                     if not initialized:
                         log.info(f"{name}: 未初始化，跳过压缩")
                         _notify(f"{name} 未初始化")
-                        self._update_icon("done", f"{name} 未初始化")
+                        self._update_icon_done(f"{name} 未初始化")
                         return
                     targets = [c]
 
@@ -2007,7 +2046,7 @@ class Watcher:
                     self._update_icon("error", f"压缩失败: {', '.join(failed)}")
                 else:
                     _notify("压缩完成" if name is None else f"{name} 压缩完成")
-                    self._update_icon("done", "压缩完成")
+                    self._update_icon_done("压缩完成")
             except Exception as e:
                 log.error(f"compact background thread failed: {e}")
 
@@ -2179,7 +2218,7 @@ class Watcher:
                 if not initialized:
                     log.info(f"{name}: 未初始化，跳过 reset")
                     _notify(f"{name} 未初始化，跳过")
-                    self._update_icon("done", f"{name} 未初始化")
+                    self._update_icon_done(f"{name} 未初始化")
                     return
 
                 try:
@@ -2200,7 +2239,7 @@ class Watcher:
                 except NoTargetCommit as e:
                     log.info(f"{name}: reset to {target} skipped: {e}")
                     _notify(f"{name} 无目标提交（{label}）")
-                    self._update_icon("done", f"{name} 无目标提交")
+                    self._update_icon_done(f"{name} 无目标提交")
                     return
                 except ResetFailed as e:
                     log.warning(f"{name}: reset failed but rolled back: {e}")
@@ -2255,7 +2294,7 @@ class Watcher:
                     self._update_icon("error", f"{name} 已重置（快照残留）")
                 else:
                     _notify(f"{name} 已重置到 {label}（未备份改动已丢弃）")
-                    self._update_icon("done", f"{name} 已重置 ({label})")
+                    self._update_icon_done(f"{name} 已重置 ({label})")
             except Exception as e:
                 log.error(f"reset background thread failed: {e}")
 
