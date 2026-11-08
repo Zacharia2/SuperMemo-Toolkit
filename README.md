@@ -2,11 +2,12 @@
 
 SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS卡片朗读、Trace追踪当前元素和文本注册表（API）、无感执行菜单命令（API）、SplitLine快捷分割当前元素、imgfit调整当前元素图片大小、Time时间梯度备份等。
 
-<center>
-<img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261106183709347-1145095935.png" width="400"/>
-<img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261106183046434-1546553435.png" width="400"/>
-<img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261107152303570-431994600.png" width="800"/>
-</center>
+<div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px;">
+  <img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261107152303570-431994600.png" style="width:100%;" />
+  <img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261108185809298-1897115925.png" style="width:100%;" />
+  <img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261106183709347-1145095935.png" style="width:100%;" />
+  <img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261108190431741-1747787005.png" style="width:100%;" />
+</div>
 
 ## 1. Install
 
