@@ -1977,40 +1977,80 @@ class Watcher:
             self._holder["_last_icon_key"] = key
             _update_icon(self._holder, state, detail)
 
-    def _update_icon_done(self, detail: str = "") -> None:
-        """显示 done 状态；若监听处于暂停中，几秒后切回 paused 色。
+    def _active_collection_name(self) -> str | None:
+        """返回当前处于激活状态（.kno 存在且被锁定）的第一个集合名（按配置顺序）；
+        无激活集合或全部探测失败时返回 None。
 
-        done 是操作的临时反馈（几秒钟就够了），paused 是持久的用户选择。
-        直接写 done 会让暂停状态在视觉上"丢失"——用户看到灰色会以为
-        监听被恢复了。这里延迟几秒让用户看清操作结果，再恢复暂停图标。
+        仅用于 _update_icon_done 的延迟恢复。探测失败静默跳过（错误日志由
+        _poll_loop 的 _is_active_safe 负责，这里不重复）。多集合同时激活时
+        返回第一个；_probe_states 循环刷新最终显示最后一个，两者 detail
+        可能不同，但状态（active 蓝色）一致，不影响用户感知。
+        """
+        for c in self._config.collections:
+            try:
+                kno = c.kno_path()
+                if kno.is_file() and is_kno_locked(kno):
+                    return c.name
+            except Exception:  # noqa: BLE001, S112
+                continue
+        return None
+
+    def _update_icon_done(self, detail: str = "") -> None:
+        """显示 done 状态；若存在持久状态（监听暂停 / 集合激活），
+        几秒后恢复对应图标。
+
+        done 是操作的临时反馈（几秒钟就够了）。两类持久状态会被 done
+        在视觉上覆盖，都需要延迟恢复：
+          - paused：用户显式暂停监听。
+          - active：某个集合正在激活（.kno 被锁定）。典型场景：切换
+            集合时旧集合备份完成，done 覆盖了新集合的 active 图标，
+            而 _poll_loop 只在状态转换时刷新 active，导致蓝色再也
+            回不来。
+        paused 优先于 active：监听暂停期间不感知集合状态，恢复时也只
+        回到 paused 图标。
 
         延迟期间若图标已被其他状态覆盖（新操作、真正恢复监听、报错等），
         不覆盖新状态：_check 持 _icon_lock 重新比对 _last_icon_key，
-        且再确认 _pause_event 仍 set。_on_toggle_pause 的 clear() 在
-        锁外执行，但随后的 _update_icon("waiting") 会拿锁；若 toggle
-        先写 waiting，_check 的 key 比对失败而退出；若 _check 先写
-        paused，toggle 的 waiting 随后覆盖，最终状态正确。
+        并重新检查 _pause_event / 集合激活状态。
+
+        注意：无暂停时也会启动 _check 线程（原实现无暂停时直接 return），
+        因为 active 状态同样需要延迟恢复。线程 2 秒后结束，数量可控。
+
+        restart 安全：_check 捕获 stop_event 引用。旧线程在 stop 时
+        stop_event 已 set，restart 后醒来立即退出，不会误刷新 icon
+        （原实现靠 _pause_event 在 start() 时 clear 兜底；本实现无暂停
+        时也启动线程，该兜底失效，必须显式检查 stop_event）。
         """
         with self._icon_lock:
             self._update_icon("done", detail)  # RLock 可重入
             if self._stop_event is None or self._stop_event.is_set():
                 return
-            if not self._pause_event.is_set():
-                return
+            stop_event = self._stop_event
             current_key = self._holder.get("_last_icon_key")
 
         def _check() -> None:
-            _time.sleep(3.0)
+            _time.sleep(2)
+            if stop_event.is_set():
+                return
+            # 探测在锁外：is_kno_locked 触发文件系统 IO，不应在图标锁内
+            # 执行。paused 优先，暂停时不探测 active（与 _poll_loop 暂停
+            # 期间不探测的语义一致）。
+            paused_now = self._pause_event.is_set()
+            active_now = None if paused_now else self._active_collection_name()
+            if stop_event.is_set():
+                return
             with self._icon_lock:
-                if self._stop_event is None or self._stop_event.is_set():
-                    return
-                if not self._pause_event.is_set():
+                if stop_event.is_set():
                     return
                 if self._holder.get("_last_icon_key") != current_key:
                     return
-                self._update_icon("paused", "监听已暂停")
+                if self._pause_event.is_set():
+                    # 探测后到拿锁之间用户可能刚暂停，重新检查，paused 优先。
+                    self._update_icon("paused", "监听已暂停")
+                elif active_now is not None:
+                    self._update_icon("active", active_now)
 
-        threading.Thread(target=_check, daemon=True, name="pause-icon-restore").start()
+        threading.Thread(target=_check, daemon=True, name="done-icon-restore").start()
 
     def _on_compact(self, icon, item, name: str | None = None) -> None:
         """托盘菜单：压缩历史（后台执行，不阻塞托盘）。
