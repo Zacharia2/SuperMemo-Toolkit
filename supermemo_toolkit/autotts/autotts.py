@@ -1,24 +1,18 @@
 import logging
-import sys
 import threading
-import warnings
 from tkinter import messagebox
 
 import pyperclip
-import win32api
-import win32con
 import win32gui
-import win32process
-from pywinauto.application import Application
 from pywinauto.findwindows import ElementNotFoundError
 
 from supermemo_toolkit.autotts.replace import normalize_text
 from supermemo_toolkit.autotts.switcher import AudioSwitcher
 from supermemo_toolkit.autotts.ui import WinGUI
-from supermemo_toolkit.database.element_no import compute_sm_ver
 from supermemo_toolkit.database.htmtext import get_supermemo_html
 from supermemo_toolkit.database.registry import TextRegistry
 from supermemo_toolkit.database.trace import Trace
+from supermemo_toolkit.utilscripts.connector import supermemo
 
 
 class AutoTTS:
@@ -27,7 +21,7 @@ class AutoTTS:
 
         if not onlyat:
             self.trace: Trace = Trace()
-            self.app = self.trace.app
+            self.app = supermemo.app
             if self.app is None:
                 raise RuntimeError("AutoTTS 初始化失败，无法连接到 SuperMemo")
 
@@ -38,6 +32,7 @@ class AutoTTS:
         self.eid = None
         self.title = None
         self.legacy_version_his_window_text: str = ""
+        self.legacy_sm_closed: bool = False
 
     def play_current_content(self, text_reg: TextRegistry = None):
         """在主线程里真正播放当前内容"""
@@ -126,6 +121,19 @@ class AutoTTS:
         if self.stoped:
             self.window.after(500, self.legacy)
             return
+
+        if supermemo.snapshot is None:
+            if supermemo.ensure_snapshot() is None:
+                if not self.legacy_sm_closed:
+                    self.window.update_lable_text("[TTS] SuperMemo 已关闭，等待重启")
+                    self.legacy_sm_closed = True
+                    self.legacy_version_his_window_text = ""
+                self.window.after(2000, self.legacy)
+                return
+            self.app = supermemo.app
+            self.legacy_sm_closed = False
+            self.legacy_version_his_window_text = ""
+
         # 1. 光标位置必须在选定区域内
         if not focusInArea():
             self.window.after(500, self.legacy)
@@ -133,7 +141,11 @@ class AutoTTS:
 
         # 3. 历史最求窗口名和当前最前窗口名必须不一致
         # 当光标在选定区域并且最前窗口为选定区域，说明目标窗口聚焦
-        foregroundWindowText: str = self.app.window(class_name="TElWind").window_text()
+        foregroundWindowText = supermemo.window_text()
+        if not foregroundWindowText:
+            self.window.after(500, self.legacy)
+            return
+
         if self.legacy_version_his_window_text != foregroundWindowText:
             print(f"[Main] 窗口标题: {foregroundWindowText}")
             text = get_supermemo_html(self.app)
@@ -265,31 +277,16 @@ class Win(WinGUI):
 
 
 def supermemo_ver():
-    try:
-        warnings.filterwarnings(
-            "ignore", message=".*32-bit application should be automated.*"
-        )
-        app = Application(backend="win32").connect(
-            class_name="TElWind", visible_only=False
-        )
-        h = win32api.OpenProcess(
-            win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
-            False,
-            app.process,
-        )
-        try:
-            file_path = win32process.GetModuleFileNameEx(h, 0)
-            sm_ver = compute_sm_ver(file_path)
-        finally:
-            win32api.CloseHandle(h)
-
-    except Exception as e:  # noqa: BLE001
-        if isinstance(e, ElementNotFoundError):
-            messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
+    """兼容旧调用。返回 sm_ver 或 None（弹窗已弹）。"""
+    snap = supermemo.ensure_snapshot()
+    if snap is None:
+        err = supermemo.last_error
+        if isinstance(err, ElementNotFoundError):
+            messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(err))
         else:
-            messagebox.showerror("错误", e)
-        return
-    return sm_ver
+            messagebox.showerror("错误", str(err) if err else "无法连接 SuperMemo")
+        return None
+    return snap.sm_ver
 
 
 def run_auto_tts(onlyat: bool = False):

@@ -1,22 +1,21 @@
 import os
 import sys
 import time
-import warnings
 from collections.abc import Callable
 from pathlib import Path
-from tkinter import messagebox
 from typing import Literal
 
-import win32api
-import win32con
-import win32process
-from pywinauto.application import Application
 from pywinauto.findwindows import ElementNotFoundError
 from watchdog.observers import Observer
 
-from supermemo_toolkit.database.element_no import ElementNo, TempHandler
+from supermemo_toolkit.database.element_no import (
+    ElementNo,
+    MemoryScanFailed,
+    TempHandler,
+)
 from supermemo_toolkit.database.registry import TextRegistry
 from supermemo_toolkit.utilscripts import config
+from supermemo_toolkit.utilscripts.connector import SuperMemoNotAvailable, supermemo
 from supermemo_toolkit.utilscripts.ulils import is_collection_active
 
 
@@ -32,19 +31,8 @@ class Trace:
     def __init__(self):
         self.__stoped = False
         self.his_id = []
-        self.telwind_hwnd: int | None = None
-        self.app: Application | None = None
-
-    def _get_process_start_timestamp(self, pid):
-        """
-        返回进程启动时间的 Unix 时间戳（浮点秒），格式同 time.time()
-        """
-        h = win32api.OpenProcess(win32con.PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
-        try:
-            info = win32process.GetProcessTimes(h)
-            return info["CreationTime"].timestamp()
-        finally:
-            win32api.CloseHandle(h)
+        self.telwind_hwnd: int | None = supermemo.telwind_hwnd
+        self.app = supermemo.app
 
     def _get_active_kno_path(self):
         smtk_config_file_path = os.path.join(config.config_dir(), "conf.json")
@@ -52,7 +40,6 @@ class Trace:
 
         conf_dict = config.read_config(smtk_config_file_path)
         kno_list = []
-        ""
         if config.KNOS in conf_dict and len(conf_dict[config.KNOS]) > 0:
             kno_list = []
             for x in [x.values() for x in conf_dict[config.KNOS]]:
@@ -60,9 +47,9 @@ class Trace:
             kno_list = [os.path.normpath(x + ".kno").lower() for x in kno_list]
         col_list = [
             os.path.normpath(os.path.join(sm_location, "systems", y + ".kno").lower())
-            for y in [x for x in config.get_collections_primaryStorage(sm_location)]
+            for y in config.get_collections_primaryStorage(sm_location)
         ]
-        all_kno_path: list[str] = kno_list + col_list
+        all_kno_path = kno_list + col_list
         for kno_path in all_kno_path:
             if is_collection_active(Path(kno_path)):
                 return kno_path.removesuffix(".kno")
@@ -94,7 +81,13 @@ class Trace:
               就会在窗口外误判为「整体退出」。两个进程并发追踪时相位错开，
               几乎必有一个落在窗口外，表现为「一开一关就只剩一个命令还活着」。
             """
-            reader = ElementNo()
+            try:
+                reader = ElementNo()
+            except SuperMemoNotAvailable:
+                return not should_abort is None
+            except MemoryScanFailed as e:
+                print(f"[Trace] {e}")
+                return not should_abort is None
             self.telwind_hwnd = reader.telwind_hwnd
             self.app = reader.app
             text_reg = TextRegistry(active_kno_path)
@@ -110,7 +103,8 @@ class Trace:
                         return True
 
                     # 3) SM 进程退出
-                    if not reader.app.is_process_running():
+                    cur = supermemo.snapshot
+                    if cur is None or cur.identity != reader._snap.identity:
                         # watch 模式：进程没了但应继续等下一个集合 → 回监听
                         if should_abort is not None:  # noqa: SIM103
                             return True
@@ -128,7 +122,7 @@ class Trace:
                                 return False
                             if should_abort is not None and should_abort():
                                 return True
-                            if not reader.app.is_process_running():
+                            if supermemo.snapshot is None:
                                 # watch 模式：进程没了但应继续等下一个集合 → 回监听
                                 if should_abort is not None:  # noqa: SIM103
                                     return True
@@ -153,11 +147,11 @@ class Trace:
             last_kno_path = None
             while not self.__stoped:
                 # 如果 SM 进程没启动，先等它启动再继续
-                if Trace.exe_is_runing() is False:
-                    while True:
-                        time.sleep(2)
-                        if Trace.exe_is_runing() is True:
-                            break
+                # 把停止信号传给 wait_until_running，保证后台线程能被 stop_trace() 立即唤醒
+                if not supermemo.wait_until_running(
+                    stop_check=lambda: bool(self.__stoped)
+                ):
+                    return
 
                 active_kno_path = self._get_active_kno_path()
                 if active_kno_path is None or active_kno_path == last_kno_path:
@@ -177,61 +171,62 @@ class Trace:
                 self._watch_running = False
 
     def trace_with_observer(self, callback: Callable[[int, TextRegistry], any]):
-        try:
-            warnings.filterwarnings(
-                "ignore", message=".*32-bit application should be automated.*"
-            )
-            app = Application(backend="win32").connect(
-                class_name="TElWind", visible_only=False
-            )
-            self.telwind_hwnd = app.window(class_name="TElWind").handle
-            self.app = app
-        except Exception as e:  # noqa: BLE001
-            if isinstance(e, ElementNotFoundError):
-                messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
+        snap = supermemo.ensure_snapshot()
+        if snap is None:
+            from tkinter import messagebox
+
+            err = supermemo.last_error
+            if isinstance(err, ElementNotFoundError):
+                messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(err))
             else:
-                messagebox.showerror("错误", e)
+                messagebox.showerror("错误", str(err) if err else "无法连接 SuperMemo")
             return
 
+        self.telwind_hwnd = snap.telwind_hwnd
+        self.app = snap.app
+
         active_kno_path = self._get_active_kno_path()
-        if active_kno_path == None:
+        if active_kno_path is None:
             return
         text_reg = TextRegistry(active_kno_path)
 
         def on_element_changed(elem_id):
             # print(f"[TempHandler] [No. {elem_id}]")
             text_reg.refresh(element_id=elem_id)
-            if text_reg.eId == None:
+            if text_reg.eId is None:
                 time.sleep(0.5)
-                if not app.is_process_running():
+                if supermemo.snapshot is None:
                     return
             callback(text_reg)
 
         observer = Observer()
         temp_dir = os.path.join(active_kno_path, "temp")
-        handler = TempHandler(
-            temp_dir, on_element_changed, self._get_process_start_timestamp(app.process)
-        )
+        handler = TempHandler(temp_dir, on_element_changed, snap.process_start_ts)
         observer.schedule(handler, temp_dir, recursive=False)
         observer.start()
-
-        while True:
-            if not app.is_process_running():
-                return
-            if self.__stoped:
-                return
-            time.sleep(0.1)
+        try:
+            while True:
+                if supermemo.snapshot is None:
+                    return
+                if supermemo.identity != snap.identity:
+                    # SuperMemo 重启（pid 复用也会被 process_start_ts 拦住）
+                    return
+                if self.__stoped:
+                    return
+                time.sleep(0.1)
+        finally:
+            observer.stop()
+            observer.join()
 
     def trace_with_id(self, elem_id):
         active_kno_path = self._get_active_kno_path()
-        if active_kno_path == None:
+        if active_kno_path is None:
             print("没有正在活动的集合")
-            return
+            return None
         text_reg = TextRegistry(active_kno_path)
-
         text_reg.refresh(element_id=elem_id)
-        if text_reg.eId == None:
-            return
+        if text_reg.eId is None:
+            return None
         return text_reg
 
     def set_running(self, running: bool = True):
@@ -241,7 +236,7 @@ class Trace:
     def print_info(self, mode=Literal["o", "m"], watch: bool = False):
 
         def _printf(text_reg: TextRegistry):
-            if text_reg.eId == None:
+            if text_reg.eId is None:
                 return
 
             self.his_id.append(text_reg.eId)
@@ -268,21 +263,6 @@ class Trace:
             self.trace_with_observer(_printf)
         if mode == "m":
             self.trace_with_mem(_printf, watch)
-
-    @staticmethod
-    def exe_is_runing() -> bool:
-        try:
-            warnings.filterwarnings(
-                "ignore", message=".*32-bit application should be automated.*"
-            )
-            Application(backend="win32").connect(
-                class_name="TElWind", visible_only=False
-            )
-            return True
-        except ElementNotFoundError:
-            return False
-        except Exception:  # noqa: BLE001
-            return False
 
 
 if __name__ == "__main__":

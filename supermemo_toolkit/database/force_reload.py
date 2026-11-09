@@ -1,24 +1,20 @@
 import ctypes
 import logging
-import os
 import re
 import struct
-import sys
 import time
-import warnings
 from ctypes import wintypes
-from tkinter import messagebox
 
 import pymem
 import pymem.process
-import win32api
 import win32con
-import win32process
 from pymem.exception import MemoryReadError, ProcessError
-from pywinauto.application import Application
-from pywinauto.findwindows import ElementNotFoundError
 
-from supermemo_toolkit.database.element_no import compute_sm_ver
+from supermemo_toolkit.database.element_no import MemoryScanFailed
+from supermemo_toolkit.utilscripts.connector import (
+    SuperMemoNotAvailable,
+    supermemo,
+)
 
 ForceReloading_64 = re.compile(
     # .text	00401000	1000
@@ -115,29 +111,30 @@ user32.PostMessageW.argtypes = [
     wintypes.LPARAM,
 ]
 user32.PostMessageW.restype = wintypes.BOOL
-user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
-user32.FindWindowW.restype = wintypes.HWND
 
 
 class ForceReload:
-    """适配sm17、sm18、sm19、sm20"""
+    """适配 sm17/sm18/sm19/sm20。"""
 
     def __init__(self, retry: int = 20):
-        info = self._get_exe_info()
-        if info is None:
-            sys.exit()
-        file_path, arch, telwind_handle = info
-        self.process_name = os.path.basename(file_path)
-        self.sm_ver: str = compute_sm_ver(file_path)
-        self.sm_arch: int = arch
-        self.telwind_handle: int = telwind_handle
-        self.py_mem: pymem.Pymem = None
+        snap = supermemo.ensure_snapshot()
+        if snap is None:
+            raise SuperMemoNotAvailable("SuperMemo 未启动")
+
+        self._snap = snap
+        self.process_name = snap.process_name
+        self.sm_ver = snap.sm_ver
+        self.sm_arch = snap.bitness
+        self.telwind_handle = snap.telwind_hwnd
+        self.py_mem: pymem.Pymem | None = None
         self.base = 0
-        self.online_and_has_force_addr = None  # 缓存下来，只扫一次，也是成功的标志
+        self.module_size = 0
+        self.online_and_has_force_addr = None
+
         if not self.attach():
             self.detach()
-            print("[ForceReload] 附加进程失败")
-            sys.exit()
+            raise MemoryScanFailed("附加进程失败")
+
         if not self.locate():
             # 扫描失败，尝试多次定位
             for _ in range(retry):
@@ -146,8 +143,10 @@ class ForceReload:
                     break
             else:
                 self.detach()
-                print("[ForceReload] 扫描失败，未找到有效特征码")
-                sys.exit()
+                raise MemoryScanFailed("扫描失败，未找到有效特征码")
+
+    def is_ready(self) -> bool:
+        return self.online_and_has_force_addr is not None
 
     def _scan_aob_execute_read_only(self, pattern, is_offset=False):
         """
@@ -160,6 +159,7 @@ class ForceReload:
         end_address = self.base + self.module_size
         MOV_RAX_RIP_LEN = 7  # 48 8B 05 + disp32  RIP 相对寻址
         candidates = []
+
         while address < end_address:
             ret = kernel32.VirtualQueryEx(
                 process_handle,
@@ -212,9 +212,11 @@ class ForceReload:
     def attach(self):
         try:
             logging.getLogger("pymem").setLevel(logging.WARNING)
-            self.py_mem = pymem.Pymem(self.process_name)
+            self.py_mem = pymem.Pymem(self._snap.pid)
+            if self.py_mem.process_id != self._snap.pid:
+                return False
             module = pymem.process.module_from_name(
-                self.py_mem.process_handle, self.process_name
+                self.py_mem.process_handle, self._snap.process_name
             )
             self.base = module.lpBaseOfDll
             self.module_size = module.SizeOfImage
@@ -249,6 +251,8 @@ class ForceReload:
             telwind_addr = self.py_mem.read_longlong(telwind_candidates[0])
         elif self.sm_arch == 32:
             telwind_addr = self.py_mem.read_uint(telwind_candidates[0])
+        else:
+            return False
         if telwind_addr != 0 and self._is_reasonable_offset(force_candidates[0]):
             self.online_and_has_force_addr = telwind_addr + force_candidates[0]
             return True
@@ -286,39 +290,12 @@ class ForceReload:
         )
         return True
 
-    def _get_exe_info(self):
-        try:
-            warnings.filterwarnings(
-                "ignore", message=".*32-bit application should be automated.*"
-            )
-            app = Application(backend="win32").connect(
-                class_name="TElWind", visible_only=False
-            )
-            h = win32api.OpenProcess(
-                win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
-                False,
-                app.process,
-            )
-
-            try:
-                file_path = win32process.GetModuleFileNameEx(h, 0)
-                return (
-                    file_path,
-                    64 if app.is64bit() else 32,
-                    app.window(class_name="TElWind").handle,
-                )
-            finally:
-                win32api.CloseHandle(h)
-
-        except ElementNotFoundError as e:
-            messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
-            return None
-        except Exception as e:  # noqa: BLE001
-            messagebox.showerror("错误", e)
-            return None
-
     def __enter__(self):
-        # print("__enter__")
+        # SuperMemo 已切换实例或已退出，本实例的 pymem 缓存失效。
+        if supermemo.identity != self._snap.identity:
+            raise RuntimeError(
+                "SuperMemo 已重启或退出，ForceReload 缓存失效，请重新运行命令"
+            )
         self.set_force_reloading()
         return self
 

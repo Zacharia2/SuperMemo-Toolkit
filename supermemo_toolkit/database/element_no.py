@@ -3,21 +3,24 @@ import logging
 import os
 import re
 import struct
-import sys
 import time
-import warnings
 from ctypes import wintypes
-from tkinter import messagebox
 
 import pymem
 import pymem.process
-import win32api
 import win32con
-import win32process
 from pymem.exception import MemoryReadError, ProcessError
-from pywinauto.application import Application
-from pywinauto.findwindows import ElementNotFoundError
 from watchdog.events import FileSystemEventHandler
+
+from supermemo_toolkit.utilscripts.connector import (
+    SuperMemoNotAvailable,
+    supermemo,
+)
+
+
+class MemoryScanFailed(RuntimeError):
+    """pymem 附加失败或 AOB 扫描失败。"""
+
 
 # 当时用的CE定位的
 _OFF_SM15_16 = rb"\xBC\x03\x00\x00"
@@ -61,55 +64,6 @@ _PTR_SCAN_CONFIG = {
 }
 
 
-def get_file_string_info(path, key):
-    try:
-        translations = win32api.GetFileVersionInfo(path, r"\VarFileInfo\Translation")
-        lang, codepage = translations[0]
-        sub_block = f"\\StringFileInfo\\{lang:04x}{codepage:04x}\\{key}"
-        file_description: str = win32api.GetFileVersionInfo(path, sub_block)
-        return file_description.strip().lower()
-    except Exception:
-        return None
-
-
-def compute_sm_ver(file_path):
-    product_version = get_file_string_info(file_path, "ProductVersion")
-    file_version = get_file_string_info(file_path, "FileVersion")
-    file_description = get_file_string_info(file_path, "FileDescription")
-    # 15 FileVersionInfo = None
-    # 16 ProductVersion = 1.0.0.0、 FileVersion = 1.0.0.0 仅两项。
-    if product_version is None and file_version is None and file_description is None:
-        return "sm15"
-    if (
-        product_version == "1.0.0.0"
-        and file_version == "1.0.0.0"
-        and file_description is None
-    ):
-        return "sm16"
-    if product_version == "17.0":
-        if (
-            get_file_string_info(file_path, "OriginalFilename") == "sm17.exe"
-            and file_version == "17.0.0.0"
-            and file_description is None
-        ):
-            return "sm17"
-        if (
-            get_file_string_info(file_path, "OriginalFilename") == "sm17.exe"
-            and file_version == "17.0.0.0"
-            and file_description == "sm18"
-        ):
-            return "sm18"
-    if (
-        product_version == "19.0"
-        and file_version == "19.0.0.0"
-        and file_description == "sm19"
-    ):
-        return "sm19"
-
-    # 默认情况sm20及最新版本
-    return file_description
-
-
 # 定义 MEMORY_BASIC_INFORMATION 结构体
 class MEMORY_BASIC_INFORMATION(ctypes.Structure):
     _fields_ = [
@@ -134,28 +88,29 @@ kernel32.VirtualQueryEx.restype = ctypes.c_size_t
 
 
 class ElementNo:
-    """适配sm15、sm16、sm17、sm18、sm19、sm20"""
+    """适配 sm15/sm16/sm17/sm18/sm19/sm20。"""
 
     def __init__(self, retry: int = 20):
-        info = self._get_exe_info()
-        if info is None:
-            sys.exit()
-        file_path, app, telwind_hwnd = info
-        self.app = app
-        self.process_name = os.path.basename(file_path)
-        self.sm_ver: str = compute_sm_ver(file_path)
-        self.sm_arch: int = 64 if app.is64bit() else 32
-        self.telwind_hwnd: int = telwind_hwnd
-        self.py_mem: pymem.Pymem = None
-        self.base: int = 0
-        self.global_ptr_addr = None  # 缓存下来，只扫一次
+        snap = supermemo.ensure_snapshot()
+        if snap is None:
+            raise SuperMemoNotAvailable("SuperMemo 未启动")
+
+        self._snap = snap
+        self.app = snap.app
+        self.process_name = snap.process_name
+        self.sm_ver = snap.sm_ver
+        self.sm_arch = snap.bitness
+        self.telwind_hwnd = snap.telwind_hwnd
+        self.py_mem: pymem.Pymem | None = None
+        self.base = 0
+        self.global_ptr_addr = None
         self.ptr_offset = 0
         self.max_ptr = 0
-        self.module_size: int = 0
+        self.module_size = 0
+
         if not self.attach():
             self.detach()
-            print("[ElementNo] 附加进程失败")
-            sys.exit()
+            raise MemoryScanFailed("附加进程失败")
 
         if not self.locate():
             # 扫描失败，尝试多次定位
@@ -165,8 +120,7 @@ class ElementNo:
                     break
             else:
                 self.detach()
-                print("[ElementNo] 扫描失败，未找到有效特征码")
-                sys.exit()
+                raise MemoryScanFailed("扫描失败，未找到有效特征码")
 
     def _scan_aob_execute_read_only(self, pattern):
         """
@@ -251,9 +205,11 @@ class ElementNo:
     def attach(self):
         try:
             logging.getLogger("pymem").setLevel(logging.WARNING)
-            self.py_mem = pymem.Pymem(self.process_name)
+            self.py_mem = pymem.Pymem(self._snap.pid)
+            if self.py_mem.process_id != self._snap.pid:
+                return False
             module = pymem.process.module_from_name(
-                self.py_mem.process_handle, self.process_name
+                self.py_mem.process_handle, self._snap.process_name
             )
             self.base = module.lpBaseOfDll
             self.module_size = module.SizeOfImage
@@ -306,47 +262,24 @@ class ElementNo:
     def read_id(self):
         if self.global_ptr_addr is None:
             return None
+        if supermemo.identity != self._snap.identity:
+            return None
         try:
             if self.sm_arch == 64:
                 obj = self.py_mem.read_ulonglong(self.global_ptr_addr)
             elif self.sm_arch == 32:
                 obj = self.py_mem.read_uint(self.global_ptr_addr)
+            else:
+                return None
             if not self._validate_object(obj):
                 return None
             return self.py_mem.read_uint(obj + self.ptr_offset)
         except (TypeError, MemoryReadError, ProcessError):
             return None
 
-    def _get_exe_info(self):
-        try:
-            warnings.filterwarnings(
-                "ignore", message=".*32-bit application should be automated.*"
-            )
-            app = Application(backend="win32").connect(
-                class_name="TElWind", visible_only=False
-            )
-            h = win32api.OpenProcess(
-                win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
-                False,
-                app.process,
-            )
-            telwind_hwnd = app.window(class_name="TElWind").handle
-            try:
-                file_path = win32process.GetModuleFileNameEx(h, 0)
-                return (file_path, app, telwind_hwnd)
-            finally:
-                win32api.CloseHandle(h)
-
-        except ElementNotFoundError as e:
-            messagebox.showerror("错误", "SuperMemo 可能未启动\n" + str(e))
-            return None
-        except Exception as e:  # noqa: BLE001
-            messagebox.showerror("错误", e)
-            return None
-
 
 class TempHandler(FileSystemEventHandler):
-    """适配sm18、sm19、sm20"""
+    """适配 sm18/sm19/sm20。"""
 
     PATTERN = re.compile(r"Element#(\d+)-Component#\d+\.htm$", re.IGNORECASE)
 
@@ -422,7 +355,7 @@ if __name__ == "__main__":
     try:
         last_id = None
         while True:
-            if not reader.app.is_process_running():
+            if supermemo.snapshot is None:
                 break
 
             elem_id = reader.read_id()

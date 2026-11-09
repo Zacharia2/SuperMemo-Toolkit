@@ -16,6 +16,7 @@ from tabulate import tabulate
 from supermemo_toolkit import __version__
 from supermemo_toolkit.ansm_conv.sm2anki import qa_to_anki
 from supermemo_toolkit.autotts.autotts import run_auto_tts
+from supermemo_toolkit.database.element_no import MemoryScanFailed
 from supermemo_toolkit.database.force_reload import ForceReload
 from supermemo_toolkit.database.origin_window import find_origin_window
 from supermemo_toolkit.database.registry import TextRegistry
@@ -37,6 +38,10 @@ from supermemo_toolkit.time_rewind.time_rewind import (
 )
 from supermemo_toolkit.title_xref import complete_title
 from supermemo_toolkit.utilscripts import config as smtk_config
+from supermemo_toolkit.utilscripts.connector import (
+    SuperMemoNotAvailable,
+    supermemo,
+)
 from supermemo_toolkit.utilscripts.shortcut import install_shortcut
 from supermemo_toolkit.utilscripts.ulils import makeNameSafe
 
@@ -403,11 +408,7 @@ def pathpix_transfer(src_kno, dst_kno, kno):
 # ==========================================
 @main.command()
 @click.option(
-    "--trace",
-    "tracing",
-    is_flag=True,
-    default=False,
-    help="追踪当前元素进行处理并标记",
+    "--trace", "tracing", is_flag=True, default=False, help="追踪当前元素进行处理并标记"
 )
 @click.option(
     "--trace-watch",
@@ -418,21 +419,14 @@ def pathpix_transfer(src_kno, dst_kno, kno):
 )
 @click.option("--ignore", "ignore", is_flag=True, help="忽略已处理标记, 重新处理一次")
 @click.option(
-    "--max-width",
-    "max_width",
-    type=int,
-    default=1200,
-    help="设置图片最大宽度 (px)",
+    "--max-width", "max_width", type=int, default=1200, help="设置图片最大宽度 (px)"
 )
 def imgfit(tracing, watching, ignore, max_width):
     """调整当前元素中图片的尺寸，使其排版更合适"""
     if watching:
         tracing = True
-        if Trace.exe_is_runing() is False:
-            while True:
-                time.sleep(2)
-                if Trace.exe_is_runing() is True:
-                    break
+        supermemo.wait_until_running()
+
     CONTINUE = not tracing
 
     def work(text_reg: TextRegistry) -> bool:
@@ -463,7 +457,7 @@ def imgfit(tracing, watching, ignore, max_width):
         total = len(TOTAL_IMG_RE.findall(htm))
         marked = len(MAREKD_IMG_RE_.findall(htm))
         need = total - marked
-        if need == 0 and not ignore:
+        if need == 0 and not ignore and total != 0:
             click.echo(f"[No. {text_reg.eId}] [跳过] 全部图片已标记。")
             return CONTINUE
 
@@ -496,12 +490,23 @@ def imgfit(tracing, watching, ignore, max_width):
 
         return CONTINUE
 
-    force_reload = ForceReload()
-    trace = Trace()
+    if supermemo.ensure_snapshot() is None:
+        click.echo("SuperMemo 未启动", err=True)
+        return
+    try:
+        force_reload = ForceReload()
+    except SuperMemoNotAvailable as e:
+        raise click.ClickException(str(e))
+    except MemoryScanFailed as e:
+        click.echo(f"[ForceReload] {e}", err=True)
+        return
+
     img_fitter = EpubImageFit(page_width=max_width)
-    if force_reload.online_and_has_force_addr is not None:
-        trace.trace_with_mem(work, watching)
-        force_reload.detach()
+    if force_reload.is_ready():
+        try:
+            Trace().trace_with_mem(work, watching)
+        finally:
+            force_reload.detach()
 
 
 # ==========================================
@@ -545,24 +550,26 @@ def autotts(only_at):
     run_auto_tts(only_at)
 
 
+# ==========================================
+# trace 命令
+# ==========================================
 @main.command()
 @click.option("--mem", is_flag=True, help="通过扫描内存追踪当前元素")
-@click.option("--mem-watch", is_flag=True, help="通过扫描内存追踪当前元素")
-@click.option("--his", is_flag=True, help="打印浏览过的历史 ID")
-def trace(mem, mem_watch, his):
+@click.option("--mem-watch", is_flag=True, help="监控并通过扫描内存追踪当前元素")
+def trace(mem, mem_watch):
     """追踪当前元素，并输出当前元素信息"""
-    trace = Trace()
     if mem:
-        trace.print_info(mode="m")
+        if supermemo.ensure_snapshot() is None:
+            click.echo("SuperMemo 未启动", err=True)
+            return
+        Trace().print_info(mode="m")
     elif mem_watch:
-        if Trace.exe_is_runing() is False:
-            while True:
-                time.sleep(2)
-                if Trace.exe_is_runing() is True:
-                    break
-        trace.print_info(mode="m", watch=True)
+        Trace().print_info(mode="m", watch=True)
     else:
-        trace.print_info(mode="o")
+        if supermemo.ensure_snapshot() is None:
+            click.echo("SuperMemo 未启动", err=True)
+            return
+        Trace().print_info(mode="o")
 
 
 @main.command()
@@ -591,6 +598,13 @@ def splitline(ctx, pattern, limit, eid, tracing, recover):
     def _atomic_write(
         path: str, content: str, force_reload: ForceReload, id: int, times: bool
     ):
+        """返回 None 表示成功；返回 CONTINUE 表示失败且 work 应返回此值。
+
+        调用方统一写法：
+            stop = _atomic_write(...) is None
+            if not stop:
+                return CONTINUE
+        """
         CONTINUE = not times
         dir_name = os.path.dirname(os.path.abspath(path))
         fd, tmp = tempfile.mkstemp(prefix=".smtk_", suffix=".tmp", dir=dir_name)
@@ -603,6 +617,7 @@ def splitline(ctx, pattern, limit, eid, tracing, recover):
                 hwnd = find_origin_window()
                 if hwnd is None:
                     print(f"[No. {id}] 命令行程序未找到可聚焦的顶层窗口")
+                    os.remove(tmp)
                     return CONTINUE
                 activate_window(hwnd)
                 with force_reload:
@@ -610,10 +625,12 @@ def splitline(ctx, pattern, limit, eid, tracing, recover):
             else:
                 with force_reload:
                     os.replace(tmp, path)
+            return None
         except BaseException as e:
             if os.path.exists(tmp):
                 os.remove(tmp)
             print(f"[No. {id}] {e}")
+            return CONTINUE
 
     def work(text_reg: TextRegistry):
         # terminate == True 终止
@@ -714,14 +731,27 @@ def splitline(ctx, pattern, limit, eid, tracing, recover):
         )
         return CONTINUE
 
-    force_reload = ForceReload()
-    trace = Trace()
-    if force_reload.online_and_has_force_addr is not None:
-        if not eid:
-            trace.trace_with_mem(work)
-        else:
-            work(trace.trace_with_id(eid))
-        force_reload.detach()
+    if supermemo.ensure_snapshot() is None:
+        click.echo("SuperMemo 未启动", err=True)
+        return
+
+    try:
+        force_reload = ForceReload()
+    except SuperMemoNotAvailable as e:
+        raise click.ClickException(str(e))
+    except MemoryScanFailed as e:
+        click.echo(f"[ForceReload] {e}", err=True)
+        return
+
+    if force_reload.is_ready():
+        try:
+            t = Trace()
+            if not eid:
+                t.trace_with_mem(work)
+            else:
+                work(t.trace_with_id(eid))
+        finally:
+            force_reload.detach()
 
 
 # ==========================================
@@ -1003,6 +1033,9 @@ def math():
 main.add_command(math)
 
 
+# ==========================================
+# math.card
+# ==========================================
 @math.command(name="card")
 @click.option(
     "--trace",
@@ -1014,24 +1047,27 @@ main.add_command(math)
 @click.option("--ignore", "ignore", is_flag=True, help="忽略无变化检查，强制重跑")
 def math_card(tracing, ignore):
     """对当前元素中的 $$公式$$ 进行渲染，并支持就地编辑"""
+    if supermemo.ensure_snapshot() is None:
+        click.echo("SuperMemo 未启动", err=True)
+        return
+
     CONTINUE = not tracing
     bridge = Bridge() if tracing else None
-    trace = Trace()  # ← 提到 on_save 之前
 
     def on_save(cid: str) -> bool:
-        hwnd = trace.telwind_hwnd
+        hwnd = supermemo.telwind_hwnd
         if hwnd is None:
             return False
         if not activate_window(hwnd):
             return False
         if win32gui.GetForegroundWindow() != hwnd:
-            return False  # 激活被抢回，别发键
+            return False
         time.sleep(0.05)
-        ok1 = send_vk(ord("E"), ctrl=True)  # Ctrl+E
+        ok_ctrl_e = send_vk(ord("E"), ctrl=True)
         time.sleep(0.12)
-        ok2 = send_vk(0x1B)  # Esc
-        ok2 = send_vk(0x1B)  # Esc
-        return ok1 and ok2
+        ok_esc_1 = send_vk(0x1B)
+        ok_esc_2 = send_vk(0x1B)
+        return ok_ctrl_e and ok_esc_1 and ok_esc_2
 
     if bridge is not None:
         bridge.on_save = on_save
@@ -1044,7 +1080,6 @@ def math_card(tracing, ignore):
             return CONTINUE
 
         base_dir = Path(path).parent
-
         elements_root = base_dir
         while (
             elements_root.name.lower() != "elements"
@@ -1062,7 +1097,6 @@ def math_card(tracing, ignore):
             url = path
 
         click.echo(f"[No. {text_reg.eId}] [Title: {text_reg.eTitle[:12].strip()}]")
-
         renderer = FormulaRenderer(elements_root, bridge=bridge)
 
         with open(path, "r", encoding="utf-8") as fs:
@@ -1094,10 +1128,19 @@ def math_card(tracing, ignore):
         )
         return CONTINUE
 
-    force_reload = ForceReload()
-    if force_reload.online_and_has_force_addr is not None:
-        trace.trace_with_mem(work)
-        force_reload.detach()
+    try:
+        force_reload = ForceReload()
+    except SuperMemoNotAvailable as e:
+        raise click.ClickException(str(e))
+    except MemoryScanFailed as e:
+        click.echo(f"[ForceReload] {e}", err=True)
+        return
+
+    if force_reload.is_ready():
+        try:
+            Trace().trace_with_mem(work)
+        finally:
+            force_reload.detach()
 
 
 @math.command(name="imtex")
