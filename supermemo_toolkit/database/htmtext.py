@@ -149,7 +149,9 @@ def get_supermemo_ie_document(app=None):
 
         # 获取 SuperMemo 主窗口的 Application 对象
         if app is None:
-            app = Application(backend="win32").connect(class_name="TElWind")
+            app = Application(backend="win32").connect(
+                class_name="TElWind", visible_only=False
+            )
 
         # 获取进程路径
         exe_path = get_process_path(app.process)

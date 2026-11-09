@@ -322,7 +322,9 @@ class ElementNo:
             warnings.filterwarnings(
                 "ignore", message=".*32-bit application should be automated.*"
             )
-            app = Application(backend="win32").connect(class_name="TElWind")
+            app = Application(backend="win32").connect(
+                class_name="TElWind", visible_only=False
+            )
             h = win32api.OpenProcess(
                 win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
                 False,

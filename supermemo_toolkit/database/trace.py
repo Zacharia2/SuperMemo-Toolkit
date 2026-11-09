@@ -181,7 +181,9 @@ class Trace:
             warnings.filterwarnings(
                 "ignore", message=".*32-bit application should be automated.*"
             )
-            app = Application(backend="win32").connect(class_name="TElWind")
+            app = Application(backend="win32").connect(
+                class_name="TElWind", visible_only=False
+            )
             self.telwind_hwnd = app.window(class_name="TElWind").handle
             self.app = app
         except Exception as e:  # noqa: BLE001
@@ -273,7 +275,9 @@ class Trace:
             warnings.filterwarnings(
                 "ignore", message=".*32-bit application should be automated.*"
             )
-            Application(backend="win32").connect(class_name="TElWind")
+            Application(backend="win32").connect(
+                class_name="TElWind", visible_only=False
+            )
             return True
         except ElementNotFoundError:
             return False

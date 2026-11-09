@@ -393,5 +393,5 @@ if __name__ == "__main__":
     warnings.filterwarnings(
         "ignore", message=".*32-bit application should be automated.*"
     )
-    app = Application(backend="win32").connect(class_name="TElWind")
+    app = Application(backend="win32").connect(class_name="TElWind", visible_only=False)
     activate_window(app.window(class_name="TElWind").handle)
