@@ -84,10 +84,10 @@ class Trace:
             try:
                 reader = ElementNo()
             except SuperMemoNotAvailable:
-                return not should_abort is None
+                return should_abort is not None
             except MemoryScanFailed as e:
                 print(f"[Trace] {e}")
-                return not should_abort is None
+                return should_abort is not None
             self.telwind_hwnd = reader.telwind_hwnd
             self.app = reader.app
             text_reg = TextRegistry(active_kno_path)
@@ -233,7 +233,7 @@ class Trace:
         """True 表示继续运行，False 表示停止。"""
         self.__stoped = not running
 
-    def print_info(self, mode=Literal["o", "m"], watch: bool = False):
+    def print_info(self, mode: Literal["o", "m"] = "m", watch: bool = False):
 
         def _printf(text_reg: TextRegistry):
             if text_reg.eId is None:
@@ -246,7 +246,7 @@ class Trace:
             # 把本地路径转成 file:// URL
             try:
                 url = Path(path).resolve().as_uri()
-            except Exception:
+            except Exception:  # noqa: BLE001
                 url = path  # 如果本来就是 URL，就直接用
 
             path_link = make_link(path, url)

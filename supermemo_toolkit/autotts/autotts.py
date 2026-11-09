@@ -26,9 +26,9 @@ class AutoTTS:
                 raise RuntimeError("AutoTTS 初始化失败，无法连接到 SuperMemo")
 
         self.switcher = AudioSwitcher()
-        self.window: Win = None
+        self.window: Win | None = None
         self.trace_thread = None
-        self.stoped = True  # 软件启动后手动启动监听
+        self.stopped = True  # 软件启动后手动启动监听
         self.eid = None
         self.title = None
         self.legacy_version_his_window_text: str = ""
@@ -36,12 +36,12 @@ class AutoTTS:
 
     def play_current_content(self, text_reg: TextRegistry = None):
         """在主线程里真正播放当前内容"""
-        if text_reg.eId == None:
+        if text_reg is None or text_reg.eId is None:
             return
         self.eid = text_reg.eId
         self.title = text_reg.eTitle[:12].strip()
         self.switcher.stop()
-        if self.stoped == True:
+        if self.stopped == True:
             return
 
         text = text_reg.get_component().Text
@@ -66,7 +66,7 @@ class AutoTTS:
         """
         mode: 'm' 使用内存读取，'o' 使用 watchdog observer
         """
-        if self.stoped == True:
+        if self.stopped == True:
             return
 
         def run():
@@ -80,13 +80,13 @@ class AutoTTS:
         self.trace.set_running()
         self.trace_thread = threading.Thread(target=run, daemon=True)
         self.trace_thread.start()
-        self.stoped = False
+        self.stopped = False
 
     def stop_trace(self):
         if hasattr(self, "trace"):
             self.trace.set_running(False)
         self.switcher.stop()
-        self.stoped = True
+        self.stopped = True
 
     def set_autotts_window(self, window: WinGUI):
         self.window = window
@@ -118,7 +118,7 @@ class AutoTTS:
             return focusClassName in targetClassName
 
         # 停止监听守卫，默认停止监听
-        if self.stoped:
+        if self.stopped:
             self.window.after(500, self.legacy)
             return
 
@@ -175,8 +175,8 @@ class Controller:
         self.ui = ui
 
     def onEClick(self, evt):
-        self.auto_tts.stoped = not self.auto_tts.stoped
-        if self.auto_tts.stoped:
+        self.auto_tts.stopped = not self.auto_tts.stopped
+        if self.auto_tts.stopped:
             if self.sm_ver not in ["sm15", "sm16"]:
                 self.auto_tts.stop_trace()
             self.auto_tts.window.update_lable_text("AutoTTS 窗口监听 已停止")

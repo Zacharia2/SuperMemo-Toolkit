@@ -311,9 +311,7 @@ def e2sm(epub_path, target_folder, toc, seq, topic, limit, prep, kno_name, kno):
                     epub_path,
                     target_folder,
                     None,
-                    os.path.join(
-                        get_elements_path(kno_name, kno), "elements", "local_pic"
-                    ),
+                    os.path.join(get_elements_path(kno_name, kno), "local_pic"),
                 )
                 click.echo(
                     f"已将转换好的图片文件夹放到目标 {kno_name} 集合 local_pic 文件夹下。"
@@ -440,17 +438,6 @@ def imgfit(tracing, watching, ignore, max_width):
         except Exception:
             url = path  # 如果本来就是 URL，就直接用
 
-        TOTAL_IMG_RE = regex.compile(
-            r"""(?isx)
-            <!--.*?-->                                         (*SKIP)(*F)
-            | <(?:script|style)\b[^>]*>.*?</(?:script|style)>  (*SKIP)(*F)
-            | <(?:img|image)(?=[\s/>])(?:"[^"]*"|'[^']*'|[^>"'])*>
-            """
-        )
-        MAREKD_IMG_RE_ = regex.compile(
-            rf"\b(?:{'|'.join([f'smtk-{x}' for x in img_fitter.style])})\b"
-        )
-
         with open(path, "r", encoding="utf-8") as fs:
             htm = fs.read()
 
@@ -502,6 +489,17 @@ def imgfit(tracing, watching, ignore, max_width):
         return
 
     img_fitter = EpubImageFit(page_width=max_width)
+    TOTAL_IMG_RE = regex.compile(
+        r"""(?isx)
+        <!--.*?-->                                         (*SKIP)(*F)
+        | <(?:script|style)\b[^>]*>.*?</(?:script|style)>  (*SKIP)(*F)
+        | <(?:img|image)(?=[\s/>])(?:"[^"]*"|'[^']*'|[^>"'])*>
+        """
+    )
+    MAREKD_IMG_RE_ = regex.compile(
+        rf"\b(?:{'|'.join([f'smtk-{x}' for x in img_fitter.style])})\b"
+    )
+
     if force_reload.is_ready():
         try:
             Trace().trace_with_mem(work, watching)
@@ -596,16 +594,18 @@ def splitline(ctx, pattern, limit, eid, tracing, recover):
 
     # 字数默认推荐1000字，按段落分。
     def _atomic_write(
-        path: str, content: str, force_reload: ForceReload, id: int, times: bool
-    ):
-        """返回 None 表示成功；返回 CONTINUE 表示失败且 work 应返回此值。
+        path: str,
+        content: str,
+        force_reload: ForceReload,
+        eid: int,
+        in_trace_mode: bool,
+    ) -> bool:
+        """原子写入文件，返回是否成功。
 
-        调用方统一写法：
-            stop = _atomic_write(...) is None
-            if not stop:
-                return CONTINUE
+        in_trace_mode=True 时先聚焦原窗口再写入，让 SuperMemo 消费 ForceReload，
+        保证追踪模式下连续处理下一个元素时 ForceReload 不会失效。
+        是否在失败后继续追踪，由调用方（work）根据 tracing 自行决定。
         """
-        CONTINUE = not times
         dir_name = os.path.dirname(os.path.abspath(path))
         fd, tmp = tempfile.mkstemp(prefix=".smtk_", suffix=".tmp", dir=dir_name)
         try:
@@ -613,27 +613,27 @@ def splitline(ctx, pattern, limit, eid, tracing, recover):
                 f.write(content)
                 f.flush()
                 os.fsync(f.fileno())
-            if times:
+
+            if in_trace_mode:
                 hwnd = find_origin_window()
                 if hwnd is None:
-                    print(f"[No. {id}] 命令行程序未找到可聚焦的顶层窗口")
+                    print(f"[No. {eid}] 命令行程序未找到可聚焦的顶层窗口")
                     os.remove(tmp)
-                    return CONTINUE
+                    return False
                 activate_window(hwnd)
-                with force_reload:
-                    os.replace(tmp, path)
-            else:
-                with force_reload:
-                    os.replace(tmp, path)
-            return None
-        except BaseException as e:
+
+            with force_reload:
+                os.replace(tmp, path)
+            return True
+
+        except Exception as e:
             if os.path.exists(tmp):
                 os.remove(tmp)
-            print(f"[No. {id}] {e}")
-            return CONTINUE
+            print(f"[No. {eid}] {e}")
+            return False
 
     def work(text_reg: TextRegistry):
-        # terminate == True 终止
+        # 返回 True 终止追踪；返回 False 继续追踪
         if text_reg is None or text_reg.eId is None:
             return CONTINUE
         path = text_reg.get_component().Path
@@ -652,14 +652,21 @@ def splitline(ctx, pattern, limit, eid, tracing, recover):
         # <hr id="smtk-regex"> <hr id="smtk-number">
         exist_mark = regex.compile(r'(?i)<hr\s+id="?smtk-(?:regex|number)"?>')
         if recover is True:
+            cleared_count = sum(1 for _ in exist_mark.finditer(htm))
             recovered_htm = exist_mark.sub("", htm)
-            _atomic_write(path, recovered_htm, force_reload, text_reg.eId, times=False)
-            cleared_count = sum(1 for _ in exist_mark.finditer(recovered_htm))
-            if cleared_count != 0:
+            if not _atomic_write(
+                path,
+                recovered_htm,
+                force_reload,
+                text_reg.eId,
+                in_trace_mode=False,
+            ):
                 click.echo(f"[No. {text_reg.eId}] [分割符标记清除失败]")
-                return True  # 终止
-            click.echo(f"[No. {text_reg.eId}] [分割符标记清除完成]")
-            return True  # 终止
+                return True
+            click.echo(
+                f"[No. {text_reg.eId}] [分割符标记清除完成] (共 {cleared_count} 处)"
+            )
+            return True
 
         # 备份未标记文件，如果已经分割，就不用备份了。
         exist_mark_count = sum(1 for _ in exist_mark.finditer(htm))
@@ -676,7 +683,7 @@ def splitline(ctx, pattern, limit, eid, tracing, recover):
                 count = sum(1 for _ in regex_pattern.finditer(htm))
                 if count == 0:
                     click.echo(f"[No. {text_reg.eId}] 没有找到匹配项")
-                    return not tracing
+                    return CONTINUE
                 # 仅一次分割，多次分割可以清除标记再次分割
                 if count == exist_mark_count or exist_mark_count > 0:
                     click.echo(
@@ -691,11 +698,13 @@ def splitline(ctx, pattern, limit, eid, tracing, recover):
             except regex.error as e:
                 click.echo(f"[No. {text_reg.eId}] 正则表达式无效: {e}", err=True)
                 return CONTINUE
-            stop = (
-                _atomic_write(path, inserted, force_reload, text_reg.eId, tracing)
-                is None
-            )
-            if not stop:
+            if not _atomic_write(
+                path,
+                inserted,
+                force_reload,
+                text_reg.eId,
+                in_trace_mode=tracing,
+            ):
                 return CONTINUE
         elif limit is not None:
             try:
@@ -719,11 +728,13 @@ def splitline(ctx, pattern, limit, eid, tracing, recover):
             except Exception as e:  # noqa: BLE001
                 click.echo(f"{e}", err=True)
                 return CONTINUE
-            stop = (
-                _atomic_write(path, inserted, force_reload, text_reg.eId, tracing)
-                is None
-            )
-            if not stop:
+            if not _atomic_write(
+                path,
+                inserted,
+                force_reload,
+                text_reg.eId,
+                in_trace_mode=tracing,
+            ):
                 return CONTINUE
 
         click.echo(
