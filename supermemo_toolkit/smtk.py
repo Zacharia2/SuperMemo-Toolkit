@@ -388,11 +388,14 @@ def pathpix(ctx, col_name, clean, fullpath, least_col, gui, kno):
             return
 
 
-@pathpix.command(name="transfer")
+# ==========================================
+# transfer
+# ==========================================
+@main.command()
 @click.argument("src_kno")
 @click.argument("dst_kno")
 @click.option("--kno", is_flag=True, help="离散 KNO 集合 (非系统集合)")
-def pathpix_transfer(src_kno, dst_kno, kno):
+def transfer(src_kno, dst_kno, kno):
     """在两个集合之间转移由 PathPix 管理的图片"""
     click.echo(f"转移集合中 web 和 local 文件夹图片: 从 {src_kno} 到 {dst_kno}")
     im_sort_out.transfer_images(
