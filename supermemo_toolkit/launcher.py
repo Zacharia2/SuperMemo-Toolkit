@@ -396,6 +396,14 @@ class LauncherApp:
         # 在窗口尚未 map 时一次性设好 alpha，避免 map 之后再跳变导致闪烁
         self.root.attributes("-alpha", self.opacity)
 
+        # ==================== 新增：拦截 imgfit 发送的 Alt 键 ====================
+        # 拦截物理按键和 SendInput 虚拟按键，防止触发 Windows 系统菜单导致窗口变扁
+        self.root.bind_all("<Alt_L>", lambda e: "break")
+        self.root.bind_all("<Alt_R>", lambda e: "break")
+        self.root.bind_all("<KeyPress-Alt_L>", lambda e: "break")
+        self.root.bind_all("<KeyPress-Alt_R>", lambda e: "break")
+        # =======================================================================
+
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         # 保存 after 返回值，便于退出时取消
         self._drain_logs_id = self.root.after(100, self._drain_logs)
@@ -409,6 +417,7 @@ class LauncherApp:
     def _force_main_geometry(self) -> None:
         """强制恢复主窗口的尺寸与安全位置，防止 UI 重建导致挤压"""
         try:
+            self.root.deiconify()  # 【新增】确保窗口不是隐藏状态
             x = self.root.winfo_x()
             y = self.root.winfo_y()
             sw = self.root.winfo_screenwidth()
@@ -417,6 +426,7 @@ class LauncherApp:
             if not (0 <= x < sw - 100 and 0 <= y < sh - 100):
                 x, y = max(0, (sw - 480) // 2), max(0, (sh - 480) // 2)
             self.root.geometry(f"480x480+{x}+{y}")
+            self.root.update_idletasks()  # 【新增】立刻重绘，防止画面冻结
         except Exception:  # noqa: BLE001
             self.root.geometry("480x480")
 
@@ -1058,7 +1068,7 @@ class LauncherApp:
                 self._force_main_geometry()
                 self.root.update_idletasks()  # 先重绘再抬升，避免空帧
                 self.root.lift()
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
 
     # ---------- 状态更新 ----------
@@ -1066,9 +1076,20 @@ class LauncherApp:
         if self._poll_status_id is not None:
             try:
                 self.root.after_cancel(self._poll_status_id)
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
             self._poll_status_id = None
+
+        # ==================== 新增：尺寸守卫 ====================
+        # 如果主窗口存在，但尺寸被异常压缩，强行恢复
+        if self.mini_window is None or not self.mini_window.winfo_exists():
+            try:
+                if self.root.winfo_exists():  # noqa: SIM102
+                    if self.root.winfo_width() < 400 or self.root.winfo_height() < 400:
+                        self._force_main_geometry()
+            except Exception:  # noqa: BLE001, S110
+                pass
+        # ========================================================
 
         for name, runner in self.runners.items():
             widgets = self.row_widgets.get(name)
