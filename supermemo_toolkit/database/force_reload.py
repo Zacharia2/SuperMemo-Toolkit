@@ -291,11 +291,6 @@ class ForceReload:
         return True
 
     def __enter__(self):
-        # SuperMemo 已切换实例或已退出，本实例的 pymem 缓存失效。
-        if supermemo.identity != self._snap.identity:
-            raise RuntimeError(
-                "SuperMemo 已重启或退出，ForceReload 缓存失效，请重新运行命令"
-            )
         self.set_force_reloading()
         return self
 

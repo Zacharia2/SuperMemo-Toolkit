@@ -146,7 +146,7 @@ class SuperMemoConnector:
     def ensure_snapshot(self) -> SuperMemoSnapshot | None:
         """必要时重连一次，返回最新快照。初始化 / 按钮点击用。
 
-        Bug B 修复：_do_connect 成功后再次走 snapshot 属性做一次 liveness 检查，
+        _do_connect 成功后再次走 snapshot 属性做一次 liveness 检查，
         避免在「刚连上即退出」的微窗口期返回已失效的 snapshot。
         """
         with self._mutex:
@@ -259,14 +259,10 @@ class SuperMemoConnector:
     # ------------------------------------------------------------------
     @staticmethod
     def _snapshot_alive(snap: SuperMemoSnapshot) -> bool:
+        """判断进程是否存活。"""
         try:
-            if not snap.app.is_process_running():
-                return False
-        except Exception:
-            return False
-        try:
-            return bool(win32gui.IsWindow(snap.telwind_hwnd))
-        except Exception:
+            return bool(snap.app.is_process_running())
+        except Exception:  # noqa: BLE001
             return False
 
     def _do_connect(self, raise_on_error: bool = False) -> bool:
