@@ -96,7 +96,9 @@ class Trace:
 
             # 追踪开始时锁定会话身份。SM 重启（identity 变化）即退出 _track_one，
             # 由外层 watch 循环重新确定当前激活的 kno。
-            track_identity = supermemo.identity
+            track_identity = reader.identity
+            if track_identity is None:
+                return should_abort is not None
 
             self.telwind_hwnd = reader.telwind_hwnd
             self.app = supermemo.app

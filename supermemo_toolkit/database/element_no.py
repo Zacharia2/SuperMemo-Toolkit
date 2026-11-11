@@ -111,6 +111,11 @@ class ElementNo:
         if not self._refresh(retry=retry):
             raise MemoryScanFailed("附加进程/扫描特征码失败")
 
+    @property
+    def identity(self) -> tuple[int, float, int] | None:
+        """当前绑定的会话身份；未 attach（如 SM 已关闭）时为 None。"""
+        return self._snap.identity if self._snap is not None else None
+
     def _refresh(self, retry: int = 0) -> bool:
         """从 connector 拉取最新快照，必要时 attach / locate，维持可读状态。
 
