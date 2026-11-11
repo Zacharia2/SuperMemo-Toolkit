@@ -13,8 +13,7 @@ SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换
 
 ### 1.1 安装&更新：
 
-1. 下载`smtk.exe`（v0.1.28）交互式终端程序。使用方式：双击打开`smtk.exe`。
-   1. 更新：下载新版EXE替换旧版EXE。
+1. 下载smtk-setup.exe，双击安装。在开始菜单打开：SMTK 交互终端
 2. 配置 smtk：
    1. 设置 sm 程序所在路径，软件需要查找和读取 sm 自动存储的 systems 集合
       1. 用法：`smtk config set program 'sm.exe所在路径'`
