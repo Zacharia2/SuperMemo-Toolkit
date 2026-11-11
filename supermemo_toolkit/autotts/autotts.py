@@ -21,8 +21,7 @@ class AutoTTS:
 
         if not onlyat:
             self.trace: Trace = Trace()
-            self.app = supermemo.app
-            if self.app is None:
+            if supermemo.ensure_snapshot() is None:
                 raise RuntimeError("AutoTTS 初始化失败，无法连接到 SuperMemo")
 
         self.switcher = AudioSwitcher()
@@ -130,7 +129,6 @@ class AutoTTS:
                     self.legacy_version_his_window_text = ""
                 self.window.after(2000, self.legacy)
                 return
-            self.app = supermemo.app
             self.legacy_sm_closed = False
             self.legacy_version_his_window_text = ""
 
@@ -148,7 +146,11 @@ class AutoTTS:
 
         if self.legacy_version_his_window_text != foregroundWindowText:
             print(f"[Main] 窗口标题: {foregroundWindowText}")
-            text = get_supermemo_html(self.app)
+            app = supermemo.app
+            if app is None:
+                self.window.after(2000, self.legacy)
+                return
+            text = get_supermemo_html(app)
             if text is not None and text != "":
                 print(self.format_title(text))
                 self.window.update_lable_text(self.format_title(text))

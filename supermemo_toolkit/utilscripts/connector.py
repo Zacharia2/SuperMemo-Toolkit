@@ -3,12 +3,13 @@
 职责：只负责与 TElWind 建立/维护连接，并一次性缓存进程信息。
 不弹窗、不重试、不做业务判断；所有失败通过 last_error / 返回值暴露。
 
+lazy check
+
 语义速查：
+  supermemo.identity             (pid, process_start_ts, session_seq)，判缓存有效性的唯一依据
   supermemo.snapshot             只读缓存，绝不重连（廉价，循环里用）
   supermemo.ensure_snapshot()    必要时重连一次，返回最新快照（昂贵）
-  supermemo.refresh()            强制丢弃缓存后重连
   supermemo.wait_until_running() 阻塞等待启动，支持 stop_event / stop_check
-  supermemo.identity             (pid, process_start_ts)，判缓存有效性的唯一依据
 """
 
 from __future__ import annotations
@@ -85,13 +86,6 @@ def compute_sm_ver(file_path):
 
 @dataclass(frozen=True)
 class SuperMemoSnapshot:
-    """一次成功连接得到的全部信息。不可变、跨线程安全。
-
-    判断「是否同一进程实例」靠 (pid, process_start_ts)：
-      - 同 PID 重启 → process_start_ts 必变
-      - 不重启但 refresh() → 两者不变（缓存仍有效）
-    """
-
     app: Application
     pid: int
     process_name: str
@@ -100,10 +94,12 @@ class SuperMemoSnapshot:
     sm_ver: str
     telwind_hwnd: int
     process_start_ts: float
+    session_seq: int = 0  # 会话代次号，connector 内部维护；仅用于 identity 去重
 
     @property
-    def identity(self) -> tuple[int, float]:
-        return (self.pid, self.process_start_ts)
+    def identity(self) -> tuple[int, float, int]:
+        """会话身份唯一指纹。"""
+        return (self.pid, self.process_start_ts, self.session_seq)
 
 
 class SuperMemoConnector:
@@ -128,6 +124,8 @@ class SuperMemoConnector:
             self._mutex = threading.RLock()
             self._snapshot: SuperMemoSnapshot | None = None
             self._last_error: BaseException | None = None
+            self._session_seq: int = 0
+            self._last_proc_identity: tuple[int, float] | None = None
             self._initialized = True
 
     # ------------------------------------------------------------------
@@ -158,8 +156,8 @@ class SuperMemoConnector:
             return None
 
     @property
-    def identity(self) -> tuple[int, float] | None:
-        """缓存的身份指纹。进程死 → None。用 snapshot（会 liveness 检查）。"""
+    def identity(self) -> tuple[int, float, int] | None:
+        """会话身份指纹。进程死 → None。用 snapshot（会 liveness 检查）。"""
         s = self.snapshot
         return s.identity if s else None
 
@@ -214,11 +212,6 @@ class SuperMemoConnector:
     # 状态判定 / 连接控制
     # ------------------------------------------------------------------
 
-    def refresh(self, raise_on_error: bool = False) -> bool:
-        with self._mutex:
-            self._snapshot = None
-            return self._do_connect(raise_on_error=raise_on_error)
-
     def wait_until_running(
         self,
         poll_interval: float = 2.0,
@@ -261,7 +254,9 @@ class SuperMemoConnector:
     def _snapshot_alive(snap: SuperMemoSnapshot) -> bool:
         """判断进程是否存活。"""
         try:
-            return bool(snap.app.is_process_running())
+            return bool(snap.app.is_process_running()) and win32gui.IsWindow(
+                snap.telwind_hwnd
+            )
         except Exception:  # noqa: BLE001
             return False
 
@@ -292,6 +287,11 @@ class SuperMemoConnector:
             bitness = 64 if app.is64bit() else 32
             sm_ver = compute_sm_ver(file_path)
 
+            proc_identity = (pid, start_ts)
+            if self._last_proc_identity != proc_identity:
+                self._session_seq += 1
+                self._last_proc_identity = proc_identity
+
             self._snapshot = SuperMemoSnapshot(
                 app=app,
                 pid=pid,
@@ -301,6 +301,7 @@ class SuperMemoConnector:
                 sm_ver=sm_ver,
                 telwind_hwnd=telwind_hwnd,
                 process_start_ts=start_ts,
+                session_seq=self._session_seq,
             )
             return True
 

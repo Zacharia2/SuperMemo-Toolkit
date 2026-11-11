@@ -73,13 +73,18 @@ class Trace:
             判定顺序（关键修复）：
               1. 用户主动停止      → 整体退出
               2. 集合失活          → 回监听
-              3. SM 进程退出       → watch 模式回监听；非 watch 模式整体退出
+              3. SM 进程退出/重启  → watch 模式回监听；非 watch 模式整体退出
 
             为什么顺序很重要：
               SM 关闭时 .kno 的独占锁先释放，SuperMemo 进程完全退出稍晚，
               两者之间存在几十到几百毫秒的窗口。若先判 is_process_running()，
               就会在窗口外误判为「整体退出」。两个进程并发追踪时相位错开，
               几乎必有一个落在窗口外，表现为「一开一关就只剩一个命令还活着」。
+
+            为什么用局部 track_identity 而非 reader._snap：
+              ElementNo 在 SM 重启时会自愈（detach + 重建），其 _snap 在追踪
+              期间可能被更新，无法作为「追踪起点会话」的参照；且 SM 关闭时
+              _snap 会变 None，直接访问会 AttributeError。
             """
             try:
                 reader = ElementNo()
@@ -88,8 +93,13 @@ class Trace:
             except MemoryScanFailed as e:
                 print(f"[Trace] {e}")
                 return should_abort is not None
+
+            # 追踪开始时锁定会话身份。SM 重启（identity 变化）即退出 _track_one，
+            # 由外层 watch 循环重新确定当前激活的 kno。
+            track_identity = supermemo.identity
+
             self.telwind_hwnd = reader.telwind_hwnd
-            self.app = reader.app
+            self.app = supermemo.app
             text_reg = TextRegistry(active_kno_path)
             try:
                 last_id = None
@@ -102,9 +112,9 @@ class Trace:
                     if should_abort is not None and should_abort():
                         return True
 
-                    # 3) SM 进程退出
+                    # 3) SM 进程退出或重启
                     cur = supermemo.snapshot
-                    if cur is None or cur.identity != reader._snap.identity:
+                    if cur is None or cur.identity != track_identity:
                         # watch 模式：进程没了但应继续等下一个集合 → 回监听
                         if should_abort is not None:  # noqa: SIM103
                             return True
@@ -117,18 +127,19 @@ class Trace:
                         text_reg.refresh(element_id=elem_id)
                         if text_reg.eId is None:
                             time.sleep(0.5)
-                            # 同样的判定顺序，避免刚 sleep 完 SM 已退出被误判
+                            # 同样的判定顺序，避免刚 sleep 完 SM 已重启/退出被误判
                             if self.__stoped:
                                 return False
                             if should_abort is not None and should_abort():
                                 return True
-                            if supermemo.snapshot is None:
+                            cur = supermemo.snapshot
+                            if cur is None or cur.identity != track_identity:
                                 # watch 模式：进程没了但应继续等下一个集合 → 回监听
                                 if should_abort is not None:  # noqa: SIM103
                                     return True
                                 # 非 watch 模式：进程没了 → 整体退出
                                 return False
-                        if callback(text_reg) == True:
+                        if callback(text_reg):
                             self.set_running(False)
                     time.sleep(0.1)
             finally:

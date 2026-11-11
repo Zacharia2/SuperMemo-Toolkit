@@ -91,36 +91,101 @@ class ElementNo:
     """适配 sm15/sm16/sm17/sm18/sm19/sm20。"""
 
     def __init__(self, retry: int = 20):
-        snap = supermemo.ensure_snapshot()
-        if snap is None:
+        if supermemo.ensure_snapshot() is None:
             raise SuperMemoNotAvailable("SuperMemo 未启动")
 
-        self._snap = snap
-        self.app = snap.app
-        self.process_name = snap.process_name
-        self.sm_ver = snap.sm_ver
-        self.sm_arch = snap.bitness
-        self.telwind_hwnd = snap.telwind_hwnd
+        self._snap = None
+        self._scan_failed_identity = None
+        self._ever_located = False  # 本 identity 内是否成功定位过
+        self.process_name = ""
+        self.sm_ver = ""
+        self.sm_arch = 0
+        self.telwind_hwnd = None
         self.py_mem: pymem.Pymem | None = None
         self.base = 0
+        self.module_size = 0
         self.global_ptr_addr = None
         self.ptr_offset = 0
         self.max_ptr = 0
-        self.module_size = 0
 
-        if not self.attach():
+        if not self._refresh(retry=retry):
+            raise MemoryScanFailed("附加进程/扫描特征码失败")
+
+    def _refresh(self, retry: int = 0) -> bool:
+        """从 connector 拉取最新快照，必要时 attach / locate，维持可读状态。
+
+        语义（配合「SM 关闭即等待、重开即重建」）：
+        - snapshot 为 None：SM 已关闭 → detach，等待下次打开。
+        - identity 变化：SM 重启 → detach 旧绑定，为新 identity 重建。
+        - fast path：地址有效 → 直接返回。
+        - 硬失败缓存：某 identity 从未定位成功且重试耗尽 → 本 identity 内不再重扫。
+        - 软失败：曾定位成功但本次 locate 偶发失败 → 不缓存，下次 tick 重试。
+        """
+        snap = supermemo.snapshot
+        if snap is None:
+            # SM 已关闭：释放句柄，等待下次打开
             self.detach()
-            raise MemoryScanFailed("附加进程失败")
+            return False
 
-        if not self.locate():
-            # 扫描失败，尝试多次定位
-            for _ in range(retry):
-                time.sleep(1.5)
-                if self.locate():
-                    break
-            else:
+        # identity 变化（SM 重启）：释放旧绑定，下面为新 identity 重建
+        if self._snap is not None and self._snap.identity != snap.identity:
+            self.detach()
+
+        # 该 identity 已判定为"扫不出来"：不再 attach，等 SM 重启
+        if self._scan_failed_identity == snap.identity and self.global_ptr_addr is None:
+            return False
+
+        # fast path（identity 已在上面校验，地址必然属于当前会话）
+        if self.global_ptr_addr is not None:
+            return True
+
+        # 需要 attach（首次 / detach 后 / 重建）
+        if self.py_mem is None:
+            self._snap = snap
+            self.process_name = snap.process_name
+            self.sm_ver = snap.sm_ver
+            self.sm_arch = snap.bitness
+            self.telwind_hwnd = snap.telwind_hwnd
+            self._ever_located = False
+
+            if not self.attach():
                 self.detach()
-                raise MemoryScanFailed("扫描失败，未找到有效特征码")
+                return False
+
+            # attach 打开的是 snap.pid；若期间进程已重启，identity 会变
+            cur = supermemo.snapshot
+            if cur is None or cur.identity != self._snap.identity:
+                self.detach()
+                return False
+
+        # locate
+        if self.locate():
+            self._ever_located = True
+            self._scan_failed_identity = None
+            return True
+
+        # 曾定位成功过 → 本次偶发失败，不清地址、不缓存，下次 tick 重试
+        if self._ever_located:
+            return False
+
+        # 从未成功 → 按 retry 重试（SM 可能刚启动、内存尚未就绪）
+        for _ in range(retry):
+            time.sleep(1.5)
+            cur = supermemo.snapshot
+            if cur is None or cur.identity != self._snap.identity:
+                self.detach()
+                return False
+            if self.locate():
+                self._ever_located = True
+                self._scan_failed_identity = None
+                return True
+
+        # 仅当主动重试过（retry > 0）才认为是硬失败并缓存；
+        # retry == 0 的调用（如 read_id）不写缓存，交给下次 tick 再试。
+        if retry > 0:
+            self._scan_failed_identity = snap.identity
+        self.detach()
+        return False
 
     def _scan_aob_execute_read_only(self, pattern):
         """
@@ -171,6 +236,8 @@ class ElementNo:
                             # 读取全局指针 read_uint（4 字节）
                             global_var_addr = struct.unpack("<I", match.group("ptr"))[0]
                             ptr_offset = struct.unpack("<I", match.group("off"))[0]
+                        else:
+                            continue
 
                         # 去重，避免同一地址重复加入
                         if global_var_addr not in candidates:
@@ -225,9 +292,11 @@ class ElementNo:
                 pass
             self.py_mem = None
         self.global_ptr_addr = None
+        self._snap = None
 
     def locate(self):
         """扫描一次定位全局变量地址，后续直接复用"""
+        self.global_ptr_addr = None  # 任何失败路径都保持 None
         cfg = _PTR_SCAN_CONFIG.get((self.sm_arch, self.sm_ver))
         if not cfg:
             return False
@@ -255,14 +324,10 @@ class ElementNo:
                 self.global_ptr_addr = global_var_addr
                 return True
 
-        # 所有候选都验证失败
-        self.global_ptr_addr = None
         return False
 
     def read_id(self):
-        if self.global_ptr_addr is None:
-            return None
-        if supermemo.identity != self._snap.identity:
+        if not self._refresh(retry=0):
             return None
         try:
             if self.sm_arch == 64:
@@ -271,10 +336,19 @@ class ElementNo:
                 obj = self.py_mem.read_uint(self.global_ptr_addr)
             else:
                 return None
-            if not self._validate_object(obj):
-                return None
+        except (TypeError, MemoryReadError, ProcessError):
+            # 读全局指针本身失败 → 地址可能失效，下次 _refresh 重 locate
+            self.global_ptr_addr = None
+            return None
+
+        # 对象暂时无效（如当前无元素）→ 保留地址，下次再读
+        if not self._validate_object(obj):
+            return None
+
+        try:
             return self.py_mem.read_uint(obj + self.ptr_offset)
         except (TypeError, MemoryReadError, ProcessError):
+            # 对象在读 eid 期间失效（元素切换）→ 保留地址，下次重读
             return None
 
 

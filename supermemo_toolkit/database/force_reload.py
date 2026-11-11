@@ -117,33 +117,73 @@ class ForceReload:
     """适配 sm17/sm18/sm19/sm20。"""
 
     def __init__(self, retry: int = 20):
-        snap = supermemo.ensure_snapshot()
-        if snap is None:
+        if supermemo.ensure_snapshot() is None:
             raise SuperMemoNotAvailable("SuperMemo 未启动")
 
-        self._snap = snap
-        self.process_name = snap.process_name
-        self.sm_ver = snap.sm_ver
-        self.sm_arch = snap.bitness
-        self.telwind_handle = snap.telwind_hwnd
+        self._snap = None
+        self.process_name = ""
+        self.sm_ver = ""
+        self.sm_arch = 0
+        self.telwind_handle = None
         self.py_mem: pymem.Pymem | None = None
         self.base = 0
         self.module_size = 0
         self.online_and_has_force_addr = None
 
+        if not self._refresh(retry=retry):
+            raise MemoryScanFailed("附加进程/扫描特征码失败")
+
+    def _refresh(self, retry: int = 0) -> bool:
+        """主动从 connector 拉取最新快照，更新全部会话类变量并重建扫描地址。
+
+        - SM 未运行：detach，释放句柄，等待下次启动。
+        - 同一会话且地址有效：直接返回 True，不重扫。
+        - 会话变化或地址失效：detach → attach → 二次确认 → locate；
+          失败则类变量保持 detach 后的干净状态并返回 False。
+        """
+        snap = supermemo.snapshot
+        if snap is None:
+            self.detach()
+            return False
+
+        if (
+            self._snap is not None
+            and self._snap.identity == snap.identity
+            and self.is_ready()
+        ):
+            return True
+
+        self.detach()
+        self._snap = snap
+        self.process_name = snap.process_name
+        self.sm_ver = snap.sm_ver
+        self.sm_arch = snap.bitness
+        self.telwind_handle = snap.telwind_hwnd
+
         if not self.attach():
             self.detach()
-            raise MemoryScanFailed("附加进程失败")
+            return False
 
-        if not self.locate():
-            # 扫描失败，尝试多次定位
-            for _ in range(retry):
-                time.sleep(1.5)
-                if self.locate():
-                    break
-            else:
+        # attach 打开的是 snap.pid；若期间进程已重启，connector 会返回不同 identity
+        cur = supermemo.snapshot
+        if cur is None or cur.identity != self._snap.identity:
+            self.detach()
+            return False
+
+        if self.locate():
+            return True
+
+        for _ in range(retry):
+            time.sleep(1.5)
+            cur = supermemo.snapshot
+            if cur is None or cur.identity != self._snap.identity:
                 self.detach()
-                raise MemoryScanFailed("扫描失败，未找到有效特征码")
+                return False
+            if self.locate():
+                return True
+
+        self.detach()
+        return False
 
     def is_ready(self) -> bool:
         return self.online_and_has_force_addr is not None
@@ -233,9 +273,14 @@ class ForceReload:
             self.py_mem = None
         self.online_and_has_force_addr = None
         self.telwind_handle = None
+        self._snap = None
 
     def locate(self):
-        """扫描一次定位全局变量地址，后续直接复用"""
+        """扫描一次定位全局变量地址，后续直接复用。
+
+        任何失败路径均保持 online_and_has_force_addr 为 None，不残留旧值。
+        """
+        self.online_and_has_force_addr = None
         cfg = _FORCE_RELOADING_SCAN_CONFIG.get((self.sm_arch, self.sm_ver))
         if not cfg:
             return False
@@ -247,16 +292,19 @@ class ForceReload:
         if len(telwind_candidates) != 1 or len(force_candidates) != 1:
             return False
 
-        if self.sm_arch == 64:
-            telwind_addr = self.py_mem.read_longlong(telwind_candidates[0])
-        elif self.sm_arch == 32:
-            telwind_addr = self.py_mem.read_uint(telwind_candidates[0])
-        else:
+        try:
+            if self.sm_arch == 64:
+                telwind_addr = self.py_mem.read_longlong(telwind_candidates[0])
+            elif self.sm_arch == 32:
+                telwind_addr = self.py_mem.read_uint(telwind_candidates[0])
+            else:
+                return False
+        except (TypeError, MemoryReadError, ProcessError):
             return False
+
         if telwind_addr != 0 and self._is_reasonable_offset(force_candidates[0]):
             self.online_and_has_force_addr = telwind_addr + force_candidates[0]
             return True
-        self.online_and_has_force_addr = None
         return False
 
     def read_force_reloading(self):
@@ -265,6 +313,8 @@ class ForceReload:
         try:
             return bool(self.py_mem.read_bool(self.online_and_has_force_addr))
         except (TypeError, MemoryReadError, ProcessError):
+            # 读失败：地址可能已失效，清掉让下一轮 _refresh 重建
+            self.online_and_has_force_addr = None
             return None
 
     def set_force_reloading(self):
@@ -272,8 +322,13 @@ class ForceReload:
             return False
         try:
             self.py_mem.write_bool(self.online_and_has_force_addr, True)
-            return bool(self.read_force_reloading())
+            ok = bool(self.read_force_reloading())
+            if not ok:
+                # 写成功但读失败，地址可能已无效，清掉让下一轮重建
+                self.online_and_has_force_addr = None
+            return ok
         except (TypeError, MemoryReadError, ProcessError):
+            self.online_and_has_force_addr = None
             return False
 
     def activate_window(self):
@@ -291,6 +346,7 @@ class ForceReload:
         return True
 
     def __enter__(self):
+        self._refresh(retry=0)
         self.set_force_reloading()
         return self
 
