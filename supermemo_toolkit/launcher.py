@@ -7,7 +7,6 @@ import json
 import os
 import queue
 import re
-import shlex
 import shutil
 import socket
 import subprocess
@@ -27,6 +26,14 @@ CONFIG_FILE = Path.home() / ".config" / "supermemo_toolkit" / ".smtk_launcher.js
 CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 SINGLE_INSTANCE_PORT = 49152
 SHUTDOWN_PORT = 49200  # time_watch 关闭信号端口，以time_rewind.py定义为准
+
+# 主窗口固定尺寸：删去“自定义命令/外部程序”区块后，高度由 480 缩到 430。
+WIN_W = 480
+WIN_H = 430
+WIN_GEOM = f"{WIN_W}x{WIN_H}"
+# 尺寸守卫阈值（略小于实际尺寸，留出 WM 边框/DPI 缩放误差）
+WIN_MIN_W = WIN_W - 80
+WIN_MIN_H = WIN_H - 30
 
 THEMES = {
     "light": {
@@ -102,6 +109,9 @@ COMMANDS = [
     },
 ]
 
+# "终端"按钮的候选启动顺序：Windows Terminal → PowerShell 7 → 系统 PowerShell 5.1
+TERMINAL_CANDIDATES = ("wt.exe", "pwsh.exe", "powershell.exe")
+
 # ============================================================
 # 日志窗口：ANSI / OSC 8 / make_link 折叠解析（Windows 专用）
 # ============================================================
@@ -127,8 +137,6 @@ _TTY_FOLD_RE = re.compile(
     r"[ \t]+\((?P<url>file://[^\s)\x1b]+|https?://[^\s)\x1b]+)\)"
 )
 
-CUSTOM_NAME = "custom"
-CUSTOM_LABEL = "自定义"
 LOG: queue.Queue[tuple[str, str]] = queue.Queue()
 
 # 全局保存互斥体句柄，防止被 Python 垃圾回收机制释放
@@ -374,8 +382,8 @@ class LauncherApp:
         self.root = root
         self.root.title(APP_TITLE)
 
-        # 【极限固定尺寸】
-        self.root.geometry("480x480")
+        # 【极限固定尺寸】480x430：扣掉已删除的“自定义命令/外部程序”区块
+        self.root.geometry(WIN_GEOM)
         self.root.resizable(False, False)
 
         self.smtk_path: str | None = None
@@ -394,7 +402,6 @@ class LauncherApp:
         self.runners: dict[str, Runner] = {
             s["name"]: Runner(s["name"], s["label"], s["args"]) for s in COMMANDS
         }
-        self.runners[CUSTOM_NAME] = Runner(CUSTOM_NAME, CUSTOM_LABEL)
 
         self.row_widgets: dict[str, dict] = {}
         self.log_views: dict[str, scrolledtext.ScrolledText] = {}
@@ -413,21 +420,19 @@ class LauncherApp:
 
         self.root.configure(bg=self.colors["BG_MAIN"])
 
-        self.custom_var = tk.StringVar()
-
         self._build_ui()
         self._restore_state()
 
         # 在窗口尚未 map 时一次性设好 alpha，避免 map 之后再跳变导致闪烁
         self.root.attributes("-alpha", self.opacity)
 
-        # ==================== 新增：拦截 imgfit 发送的 Alt 键 ====================
+        # ==================== 拦截 imgfit 发送的 Alt 键 ====================
         # 拦截物理按键和 SendInput 虚拟按键，防止触发 Windows 系统菜单导致窗口变扁
         self.root.bind_all("<Alt_L>", lambda e: "break")
         self.root.bind_all("<Alt_R>", lambda e: "break")
         self.root.bind_all("<KeyPress-Alt_L>", lambda e: "break")
         self.root.bind_all("<KeyPress-Alt_R>", lambda e: "break")
-        # =======================================================================
+        # ===================================================================
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         # 保存 after 返回值，便于退出时取消
@@ -442,18 +447,18 @@ class LauncherApp:
     def _force_main_geometry(self) -> None:
         """强制恢复主窗口的尺寸与安全位置，防止 UI 重建导致挤压"""
         try:
-            self.root.deiconify()  # 【新增】确保窗口不是隐藏状态
+            self.root.deiconify()  # 确保窗口不是隐藏状态
             x = self.root.winfo_x()
             y = self.root.winfo_y()
             sw = self.root.winfo_screenwidth()
             sh = self.root.winfo_screenheight()
             # 如果坐标无效或跑出屏幕外，则居中显示
             if not (0 <= x < sw - 100 and 0 <= y < sh - 100):
-                x, y = max(0, (sw - 480) // 2), max(0, (sh - 480) // 2)
-            self.root.geometry(f"480x480+{x}+{y}")
-            self.root.update_idletasks()  # 【新增】立刻重绘，防止画面冻结
+                x, y = max(0, (sw - WIN_W) // 2), max(0, (sh - WIN_H) // 2)
+            self.root.geometry(f"{WIN_GEOM}+{x}+{y}")
+            self.root.update_idletasks()  # 立刻重绘，防止画面冻结
         except Exception:  # noqa: BLE001
-            self.root.geometry("480x480")
+            self.root.geometry(WIN_GEOM)
 
     # ---------- 单实例唤醒 (UDP 通信) ----------
     def _start_udp_listener(self):
@@ -488,7 +493,7 @@ class LauncherApp:
 
     # ---------- 配置 ----------
     def _load_config(self) -> dict:
-        cfg = {"geometry": "", "custom_args": "", "theme": "light", "opacity": 1.0}
+        cfg = {"geometry": "", "theme": "light", "opacity": 1.0}
         try:
             if CONFIG_FILE.is_file():
                 cfg.update(json.loads(CONFIG_FILE.read_text(encoding="utf-8")))
@@ -498,16 +503,16 @@ class LauncherApp:
 
     def _save_config(self) -> None:
         try:
-            # 获取当前位置，强制固定宽高为 480x480
+            # 获取当前位置，强制固定宽高为 WIN_W x WIN_H
             x = self.root.winfo_x()
             y = self.root.winfo_y()
             sw = self.root.winfo_screenwidth()
             sh = self.root.winfo_screenheight()
             if 0 <= x < sw and 0 <= y < sh:
-                self.config["geometry"] = f"480x480+{x}+{y}"
-            self.config["custom_args"] = self.custom_var.get().strip()
+                self.config["geometry"] = f"{WIN_GEOM}+{x}+{y}"
             self.config["theme"] = self.theme_name
             self.config["opacity"] = self.opacity
+            self.config.pop("custom_args", None)  # 清理旧版本残留
             CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
             CONFIG_FILE.write_text(
                 json.dumps(self.config, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -517,16 +522,13 @@ class LauncherApp:
                 print(f"save config: {e}", file=sys.stderr)
 
     def _restore_state(self) -> None:
-        if self.config.get("custom_args"):
-            self.custom_var.set(self.config["custom_args"])
-
         # 提取历史保存的坐标位置
         geo = self.config.get("geometry")
         if geo:
             match = re.search(r"([+-]\d+[+-]\d+)$", geo)
             if match:
-                # 强制宽高为 480x480，只应用坐标
-                self.root.geometry(f"480x480{match.group(1)}")
+                # 强制宽高为 WIN_GEOM，只应用坐标
+                self.root.geometry(f"{WIN_GEOM}{match.group(1)}")
 
     # ---------- 自定义扁平按钮 ----------
     def _create_button(self, parent, text, command, width=6, is_primary=False):
@@ -713,56 +715,26 @@ class LauncherApp:
         body = tk.Frame(self.root, bg=c["BG_MAIN"], padx=6, pady=4)
         body.pack(side="top", fill="x")
 
+        # "常驻命令"标题行：标题靠左，"终端"按钮靠右（不额外占用垂直空间）
+        header = tk.Frame(body, bg=c["BG_MAIN"])
+        header.pack(fill="x", pady=(0, 2))
+
         tk.Label(
-            body,
+            header,
             text="常驻命令",
             font=("Microsoft YaHei", 9, "bold"),
             bg=c["BG_MAIN"],
             fg=c["FG_MAIN"],
-        ).pack(anchor="w", pady=(0, 2))
+        ).pack(side="left")
+
+        self._create_button(header, "终端", self._launch_terminal, width=4).pack(
+            side="right"
+        )
 
         for spec in COMMANDS:
             self._build_row(body, spec["name"], spec["label"], spec.get("help", ""))
 
-        tk.Frame(body, height=1, bg=c["BORDER"]).pack(fill="x", pady=4)
-        tk.Label(
-            body,
-            text="自定义命令",
-            font=("Microsoft YaHei", 9, "bold"),
-            bg=c["BG_MAIN"],
-            fg=c["FG_MAIN"],
-        ).pack(anchor="w", pady=(0, 2))
-
-        custom_row = tk.Frame(body, bg=c["BG_MAIN"])
-        custom_row.pack(fill="x")
-        tk.Label(
-            custom_row,
-            text="参数",
-            width=5,
-            anchor="w",
-            bg=c["BG_MAIN"],
-            fg=c["FG_DIM"],
-            font=("Microsoft YaHei", 8),
-        ).pack(side="left")
-
-        entry = tk.Entry(
-            custom_row,
-            textvariable=self.custom_var,
-            bg=c["BG_PANEL"],
-            fg=c["FG_MAIN"],
-            insertbackground=c["FG_MAIN"],
-            relief="flat",
-            font=("Consolas", 9),
-            highlightthickness=1,
-            highlightbackground=c["BORDER"],
-            highlightcolor=c["ACCENT"],
-        )
-        entry.pack(side="left", fill="x", expand=True, padx=(0, 4), ipady=0)
-        self._create_button(
-            custom_row, "运行", lambda: self._start(CUSTOM_NAME), width=5
-        ).pack(side="left")
-
-        # 3. 底部仪表盘区
+        # 3. 底部仪表盘区（其余空间全部给 HUD 卡片吸收）
         trace_frame = tk.Frame(self.root, bg=c["BG_MAIN"], padx=6, pady=4)
         trace_frame.pack(fill="both", expand=True)
 
@@ -927,7 +899,7 @@ class LauncherApp:
             if not (0 <= rx < sw and 0 <= ry < sh):
                 raise ValueError("invalid root position")
         except Exception:
-            rx, ry = max(0, (sw - 480) // 2), max(0, (sh - 480) // 2)
+            rx, ry = max(0, (sw - WIN_W) // 2), max(0, (sh - WIN_H) // 2)
 
         x = max(0, min(rx + 20, sw - 420))
         y = max(0, min(ry + 20, sh - 160))
@@ -1105,16 +1077,19 @@ class LauncherApp:
                 pass
             self._poll_status_id = None
 
-        # ==================== 新增：尺寸守卫 ====================
+        # ==================== 尺寸守卫 ====================
         # 如果主窗口存在，但尺寸被异常压缩，强行恢复
         if self.mini_window is None or not self.mini_window.winfo_exists():
             try:
                 if self.root.winfo_exists():  # noqa: SIM102
-                    if self.root.winfo_width() < 400 or self.root.winfo_height() < 400:
+                    if (
+                        self.root.winfo_width() < WIN_MIN_W
+                        or self.root.winfo_height() < WIN_MIN_H
+                    ):
                         self._force_main_geometry()
             except Exception:  # noqa: BLE001, S110
                 pass
-        # ========================================================
+        # ===================================================
 
         for name, runner in self.runners.items():
             widgets = self.row_widgets.get(name)
@@ -1160,25 +1135,64 @@ class LauncherApp:
             return None
         return self.smtk_path
 
+    def _launch_terminal(self) -> None:
+        """打开终端：依次尝试 Windows Terminal → PowerShell 7 → 系统 PowerShell。"""
+        for exe in TERMINAL_CANDIDATES:
+            if self._spawn_detached(exe):
+                return
+        messagebox.showerror(
+            "启动失败",
+            "无法启动终端。\n已尝试："
+            + " / ".join(TERMINAL_CANDIDATES)
+            + "\n请确认系统已安装终端程序。",
+        )
+
+    @staticmethod
+    def _spawn_detached(exe: str) -> bool:
+        """启动一个外部 GUI/控制台程序；成功返回 True。
+
+        关键：
+        - 不重定向 stdin/stdout/stderr。PowerShell 在 stdin 为 DEVNULL/PIPE
+          且读到 EOF 时会立即退出（表现为“一闪就没了”）；不重定向时子进程
+          的标准流绑定到新控制台，进入正常交互模式。
+        - CREATE_NEW_CONSOLE：即使父进程是 pythonw（无控制台），子进程也会
+          获得一个独立的新控制台窗口，标准流由系统绑定到该控制台。
+        - Popen 走不通的 App Execution Alias（典型如 wt.exe，它是 0 字节的
+          reparse point，CreateProcess 不能直接执行），改用 ShellExecuteW。
+        """
+        try:
+            subprocess.Popen(
+                [exe],
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
+                close_fds=True,
+            )
+            return True
+        except FileNotFoundError:
+            pass
+        except OSError:
+            pass
+
+        # fallback：ShellExecuteW 可解析 App Execution Alias（wt.exe 常见场景）
+        if sys.platform == "win32":
+            try:
+                import ctypes
+
+                rc = ctypes.windll.shell32.ShellExecuteW(
+                    None, "open", exe, None, None, 1
+                )
+                if rc > 32:  # ShellExecute 约定：>32 为成功
+                    return True
+            except Exception:
+                pass
+        return False
+
     def _start(self, name: str) -> None:
         path = self._ensure_smtk()
         if path is None:
             return
         runner = self.runners[name]
-        if name == CUSTOM_NAME:
-            text = self.custom_var.get().strip()
-            if not text:
-                messagebox.showinfo("自定义命令", "请输入命令参数，例如 time list")
-                return
-            try:
-                runner.args = shlex.split(text)
-            except ValueError as e:
-                messagebox.showerror("参数错误", str(e))
-                return
-            runner.stop()
-        elif name == "trace_mem":
+        if name == "trace_mem":
             self._clear_trace_view()
-
         runner.start(path)
 
     def _stop(self, name: str) -> None:
@@ -1218,8 +1232,6 @@ class LauncherApp:
         if path is None:
             return
         for name, runner in self.runners.items():
-            if name == CUSTOM_NAME:
-                continue
             if not runner.is_running():
                 if name == "trace_mem":
                     self._clear_trace_view()
@@ -1631,7 +1643,7 @@ class LauncherApp:
             return
 
         try:
-            # 【修改点】平时与正文同色，仅下划线；悬停时变高亮蓝色
+            # 平时与正文同色，仅下划线；悬停时变高亮蓝色
             view.tag_configure(tag, foreground=self.colors["FG_MAIN"])
             view.tag_bind(tag, "<Button-1>", lambda e, u=url: self._open_log_url(u))
             view.tag_bind(
