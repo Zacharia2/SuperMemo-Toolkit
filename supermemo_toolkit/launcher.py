@@ -72,7 +72,7 @@ THEMES = {
 COMMANDS = [
     {
         "name": "time_watch",
-        "label": "托盘备份",
+        "label": "时间备份",
         "args": ["time", "watch"],
         "help": "监控集合打开/关闭",
     },
@@ -96,11 +96,36 @@ COMMANDS = [
     },
     {
         "name": "trace_mem",
-        "label": "内存追踪",
+        "label": "当前元素",
         "args": ["trace", "--mem-watch"],
         "help": "监控并展示在仪表盘",
     },
 ]
+
+# ============================================================
+# 日志窗口：ANSI / OSC 8 / make_link 折叠解析（Windows 专用）
+# ============================================================
+
+_ANSI_CSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+_OSC_ANY = re.compile(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)", re.DOTALL)
+# OSC 8: ESC ] 8 ; params ; URI ST  label  ESC ] 8 ; params ; ST
+# label 用 [^\x1b]*? 限制不跨 ESC，防止 OSC 8 未配对时把大段文本吞成 label
+_OSC8_LINK = re.compile(
+    r"\x1b\]8;[^;]*;([^\x07\x1b]*)(?:\x07|\x1b\\)([^\x1b]*?)\x1b\]8;[^;]*;(?:\x07|\x1b\\)",
+    re.DOTALL,
+)
+# 未闭合的 OSC 开头：从 ESC] 开始到本行行尾，无 ST/BEL 结尾
+# 字符类排除 \n，防止贪婪匹配把下一行一起吞掉
+_OSC8_UNCLOSED = re.compile(r"\x1b\][^\x07\x1b\n]*$", re.MULTILINE)
+# make_link 非 tty 输出 "text (url)" 的反向折叠：
+#   text 为本地盘符路径 / URL，url 为 file://（含 UNC 两斜杠） / http(s)://
+# 只在前半段本身是路径或 URL 时触发，避免误伤普通日志文本
+_TTY_FOLD_RE = re.compile(
+    r"(?P<text>[A-Za-z]:[\\/][^\s()\x1b]+"
+    r"|https?://[^\s()\x1b]+"
+    r"|file://[^\s()\x1b]+)"
+    r"[ \t]+\((?P<url>file://[^\s)\x1b]+|https?://[^\s)\x1b]+)\)"
+)
 
 CUSTOM_NAME = "custom"
 CUSTOM_LABEL = "自定义"
@@ -1269,13 +1294,8 @@ class LauncherApp:
 
                 view = self.log_views.get(name)
                 if view is not None:
-                    try:
-                        view.configure(state="normal")
-                        view.insert("end", text)
-                        view.see("end")
-                        view.configure(state="disabled")
-                    except tk.TclError:
-                        pass
+                    # _insert_log_text 内部已对 TclError 全兜底
+                    self._insert_log_text(view, text)
 
                 if name == "trace_mem":
                     self._last_trace = text
@@ -1356,6 +1376,12 @@ class LauncherApp:
             if focus and self.log_notebook is not None:
                 idx = list(self.runners.keys()).index(focus)
                 self.log_notebook.select(idx)
+                view = self.log_views.get(focus)
+                if view is not None:
+                    try:
+                        view.see("end")
+                    except tk.TclError:
+                        pass
             return
 
         c = self.colors
@@ -1363,6 +1389,9 @@ class LauncherApp:
         win.title("smtk 命令日志")
         win.geometry("650x350")
         win.configure(bg=c["BG_MAIN"])
+
+        # 日志窗口作为普通顶层窗口：正常出现在 Alt+Tab 与任务栏。
+        # 也不用 transient，保证主窗口 withdraw（悬浮视图）时日志窗口不消失。
         self.log_window = win
 
         nb = ttk.Notebook(win)
@@ -1382,15 +1411,60 @@ class LauncherApp:
                 insertbackground=c["FG_MAIN"],
             )
             view.pack(fill="both", expand=True)
-            for text in self.log_buffer.get(name, []):
-                view.configure(state="normal")
-                view.insert("end", text)
-                view.configure(state="disabled")
+
+            # 每个 view 独立维护链接状态；hover 用一个共享 tag 统一管理 cursor，
+            # 避免相邻链接切换时 hand2 → "" → hand2 闪烁
+            view._link_urls = {}
+            view._link_counter = 0
+            view._link_hover_tag = "log_link_hover"
+            try:
+                view.tag_bind(
+                    view._link_hover_tag,
+                    "<Enter>",
+                    lambda e, v=view: v.config(cursor="hand2"),
+                )
+                view.tag_bind(
+                    view._link_hover_tag,
+                    "<Leave>",
+                    lambda e, v=view: v.config(cursor=""),
+                )
+            except tk.TclError:
+                pass
+
+            # 先注册 view，再 replay：即便 replay 中途异常，后续日志仍有落脚点
             self.log_views[name] = view
+
+            # 批量重放：state 只切换一次，内部 _insert_log_text 跳过 state 切换
+            view._bulk_loading = True
+            try:
+                try:
+                    view.configure(state="normal")
+                    for text in self.log_buffer.get(name, []):
+                        self._insert_log_text(view, text)
+                finally:
+                    try:
+                        view.configure(state="disabled")
+                    except tk.TclError:
+                        pass
+            finally:
+                view._bulk_loading = False
+            try:
+                view.see("end")
+            except tk.TclError:
+                pass
+
+        # 切页时滚到最新
+        nb.bind("<<NotebookTabChanged>>", self._on_log_tab_changed)
 
         if focus:
             idx = list(self.runners.keys()).index(focus)
             nb.select(idx)
+            v = self.log_views.get(focus)
+            if v is not None:
+                try:
+                    v.see("end")
+                except tk.TclError:
+                    pass
 
         win.protocol("WM_DELETE_WINDOW", self._close_log_window)
 
@@ -1406,6 +1480,211 @@ class LauncherApp:
 
     def _show_log(self, name: str) -> None:
         self._open_log_window(focus=name)
+
+    def _on_log_tab_changed(self, _event=None) -> None:
+        """切换日志页时，强制滚动到最新一行。"""
+        if self.log_notebook is None:
+            return
+        try:
+            idx = self.log_notebook.index(self.log_notebook.select())
+        except tk.TclError:
+            return
+        names = list(self.runners.keys())
+        if not (0 <= idx < len(names)):
+            return
+        view = self.log_views.get(names[idx])
+        if view is not None:
+            try:
+                view.see("end")
+            except tk.TclError:
+                pass
+
+    def _at_log_bottom(self, view) -> bool:
+        """判断视图是否贴近底部（阈值 2%），用于智能跟随。"""
+        try:
+            return view.yview()[1] >= 0.98
+        except tk.TclError:
+            return True
+
+    def _insert_log_text(self, view, text: str) -> None:
+        """tty 风格日志插入：
+        - OSC 8 超链接（tty 下 make_link 输出）→ 渲染下划线 label，url 隐藏；
+        - "text (url)"（pipe 下 make_link 输出）→ 折叠为只显示 text，url 隐藏；
+        - 其它文本剥离控制序列后原样显示，不做裸 URL / 盘符识别；
+        - 仅当用户原本就在底部时自动跟随最新行；
+        - bulk 重放期间跳过 follow 检测、see 和 state 切换（由调用方统一管理）；
+        - configure / insert / see 全部单独 try 保护；
+        - try/finally 保证 state 一定复位为 disabled。
+        """
+        if not text:
+            return
+        if not hasattr(view, "_link_urls"):
+            # 兜底：view 不是通过 _open_log_window 创建的场景
+            view._link_urls = {}
+            view._link_counter = 0
+            view._link_hover_tag = "log_link_hover"
+            try:
+                view.tag_bind(
+                    view._link_hover_tag,
+                    "<Enter>",
+                    lambda e, v=view: v.config(cursor="hand2"),
+                )
+                view.tag_bind(
+                    view._link_hover_tag,
+                    "<Leave>",
+                    lambda e, v=view: v.config(cursor=""),
+                )
+            except tk.TclError:
+                pass
+
+        bulk = getattr(view, "_bulk_loading", False)
+        follow = (not bulk) and self._at_log_bottom(view)
+
+        if not bulk:
+            try:
+                view.configure(state="normal")
+            except tk.TclError:
+                return
+
+        try:
+            pos = 0
+            while True:
+                m = _OSC8_LINK.search(text, pos)
+                if m is None:
+                    self._insert_plain(view, text[pos:])
+                    break
+                self._insert_plain(view, text[pos : m.start()])
+                url = m.group(1).strip()
+                label = _OSC_ANY.sub("", _ANSI_CSI.sub("", m.group(2)))
+                if label:
+                    if url:
+                        self._emit_link(view, label, url)
+                    else:
+                        view.insert("end", label)
+                pos = m.end()
+        finally:
+            if not bulk:
+                try:
+                    view.configure(state="disabled")
+                except tk.TclError:
+                    pass
+
+        if follow:
+            try:
+                view.see("end")
+            except tk.TclError:
+                pass
+
+    def _insert_plain(self, view, text: str) -> None:
+        """剥离控制序列，并把 make_link 非 tty 输出 "text (url)" 折叠为只显示 text。
+        - 折叠后的 text 作为可点击链接，点击打开 url（视觉等同 tty 下 OSC 8）；
+        - 剥离顺序：未闭合 OSC → 闭合 OSC → ANSI CSI → 残留 ESC 兜底；
+        - 未命中折叠的普通文本原样显示，不做裸 URL / 盘符识别。
+        """
+        if not text:
+            return
+        text = _OSC8_UNCLOSED.sub("", text)
+        text = _OSC_ANY.sub("", text)
+        text = _ANSI_CSI.sub("", text)
+        text = text.replace("\x1b", "")
+        if not text:
+            return
+
+        pos = 0
+        for m in _TTY_FOLD_RE.finditer(text):
+            if m.start() > pos:
+                view.insert("end", text[pos : m.start()])
+            # 只显示 text，url 作为隐藏跳转目标 —— 与 tty 下 OSC 8 视觉一致
+            self._emit_link(view, m.group("text"), m.group("url"))
+            pos = m.end()
+        if pos < len(text):
+            view.insert("end", text[pos:])
+
+    def _emit_link(self, view, label: str, url: str) -> None:
+        """为链接 label 附加唯一 tag，绑定点击打开。
+        tag 数量超过 2000 时整体清空，旧链接变纯文本，防止 Tk 内存累积。
+        cursor 由共享的 _link_hover_tag 统一管理，避免相邻链接 Enter/Leave 闪烁。
+        样式模仿终端 tty 链接：平时与正文同色加下划线，悬停变主题蓝。
+        """
+        if view._link_counter >= 2000:
+            for old_tag in list(view._link_urls.keys()):
+                try:
+                    view.tag_delete(old_tag)
+                except tk.TclError:
+                    pass
+            view._link_urls.clear()
+            view._link_counter = 0
+            try:
+                view.tag_remove(view._link_hover_tag, "1.0", "end")
+            except tk.TclError:
+                pass
+
+        view._link_counter += 1
+        tag = f"log_link_{view._link_counter}"
+        view._link_urls[tag] = url
+        try:
+            before = view.index("end-1c")
+            view.insert("end", label, (tag,))
+            after = view.index("end-1c")
+            view.tag_add(view._link_hover_tag, before, after)
+        except tk.TclError:
+            return
+
+        try:
+            # 【修改点】平时与正文同色，仅下划线；悬停时变高亮蓝色
+            view.tag_configure(tag, foreground=self.colors["FG_MAIN"])
+            view.tag_bind(tag, "<Button-1>", lambda e, u=url: self._open_log_url(u))
+            view.tag_bind(
+                tag,
+                "<Enter>",
+                lambda e, t=tag: view.tag_configure(
+                    t, foreground=self.colors["ACCENT"]
+                ),
+            )
+            view.tag_bind(
+                tag,
+                "<Leave>",
+                lambda e, t=tag: view.tag_configure(
+                    t, foreground=self.colors["FG_MAIN"]
+                ),
+            )
+        except tk.TclError:
+            pass
+
+    def _open_log_url(self, url: str) -> None:
+        """Windows 专用：
+        - file:// → 本地路径（含 UNC 的 server 部分）；
+        - http(s):// → 默认浏览器；
+        """
+        try:
+            low = url.lower()
+            if low.startswith("file://"):
+                from urllib.parse import urlparse
+                from urllib.request import url2pathname
+
+                parsed = urlparse(url)
+                path = url2pathname(parsed.path)
+                if parsed.netloc:
+                    # UNC: file://server/share/... → \\server\share\...
+                    path = f"\\\\{parsed.netloc}{path}"
+                os.startfile(path)
+            elif low.startswith(("http://", "https://")):
+                import webbrowser
+
+                webbrowser.open(url)
+            else:
+                os.startfile(url)
+        except Exception as e:
+            parent = self.root
+            try:
+                if self.log_window is not None and self.log_window.winfo_exists():
+                    parent = self.log_window
+            except tk.TclError:
+                parent = self.root
+            try:
+                messagebox.showerror("打开链接失败", f"{url}\n\n{e}", parent=parent)
+            except Exception:
+                pass
 
     # ---------- 退出 ----------
     def _on_close(self) -> None:
