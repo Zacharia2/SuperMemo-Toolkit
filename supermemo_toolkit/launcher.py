@@ -889,6 +889,9 @@ class LauncherApp:
 
         c = self.colors
 
+        # 悬浮窗尺寸：16:9
+        FLOAT_W, FLOAT_H = 284, 160
+
         sw = self.root.winfo_screenwidth()
         sh = self.root.winfo_screenheight()
 
@@ -900,12 +903,12 @@ class LauncherApp:
         except Exception:
             rx, ry = max(0, (sw - WIN_W) // 2), max(0, (sh - WIN_H) // 2)
 
-        x = max(0, min(rx + 20, sw - 420))
-        y = max(0, min(ry + 20, sh - 160))
+        x = max(0, min(rx + 20, sw - FLOAT_W - 20))
+        y = max(0, min(ry + 20, sh - FLOAT_H - 30))
 
         win = FloatingWindow(
             self.root,
-            geometry=f"400x130+{x}+{y}",
+            geometry=f"{FLOAT_W}x{FLOAT_H}+{x}+{y}",
             opacity=self.opacity,
             bg=c["BORDER"],
         )
@@ -950,7 +953,8 @@ class LauncherApp:
             ):
                 drag["moved"] = True
             if drag["moved"]:
-                nx = max(-380, min(e.x_root - drag["offset_x"], sw - 20))
+                # 允许左侧最多滑出 (FLOAT_W-20)，其余边缘保留 20px
+                nx = max(-(FLOAT_W - 20), min(e.x_root - drag["offset_x"], sw - 20))
                 ny = max(0, min(e.y_root - drag["offset_y"], sh - 20))
                 win.geometry(f"+{nx}+{ny}")
 

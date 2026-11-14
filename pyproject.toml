@@ -1,7 +1,7 @@
 [project]
 name = "supermemo-toolkit"
 dynamic = ["version"]
-description = "SuperMemo 增强工具(CLI命令行)。包含图链整理、EPUB图书转换导入、Latex公式转图片、sm2anki、修补导出标题乱码、卡片朗读等。"
+description = "SuperMemo 增强工具(CLI命令行)。包含time时间梯度备份、e2sm图书转换(epub->xml)、imgfit调整当前元素图片大小、splitLine快捷分割当前元素、pathpix图链管理、math组件公式渲染和latex公式转图片、autotts卡片朗读、sm2anki发送item到anki、comptitle修补导出标题乱码、trace显示当前元素信息、无感执行菜单命令(func)等。"
 readme = "README.md"
 keywords = ["supermemo", "cli-app", "toolkit"]
 classifiers = [
@@ -20,7 +20,7 @@ dependencies = [
     "ebooklib>=0.21",
     "edge-tts>=7.3.1",
     "matplotlib>=3.11.2",
-    "miniaudio>=1.72",
+    "miniaudio>=1.73",
     "numpy>=2.5.4",
     "pillow>=13.0.0",
     "prompt-toolkit>=3.0.53",
@@ -31,7 +31,7 @@ dependencies = [
     "python-magic>=0.4.27; sys_platform != 'win32'",
     "python-magic-bin>=0.4.14; sys_platform == 'win32'",
     "pywinauto>=0.6.9; sys_platform == 'win32'",
-    "regex>=2026.11.7",
+    "regex>=2026.11.15",
     "requests>=2.34.2",
     "sounddevice>=0.5.6",
     "svglib>=2.4.0",

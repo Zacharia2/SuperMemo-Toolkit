@@ -1,13 +1,17 @@
 # supermemo-toolkit(smtk)
 
-SuperMemo 增强工具（CLI命令行）。包含图链整理、EPUB图书转换、Latex公式转图片、sm2anki、修补导出标题乱码、AutoTTS卡片朗读、Trace追踪当前元素和文本注册表（API）、无感执行菜单命令（API）、SplitLine快捷分割当前元素、imgfit调整当前元素图片大小、Time时间梯度备份等。
+SuperMemo 增强工具(CLI命令行)。包含time时间梯度备份、e2sm图书转换(epub->xml)、imgfit调整当前元素图片大小、splitLine快捷分割当前元素、pathpix图链管理、math组件公式渲染和latex公式转图片、autotts卡片朗读、sm2anki发送item到anki、comptitle修补导出标题乱码、trace显示当前元素信息、无感执行菜单命令(func)等。
 
-<div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px;">
-  <img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261107152303570-431994600.png" style="width:100%;" />
-  <img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261108185809298-1897115925.png" style="width:100%;" />
-  <img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261106183709347-1145095935.png" style="width:100%;" />
-  <img src="https://img2024.cnblogs.com/blog/1744038/202611/1744038-20261108190431741-1747787005.png" style="width:100%;" />
-</div>
+<table>
+  <tr>
+    <td><img src="https://i.ibb.co/TMfsZS8V/Snipaste-2026-11-16-16-51-00.png" width="100%" /></td>
+    <td><img src="https://i.ibb.co/0p4zYxZM/1744038-20261108185809298-1897115925.png" width="100%" /></td>
+  </tr>
+  <tr>
+    <td><img src="https://i.ibb.co/jvQCn4hZ/Snipaste-2026-11-16-16-51-15.png" width="100%" /></td>
+    <td><img src="https://i.ibb.co/nsmbMcyz/1744038-20261108190431741-1747787005.png" width="100%" /></td>
+  </tr>
+</table>
 
 ## 1. Install
 
@@ -85,7 +89,7 @@ pathpix管理的图片文件，可以导入图像注册表中。由图像注册�
 
 ## 3. E2SM
 
-![](./docs/Snipaste_2025-02-12_11-49-52.png)
+![](https://i.ibb.co/4Z9XC1Q1/Snipaste-2025-02-12-11-49-52.png)
 
 1. 从 EPUB 格式图书转化为可导入 SuperMemo 软件的 XML 格式图书。配合 Calibre 的 EPUB 编辑器优化 EPUB 目录，转化后导入视觉效果更佳。
 2. 预处理 EPUB，转换为纯 ASCII 字符集。`smtk e2sm --prep <epub_file> <out_folder>`
@@ -168,7 +172,7 @@ AutoTTS 卡片朗读 文本转语音
 
 功能列表：翻页自动播放（启动监听 LE、停止监听 LE、重启监听）、停止播放 RE、重复播放 A、复制播放、解析播放
 
-![](./docs/Snipaste_2026-08-15_23-13-08.png)
+![](https://i.ibb.co/DgLwJhR2/Snipaste-2026-08-15-23-13-08.png)
 
 1. 如何使用
    1. 首先必须打开 supermemo 软件，否则 autotts 结束运行。
