@@ -659,6 +659,7 @@ class LauncherApp:
             "pos_val": lbl_pos_val,
             "title": lbl_title,
             "path": lbl_path,
+            "path_frame": path_frame,
         }
 
         def on_resize(event):
@@ -684,9 +685,6 @@ class LauncherApp:
             bottom, "全部启动", self._start_all, width=8, is_primary=True
         ).pack(side="left")
         self._create_button(bottom, "全部停止", self._stop_all, width=8).pack(
-            side="left", padx=(4, 0)
-        )
-        self._create_button(bottom, "悬浮", self._toggle_floating_view, width=6).pack(
             side="left", padx=(4, 0)
         )
 
@@ -742,6 +740,7 @@ class LauncherApp:
             trace_frame, enable_path_click=True
         )
         self.hud_card_widgets["card"].pack(fill="both", expand=True)
+        self._bind_float_double_click(self.hud_card_widgets)
 
     def _build_row(
         self, parent: tk.Frame, name: str, label: str, help_text: str
@@ -996,8 +995,6 @@ class LauncherApp:
 
         menu.add_command(label=START_LBL, command=self._mini_start_trace)
         menu.add_command(label=STOP_LBL, command=self._mini_stop_trace)
-        menu.add_separator()
-        menu.add_command(label="恢复主窗口", command=self._close_floating_view)
         menu.add_separator()
         menu.add_command(label="退出", command=self._on_close)
         menu.configure(postcommand=refresh_menu_state)
@@ -1286,6 +1283,21 @@ class LauncherApp:
             messagebox.showerror(
                 "打开失败", f"无法打开:\n{self.current_path}\n\n错误: {e}"
             )
+
+    def _bind_float_double_click(self, hud: dict) -> None:
+        """HUD 卡片双击切换悬浮视图；路径行整体除外（保留单击打开文件）。"""
+        skip = {hud.get("path"), hud.get("path_frame")}
+        card = hud.get("card")
+        if card is None:
+            return
+
+        def bind_recursive(w):
+            w.bind("<Double-Button-1>", lambda e: self._toggle_floating_view())
+            for child in w.winfo_children():
+                if child not in skip:
+                    bind_recursive(child)
+
+        bind_recursive(card)
 
     # ---------- 日志与仪表盘渲染 ----------
     def _drain_logs(self) -> None:
