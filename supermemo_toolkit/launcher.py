@@ -14,6 +14,8 @@ import sys
 import threading
 import time
 import tkinter as tk
+import tkinter.font as tkfont
+from datetime import datetime
 from pathlib import Path
 from tkinter import messagebox, scrolledtext, ttk
 
@@ -48,11 +50,14 @@ THEMES = {
         "PRIMARY_FG": "#ffffff",
         "PRIMARY_HOVER": "#1d4ed8",
         "STATUS_RUNNING": "#10b981",
+        "CLOCK_FG": "#005cc5",  # 亮色主题的时钟颜色（深海蓝）
         "TYPE_COLORS": {
-            "TOPIC": "#10b981",
-            "ITEM": "#3b82f6",
-            "TASK": "#f59e0b",
-            "UNKNOWN": "#ef4444",
+            "TOPIC": "#10b981",  # 绿色
+            "ITEM": "#1d4ed8",  # 深蓝色
+            "CONCEPT_GROUP": "#fbbf24",  # 琥珀亮黄
+            "TASK": "#ef4444",  # 红色
+            "UNKNOWN": "#6b7280",  # 高级灰
+            "READY": "#9ca3af",  # 待机标签背景（浅灰）
         },
     },
     "dark": {
@@ -67,11 +72,14 @@ THEMES = {
         "PRIMARY_FG": "#ffffff",
         "PRIMARY_HOVER": "#2ea043",
         "STATUS_RUNNING": "#3fb950",
+        "CLOCK_FG": "#00e5ff",  # 暗色主题的时钟颜色（霓虹青）
         "TYPE_COLORS": {
-            "TOPIC": "#3fb950",
-            "ITEM": "#58a6ff",
-            "TASK": "#d29922",
-            "UNKNOWN": "#f85149",
+            "TOPIC": "#3fb950",  # 亮绿色
+            "ITEM": "#3b82f6",  # 亮蓝色
+            "CONCEPT_GROUP": "#f59e0b",  # 亮橙色
+            "TASK": "#ef4444",  # 红色
+            "UNKNOWN": "#8b949e",  # 灰色
+            "READY": "#4b5563",  # 待机标签背景（深灰）
         },
     },
 }
@@ -372,6 +380,18 @@ def _resolve_smtk() -> str | None:
     return shutil.which("smtk")
 
 
+def _pick_tech_font(root: tk.Misc, size: int, weight: str = "normal") -> tuple:
+    """挑选科技感等宽字体，支持加粗。"""
+    try:
+        available = set(tkfont.families(root))
+    except Exception:
+        available = set()
+    for fam in ("Cascadia Mono", "Cascadia Code", "Consolas", "Courier New"):
+        if fam in available:
+            return (fam, size, weight)
+    return ("Consolas", size, weight)
+
+
 # ============================================================
 # 主窗口
 # ============================================================
@@ -417,6 +437,11 @@ class LauncherApp:
         self.theme_name = self.config.get("theme", "light")
         self.opacity = self.config.get("opacity", 1.0)
         self.colors = THEMES[self.theme_name]
+
+        # 时钟用科技感等宽字体（14号正常粗细）；trace 标题保持中文无衬线
+        self.clock_font = _pick_tech_font(self.root, 14, "normal")
+        self.title_font = ("Microsoft YaHei", 12, "bold")
+        self._idle_clock_text = ""
 
         self.root.configure(bg=self.colors["BG_MAIN"])
 
@@ -567,11 +592,12 @@ class LauncherApp:
         top_bar = tk.Frame(card, bg=c["BG_PANEL"])
         top_bar.pack(fill="x", padx=8, pady=(6, 2))
 
+        # 初始直接显示 READY
         lbl_type = tk.Label(
             top_bar,
-            text="UNKNOWN",
+            text="READY",
             font=("Consolas", 8, "bold"),
-            bg=c["TYPE_COLORS"]["UNKNOWN"],
+            bg=c["TYPE_COLORS"]["READY"],
             fg="#ffffff",
             padx=4,
             pady=1,
@@ -615,12 +641,20 @@ class LauncherApp:
 
         tk.Frame(card, height=1, bg=c["BORDER"]).pack(fill="x", padx=8)
 
+        # ---- 初始 title：直接显示科技感单行时间 ----
+        _init_now = datetime.now()
+        _init_week = _init_now.isocalendar()[1]
+        _init_text = (
+            f"{_init_now.strftime('%m-%d')} W{_init_week:02d} "
+            f"{_init_now.strftime('%H:%M:%S')}"
+        )
+
         lbl_title = tk.Label(
             card,
-            text="等待数据...",
-            font=("Microsoft YaHei", 12, "bold"),
+            text=_init_text,
+            font=self.clock_font,
             bg=c["BG_PANEL"],
-            fg=c["FG_MAIN"],
+            fg=c["CLOCK_FG"],
             justify="center",
             anchor="center",
         )
@@ -741,6 +775,7 @@ class LauncherApp:
         )
         self.hud_card_widgets["card"].pack(fill="both", expand=True)
         self._bind_float_double_click(self.hud_card_widgets)
+        self._render_idle_clock()
 
     def _build_row(
         self, parent: tk.Frame, name: str, label: str, help_text: str
@@ -805,6 +840,15 @@ class LauncherApp:
 
     # ---------- 主题切换与置顶/透明度 ----------
     def _toggle_theme(self) -> None:
+        # 1. 暂存当前追踪文本，防止被 _build_ui 重建过程重置
+        # 只有在追踪进程仍在运行时才暂存，否则停止状态下切换会闪现旧数据
+        if self.runners["trace_mem"].is_running():
+            saved_trace_text = self.current_trace_text
+            saved_last_trace = self._last_trace
+        else:
+            saved_trace_text = None
+            saved_last_trace = None
+
         self.theme_name = "dark" if self.theme_name == "light" else "light"
         self.colors = THEMES[self.theme_name]
 
@@ -822,6 +866,7 @@ class LauncherApp:
                 pass
 
         self.hud_card_widgets = None
+        self._idle_clock_text = ""  # 强制新 HUD 重渲染
         try:
             self._build_ui()
         finally:
@@ -833,7 +878,11 @@ class LauncherApp:
 
         self._last_statuses.clear()
 
-        # 优先用 pending 数据，避免"旧数据 → 新数据"跳变
+        # 2. 恢复追踪状态
+        self.current_trace_text = saved_trace_text
+        self._last_trace = saved_last_trace
+
+        # 3. 优先用 pending 数据，避免"旧数据 → 新数据"跳变
         init_text = (
             self._last_trace
             if self._last_trace is not None
@@ -1011,13 +1060,18 @@ class LauncherApp:
 
         win.bind("<Button-3>", show_menu)
 
-        # 优先 pending 数据；若 pending 无效（如 $ 开头的命令行回显），
-        # 用已渲染数据兜底，保证悬浮窗立即显示正确内容
+        # ======== 修复：优先 pending 数据；若无有效 trace，立即渲染时钟 ========
         if self._last_trace is not None:
             self._render_dashboard(self._last_trace, force=True)
             self._last_trace = None
+
         if self.current_trace_text:
             self._render_dashboard(self.current_trace_text, force=True)
+        else:
+            # 关键修复：清空去重记录，强制让新的悬浮窗立刻切到时钟
+            self._idle_clock_text = ""
+            self._render_idle_clock()
+        # ====================================================================
 
         # 先隐藏主窗口，再一次性 reveal 悬浮窗，避免两窗口重叠闪烁
         try:
@@ -1261,22 +1315,40 @@ class LauncherApp:
 
             threading.Thread(target=_wait_tw, daemon=True).start()
 
-    def _clear_trace_view(self) -> None:
-        self._last_trace = None
-        self.current_trace_text = None
-        self.current_path = ""
-        color = self.colors["TYPE_COLORS"]["UNKNOWN"]
+    # ---------- 仪表盘：时钟 / trace 双模式 ----------
+    def _render_idle_clock(self) -> None:
+        """不追踪时，仪表盘显示单行时钟。"""
+        now_dt = datetime.now()
+        week = now_dt.isocalendar()[1]
+        now = now_dt.strftime("%m-%d") + f" W{week:02d} " + now_dt.strftime("%H:%M:%S")
+
+        # 同一秒内不重复刷新 UI
+        if self._idle_clock_text == now:
+            return
+        self._idle_clock_text = now
+
+        # 使用集中的主题颜色
+        clock_fg = self.colors["CLOCK_FG"]
+        idle_bg = self.colors["TYPE_COLORS"]["READY"]
+
         for hud in (self.hud_card_widgets, self.mini_hud_widgets):
             if hud is None:
                 continue
             try:
+                hud["title"].config(text=now, font=self.clock_font, fg=clock_fg)
                 hud["no_val"].config(text="-")
                 hud["pos_val"].config(text="-")
-                hud["type"].config(text="UNKNOWN", bg=color)
-                hud["title"].config(text="等待数据...")
+                hud["type"].config(text="READY", bg=idle_bg)
                 hud["path"].config(text="")
             except tk.TclError:
                 pass
+
+    def _clear_trace_view(self) -> None:
+        self._last_trace = None
+        self.current_trace_text = None
+        self.current_path = ""
+        self._idle_clock_text = ""
+        self._render_idle_clock()
 
     def _on_path_clicked(self, event) -> None:
         if not self.current_path:
@@ -1343,25 +1415,42 @@ class LauncherApp:
                 pass
             self._poll_trace_id = None
 
-        if self._last_trace is not None:
-            self._render_dashboard(self._last_trace)
-            self._last_trace = None
+        try:
+            if self._last_trace is not None:
+                self._render_dashboard(self._last_trace)
+                self._last_trace = None
 
-        self._poll_trace_id = self.root.after(200, self._poll_trace)
+            # 仲裁：trace_mem 未运行 → 时钟；运行中但无 trace 数据 → 时钟
+            if (
+                not self.runners["trace_mem"].is_running()
+                or self.current_trace_text is None
+            ):
+                self._render_idle_clock()
+        except Exception as e:
+            # 任何渲染异常都不能中断调度循环，否则时钟永久停摆
+            if sys.stderr is not None:
+                print(f"[_poll_trace] 异常: {e}", file=sys.stderr)
+        finally:
+            self._poll_trace_id = self.root.after(200, self._poll_trace)
 
     def _render_dashboard(self, text: str, force: bool = False) -> None:
         text = text.replace("\r\n", "\n").replace("\r", "\n").strip()
         if not text or text.startswith("$"):
             return
-        if text == self.current_trace_text and not force:
-            return
-        self.current_trace_text = text
 
+        # 提取字段
         m_no = re.search(r"\[No\.\s*(\d+)\]", text)
         m_type = re.search(r"\[Type:\s*([A-Z_]+)\]", text)
         m_title = re.search(r"\[Title:\s*(.*?)\]", text)
         m_pos = re.search(r"\[Position:\s*(\d+)\]", text)
         m_path = re.search(r"\[Path:\s*(.*?)(?:\s*\(file:///.*?\))?\]", text)
+
+        if not m_no and not m_title:
+            return
+
+        if text == self.current_trace_text and not force:
+            return
+        self.current_trace_text = text
 
         no_str = m_no.group(1) if m_no else "-"
         pos_str = m_pos.group(1) if m_pos else "-"
@@ -1376,6 +1465,11 @@ class LauncherApp:
         for hud in (self.hud_card_widgets, self.mini_hud_widgets):
             if hud is None:
                 continue
+            # 先恢复中文标题字体，再写 trace 文本，避免时钟字体残留
+            try:
+                hud["title"].config(font=self.title_font, fg=self.colors["FG_MAIN"])
+            except tk.TclError:
+                pass
             self._apply_trace_to_hud(
                 hud, no_str, pos_str, type_str, color, title_str, path_str
             )
@@ -1392,8 +1486,17 @@ class LauncherApp:
                 hud["type"].config(text=type_str, bg=color)
             if hud["title"].cget("text") != title_str:
                 hud["title"].config(text=title_str)
-            if hud["path"].cget("text") != path_str:
-                hud["path"].config(text=path_str)
+
+            # 处理路径长度：如果是悬浮窗，且路径过长，则从左侧截断
+            display_path = path_str
+            if hud is self.mini_hud_widgets and display_path:
+                max_len = 35  # 悬浮窗最大字符数
+                if len(display_path) > max_len:
+                    display_path = "..." + display_path[-(max_len - 5) :]
+
+            if hud["path"].cget("text") != display_path:
+                hud["path"].config(text=display_path)
+
         except tk.TclError:
             pass
 
