@@ -30,7 +30,7 @@ SuperMemo 增强工具(CLI命令行)。包含time时间梯度备份、e2sm图书
 
 遇到的问题 2：supermemo 只支持五种图片格式："image/jpeg"、"image/jpg"、"image/png"、"image/gif"、"image/bmp"，PathPix 功能只支持网络图片转换为受支持的五类图片，本地暂时不支持。E2SM 功能对书籍图片进行复制，添加"image/svg+xml"、"image/webp"两种图片格式转换为png图片。
 
-支持的平台及相关功能？Windows平台全功能支持，非Windows平台仅sm2anki、autoTTS功能不支持
+支持的平台及相关功能？Windows平台全功能支持。非Windows系统，仅部分功能可用，可以自己探索一下。
 
 ### 1.3 其他安装方式
 
@@ -54,8 +54,6 @@ SuperMemo 增强工具(CLI命令行)。包含time时间梯度备份、e2sm图书
 PathPix：任意类型的网络图片整理为受支持的五种格式的图片，并网络和本地图片收集起来转换为相对路径，存放在 elements 文件夹中。其中，网页内嵌图片由 pathpix 管理，元素注册表图片由图片注册表管理。pathpix 管理的图片文件，可以导入图片注册表中。
 
 详细问题请查看：旧版 Pathpix 文档：https://docs.qq.com/doc/DQnRpb0VNUEVvR3dl
-
-致谢：● 兰迥 ●Merlin ● 水流众生 ●st ●aicling、致谢：NEXT，郁蒸十四，但为君故-sm18tb8
 
 ### 2.1 整理图片
 
@@ -212,6 +210,8 @@ AutoTTS 卡片朗读 文本转语音
 <center>
 <img src="docs/donate.png" alt="Donate" width="200">
 </center>
+
+致谢：菜五、兰迥、Merlin、水流众生、st、aicling、NEXT，郁蒸十四，但为君故-sm18tb8
 
 ## Star History
 
