@@ -33,8 +33,10 @@ from supermemo_toolkit.time_rewind.time_rewind import (
     GitError,
     SuperMemoBackup,
     Watcher,
+    get_mirror_paths,
     open_gitk,
     setup_logging,
+    sync_mirrors,
 )
 from supermemo_toolkit.title_xref import complete_title
 from supermemo_toolkit.utilscripts import config as smtk_config
@@ -830,6 +832,8 @@ def time_backup(collection, trigger):
             click.echo(f"{name}: 无变更，跳过 ({r.commit[:8] if r.commit else 'N/A'})")
         else:
             click.echo(f"{name}: 已备份 {r.commit[:8]}")
+        for err in r.mirrors:
+            click.echo(f"{name}: mirror 同步失败: {err}", err=True)
 
     # 通知运行中的 watcher 刷新菜单：backup 可能隐式 init 了新集合。
     # 放在 raise 之前，部分成功时也要通知。
@@ -1033,6 +1037,101 @@ def time_browse(collection):
 
     if failed:
         raise click.ClickException(f"{failed} 个集合打开失败")
+
+
+@time_cmd.group(name="mirror")
+def time_mirror():
+    """本地 mirror 备份管理 (git 裸仓库镜像, 每次 backup 自动同步)"""
+    pass
+
+
+def _write_mirror_conf(paths: list[str]) -> None:
+    conf_dict = smtk_config.read_config(smtk_config_file_path)
+    conf_dict[smtk_config.MIRROR_CONF_KEY] = paths
+    smtk_config.dump_config(smtk_config_file_path, conf_dict)
+
+
+@time_mirror.command(name="set")
+@click.argument("path")
+def time_mirror_set(path):
+    """设置 mirror 根目录 (覆盖已有配置)
+
+    PATH 是 mirror 根目录，每个集合同步为 <PATH>/<集合名>.git。
+    需要多个 mirror 时用 add 追加。
+    """
+    path = str(Path(path).resolve())
+    _write_mirror_conf([path])
+    click.echo(f"mirror 已设置: {path} (原有配置已覆盖)")
+
+
+@time_mirror.command(name="add")
+@click.argument("path")
+def time_mirror_add(path):
+    """追加一个 mirror 根目录 (支持多个 mirror, 每次备份全部同步)"""
+    path = str(Path(path).resolve())
+    paths = get_mirror_paths()
+    if path in paths:
+        click.echo(f"mirror 已存在，跳过: {path}")
+        return
+    paths.append(path)
+    _write_mirror_conf(paths)
+    click.echo(f"mirror 已添加: {path} (共 {len(paths)} 个)")
+
+
+@time_mirror.command(name="remove")
+@click.argument("path")
+def time_mirror_remove(path):
+    """移除一个 mirror 根目录 (按配置时的路径匹配, 不删除磁盘文件)"""
+    target = str(Path(path).resolve())
+    paths = get_mirror_paths()
+    if target not in paths and path not in paths:
+        raise click.ClickException(f"mirror 不存在: {path}")
+    paths = [p for p in paths if p not in (target, path)]
+    _write_mirror_conf(paths)
+    click.echo(f"mirror 已移除: {path} (剩余 {len(paths)} 个)")
+
+
+@time_mirror.command(name="list")
+def time_mirror_list():
+    """查看当前配置的 mirror 路径"""
+    paths = get_mirror_paths()
+    if not paths:
+        click.echo("未配置 mirror。设置: smtk time mirror set <路径>")
+        return
+    click.echo("mirror 路径:")
+    for p in paths:
+        exists = "√" if Path(p).exists() else "× (目录不存在, 首次同步时自动创建)"
+        click.echo(f"  {p}  {exists}")
+
+
+@time_mirror.command(name="sync")
+@click.option("--collection", "-c", default=None, help="集合名，默认全部已初始化集合")
+def time_mirror_sync(collection):
+    """立即手动同步 mirror (不用等下一次 backup)"""
+    if not get_mirror_paths():
+        raise click.ClickException("未配置 mirror，请先: smtk time mirror set <路径>")
+    sm = _make_backup_manager()
+    if collection:
+        try:
+            sm.get_collection(collection)
+        except KeyError:
+            raise click.ClickException(f"集合不存在: {collection}")
+        names = [collection]
+    else:
+        names = [c.name for c in sm.initialized_collections()]
+        if not names:
+            raise click.ClickException("没有已初始化的集合。")
+    failed = 0
+    for name in names:
+        errs = sync_mirrors(sm.get_collection(name))
+        if errs:
+            for err in errs:
+                click.echo(f"{name}: mirror 同步失败: {err}", err=True)
+            failed += 1
+        else:
+            click.echo(f"{name}: mirror 已同步")
+    if failed:
+        raise click.ClickException(f"{failed} 个集合同步失败")
 
 
 # ==========================================

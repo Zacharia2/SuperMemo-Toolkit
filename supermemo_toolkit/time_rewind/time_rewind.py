@@ -117,7 +117,11 @@ from typing import NamedTuple, Self
 import pystray
 from PIL import Image, ImageDraw
 
-from supermemo_toolkit.utilscripts.config import config_dir, read_smtk_conf
+from supermemo_toolkit.utilscripts.config import (
+    MIRROR_CONF_KEY,
+    config_dir,
+    read_smtk_conf,
+)
 from supermemo_toolkit.utilscripts.ulils import is_kno_locked
 
 log = logging.getLogger("time")
@@ -238,10 +242,13 @@ class BackupResult(NamedTuple):
         commit:  成功时为完整 commit hash（40 字符）；skipped 时为当前 tip；
                  失败时为 None。
         skipped: True 表示无变更已跳过
+        mirrors: 本地 mirror 同步失败的错误消息列表（空 = 全部同步成功
+                 或未配置 mirror）。mirror 失败不影响 backup 本身的结果。
     """
 
     commit: str | None
     skipped: bool = False
+    mirrors: tuple[str, ...] = ()
 
 
 @dataclass
@@ -478,6 +485,76 @@ def load_config() -> BackupConfig:
     )
 
 
+# ============================================================================
+# 本地 mirror（git clone --mirror 备份）
+# ============================================================================
+
+
+def get_mirror_paths() -> list[str]:
+    """读取 smtk 配置中的本地 mirror 路径列表。
+
+    配置值支持 list（推荐，由 smtk time mirror 命令维护），
+    也兼容分号分隔的字符串（Windows 路径含盘符冒号，故用分号分隔）。
+    """
+    raw = read_smtk_conf().get(MIRROR_CONF_KEY)
+    if not raw:
+        return []
+    if isinstance(raw, (list, tuple)):
+        items = [str(x) for x in raw]
+    else:
+        items = str(raw).split(";")
+    return [p.strip() for p in items if p.strip()]
+
+
+def sync_mirrors(coll: Collection, repo: CollectionRepo | None = None) -> list[str]:
+    """把集合仓库同步到所有配置的本地 mirror。
+
+    每个 mirror 的目标是 <mirror根目录>/<集合名>.git（git 裸仓库镜像）：
+      - 目标不存在时：git clone --mirror 创建（全量，timeout 3600s）
+      - 已存在时：git push --mirror 增量同步所有 refs（hot/archive 全部一致）
+
+    未配置 mirror 或仓库未初始化时不做任何事，返回空列表。
+    单个 mirror 失败不影响其他 mirror，也不向上抛异常；
+    返回值是错误消息列表（空列表 = 全部成功）。
+
+    并发语义：本函数刻意不获取 FileLock——CollectionRepo.backup 在持有
+    FileLock 期间调用它，filelock 库不同实例对同一文件重入会死锁。
+    后果：手动 sync（smtk time mirror sync）与托盘 backup 并发时，
+    push 可能源仓库 refs 正在变化而失败一次；这只是暂时不一致，
+    失败已记录，下次任何 backup/手动 sync 都会补齐，不会损坏数据。
+    """
+    paths = get_mirror_paths()
+    if not paths:
+        return []
+    if repo is None:
+        repo = CollectionRepo(coll)
+    if not repo.is_initialized():
+        return []
+    errors: list[str] = []
+    src = coll.repo_path()
+    for p in paths:
+        root = Path(p)
+        target = root / f"{coll.name}.git"
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+            if (target / "HEAD").exists():
+                git(src, "push", "--mirror", str(target), timeout=3600)
+                log.info(f"{coll.name}: mirror 已同步 -> {target}")
+            else:
+                git(
+                    src,
+                    "clone",
+                    "--mirror",
+                    str(src),
+                    str(target),
+                    timeout=3600,
+                )
+                log.info(f"{coll.name}: mirror 已创建 -> {target}")
+        except Exception as e:
+            errors.append(f"{p}: {e}")
+    return errors
+
+
 def _looks_like_collection(p: Path) -> bool:
     """检查目录是否含 SuperMemo 集合特征文件。"""
     return (
@@ -577,11 +654,13 @@ def git(
     check: bool = True,
     text: bool = True,
     input: str | None = None,
+    timeout: int = 300,
 ):
     """执行 git 命令。
 
     input 参数用于 git update-ref --stdin。
     TimeoutExpired 不捕获，向上抛。
+    timeout 默认 300s；mirror 全量 clone 等大耗时操作应显式传更长值。
     """
     cmd = ["git", "-C", str(repo)] + list(args)
     r = subprocess.run(
@@ -593,7 +672,7 @@ def git(
         encoding="utf-8" if text else None,
         errors="replace" if text else None,
         env=_git_env(repo),
-        timeout=300,
+        timeout=timeout,
     )
     if check and r.returncode != 0:
         err = r.stderr if text else r.stderr.decode(errors="replace")
@@ -852,6 +931,23 @@ class CollectionRepo:
                 _ensure_gitattributes(repo)
                 return repo
 
+    def _sync_mirrors(self, result: BackupResult) -> BackupResult:
+        """backup 成功后（含 skipped）把仓库同步到配置的本地 mirror。
+
+        调用点在 backup 的 try/except 回滚块内部，因此本方法必须且承诺
+        永不 raise（sync_mirrors 已捕获所有异常，这里再包一层双保险）：
+        mirror 同步失败不影响 backup 本身的结果与 kno_store 回滚逻辑，
+        只记录日志并写入 result.mirrors。
+        """
+        try:
+            errors = sync_mirrors(self._coll, repo=self)
+        except Exception as e:  # pragma: no cover - 双保险  # noqa: BLE001
+            errors = [f"unexpected: {e}"]
+        if errors:
+            result = result._replace(mirrors=result.mirrors + tuple(errors))
+            log.error(f"{self.name}: mirror 同步失败: {'; '.join(errors)}")
+        return result
+
     def backup(self, trigger: str = "manual") -> BackupResult:
         """冷备份：集合必须已关闭。外部 .kno 复制进工作区根，然后提交。
 
@@ -950,7 +1046,9 @@ class CollectionRepo:
                             if created:
                                 git(repo, "update-ref", "-d", HOT_REF, check=False)
                             raise
-                        return BackupResult(commit=parent, skipped=True)
+                        return self._sync_mirrors(
+                            BackupResult(commit=parent, skipped=True)
+                        )
 
                     # 15-16. 创建提交
                     msg = f"hot: {datetime.now().isoformat(timespec='seconds')} [{trigger}]"
@@ -973,7 +1071,9 @@ class CollectionRepo:
                         raise
 
                     log.info(f"{self.name}: backup {commit[:8]} (trigger={trigger})")
-                    return BackupResult(commit=commit, skipped=False)
+                    return self._sync_mirrors(
+                        BackupResult(commit=commit, skipped=False)
+                    )
                 except Exception as primary:
                     # 回滚 kno_store 到 HEAD，保持工作区干净。
                     # 回滚本身失败不覆盖原始异常：backup 的回滚只是清理工作区，
@@ -2753,6 +2853,24 @@ class SuperMemoBackup:
         """让集合遗忘 Git 历史：删除 .git 目录。"""
         return self.collection(name).forget()
 
+    def sync_mirrors(self, name: str | None = None) -> dict[str, list[str]]:
+        """手动把集合同步到配置的本地 mirror。
+
+        name 不为 None 时只同步指定集合；为 None 时同步所有已初始化集合。
+        返回 {集合名: [错误消息, ...]}，只包含有错误的集合；
+        空字典 = 全部成功（或未配置 mirror）。
+        """
+        if name is not None:
+            targets = [self.get_collection(name)]
+        else:
+            targets = self.initialized_collections()
+        errors: dict[str, list[str]] = {}
+        for coll in targets:
+            errs = sync_mirrors(coll)
+            if errs:
+                errors[coll.name] = errs
+        return errors
+
     def watch(self) -> None:
         """启动托盘监控（阻塞直到用户退出）。"""
         if self._watcher is not None:
@@ -2787,8 +2905,10 @@ __all__ = [
     # 高级 API
     "SuperMemoBackup",
     "Watcher",
+    "get_mirror_paths",
     # 工具函数
     "open_gitk",
     # 配置
     "setup_logging",
+    "sync_mirrors",
 ]

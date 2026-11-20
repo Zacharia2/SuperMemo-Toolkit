@@ -3,13 +3,14 @@ import json
 import os
 from pathlib import Path
 
-PROGRAM, SYSTEMS, KNOS, VOICE, RATE, VOLUME = (
+PROGRAM, SYSTEMS, KNOS, VOICE, RATE, VOLUME, MIRROR_CONF_KEY = (
     "program",
     "systems",
     "knos",
     "voice",
     "rate",
     "volume",
+    "mirror",  # smtk conf.json 中的 mirror 配置键，值为路径列表
 )
 
 
