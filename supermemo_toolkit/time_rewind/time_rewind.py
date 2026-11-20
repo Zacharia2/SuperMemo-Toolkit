@@ -921,15 +921,14 @@ class CollectionRepo:
 
         锁：GIT_LOCK + FileLock(init_lock_path)（默认 timeout=60）。
         """
-        with GIT_LOCK:
-            with FileLock(self._coll.init_lock_path()):
-                repo = self.repo_path
-                repo.mkdir(parents=True, exist_ok=True)
-                if not self.is_initialized():
-                    git(repo, "init", "-q")
-                _ensure_gitignore(repo)
-                _ensure_gitattributes(repo)
-                return repo
+        with GIT_LOCK, FileLock(self._coll.init_lock_path()):
+            repo = self.repo_path
+            repo.mkdir(parents=True, exist_ok=True)
+            if not self.is_initialized():
+                git(repo, "init", "-q")
+            _ensure_gitignore(repo)
+            _ensure_gitattributes(repo)
+            return repo
 
     def _sync_mirrors(self, result: BackupResult) -> BackupResult:
         """backup 成功后（含 skipped）把仓库同步到配置的本地 mirror。
@@ -959,134 +958,124 @@ class CollectionRepo:
                 提交前集合被重新激活、提交前 SHA-256 不一致。
             GitError: git 操作失败。
         """
-        with GIT_LOCK:
-            with FileLock(self._coll.smtk_lock_path(), timeout=360):
-                # 1. 集合目录必须已存在
-                if not self.repo_path.exists():
-                    raise RuntimeError(f"{self.name}: 集合目录不存在: {self.repo_path}")
-                # 2. 确保仓库已初始化
-                repo = self.init()
-                kno_src = self.kno_path
-                kno_store = self.kno_store_path
-                kno_rel = self.kno_rel()
+        with GIT_LOCK, FileLock(self._coll.smtk_lock_path(), timeout=360):
+            # 1. 集合目录必须已存在
+            if not self.repo_path.exists():
+                raise RuntimeError(f"{self.name}: 集合目录不存在: {self.repo_path}")
+            # 2. 确保仓库已初始化
+            repo = self.init()
+            kno_src = self.kno_path
+            kno_store = self.kno_store_path
+            kno_rel = self.kno_rel()
 
-                # 4. .kno 是文件检查
-                if not kno_src.is_file():
-                    raise RuntimeError(
-                        f"{self.name}: {kno_src} 不是文件或不存在，拒绝备份（集合数据不完整）"
-                    )
-                # 5. .kno 锁定检查
+            # 4. .kno 是文件检查
+            if not kno_src.is_file():
+                raise RuntimeError(
+                    f"{self.name}: {kno_src} 不是文件或不存在，拒绝备份（集合数据不完整）"
+                )
+            # 5. .kno 锁定检查
+            if is_kno_locked(kno_src):
+                raise RuntimeError(f"{self.name}: 集合正在激活，拒绝备份")
+
+            # 6. 复制到临时文件
+            tmp = kno_store.with_suffix(kno_store.suffix + ".smtk-tmp")
+            try:
+                shutil.copy2(kno_src, tmp)
+            except OSError as e:
+                tmp.unlink(missing_ok=True)
+                raise GitError(f"{self.name}: 复制 .kno 失败: {e}") from e
+
+            # 7. SHA-256 校验
+            if _sha256_file(kno_src) != _sha256_file(tmp):
+                tmp.unlink(missing_ok=True)
+                raise GitError(f"{self.name}: .kno 复制后 SHA-256 不一致")
+
+            # 8. 复制后二次锁定检查
+            if is_kno_locked(kno_src):
+                tmp.unlink(missing_ok=True)
+                raise RuntimeError(f"{self.name}: 复制期间集合被重新激活，放弃本次备份")
+
+            # 9. 原子替换
+            try:
+                os.replace(tmp, kno_store)
+            except OSError as e:
+                tmp.unlink(missing_ok=True)
+                raise GitError(f"{self.name}: .kno 原子替换失败: {e}") from e
+
+            # 10-17 整体包 try/except：任何一步失败都恢复 kno_store，
+            # 保持工作区干净，否则后续 restore 的工作区干净检查会卡死用户。
+            try:
+                # 10. 提交前最终校验
                 if is_kno_locked(kno_src):
-                    raise RuntimeError(f"{self.name}: 集合正在激活，拒绝备份")
-
-                # 6. 复制到临时文件
-                tmp = kno_store.with_suffix(kno_store.suffix + ".smtk-tmp")
-                try:
-                    shutil.copy2(kno_src, tmp)
-                except OSError as e:
-                    tmp.unlink(missing_ok=True)
-                    raise GitError(f"{self.name}: 复制 .kno 失败: {e}") from e
-
-                # 7. SHA-256 校验
-                if _sha256_file(kno_src) != _sha256_file(tmp):
-                    tmp.unlink(missing_ok=True)
-                    raise GitError(f"{self.name}: .kno 复制后 SHA-256 不一致")
-
-                # 8. 复制后二次锁定检查
-                if is_kno_locked(kno_src):
-                    tmp.unlink(missing_ok=True)
                     raise RuntimeError(
-                        f"{self.name}: 复制期间集合被重新激活，放弃本次备份"
+                        f"{self.name}: 提交前集合被重新激活，放弃本次备份"
+                    )
+                if _sha256_file(kno_src) != _sha256_file(kno_store):
+                    raise GitError(
+                        f"{self.name}: 提交前 .kno 与 kno_store SHA-256 不一致"
                     )
 
-                # 9. 原子替换
-                try:
-                    os.replace(tmp, kno_store)
-                except OSError as e:
-                    tmp.unlink(missing_ok=True)
-                    raise GitError(f"{self.name}: .kno 原子替换失败: {e}") from e
+                # 11-12. 暂存并写 tree
+                git(repo, "add", "-A")
+                tree = git_out(repo, "write-tree")
 
-                # 10-17 整体包 try/except：任何一步失败都恢复 kno_store，
-                # 保持工作区干净，否则后续 restore 的工作区干净检查会卡死用户。
-                try:
-                    # 10. 提交前最终校验
-                    if is_kno_locked(kno_src):
-                        raise RuntimeError(
-                            f"{self.name}: 提交前集合被重新激活，放弃本次备份"
-                        )
-                    if _sha256_file(kno_src) != _sha256_file(kno_store):
-                        raise GitError(
-                            f"{self.name}: 提交前 .kno 与 kno_store SHA-256 不一致"
-                        )
+                # 13. parent 选择（三行），同时记录 backup 前 HOT_REF 是否存在
+                had_hot = ref_exists(repo, HOT_REF)
+                if had_hot:
+                    parent = rev_parse_commit(repo, HOT_REF)
+                elif ref_exists(repo, ARCHIVE_REF):
+                    parent = rev_parse_commit(repo, ARCHIVE_REF)
+                else:
+                    parent = None
 
-                    # 11-12. 暂存并写 tree
-                    git(repo, "add", "-A")
-                    tree = git_out(repo, "write-tree")
-
-                    # 13. parent 选择（三行），同时记录 backup 前 HOT_REF 是否存在
-                    had_hot = ref_exists(repo, HOT_REF)
-                    if had_hot:
-                        parent = rev_parse_commit(repo, HOT_REF)
-                    elif ref_exists(repo, ARCHIVE_REF):
-                        parent = rev_parse_commit(repo, ARCHIVE_REF)
-                    else:
-                        parent = None
-
-                    # 14. 无变更跳过
-                    if (
-                        parent is not None
-                        and rev_parse(repo, f"{parent}^{{tree}}") == tree
-                    ):
-                        created = not had_hot
-                        if created:
-                            git(repo, "update-ref", HOT_REF, parent)
-                        try:
-                            git(repo, "symbolic-ref", "HEAD", HOT_REF)
-                        except GitError:
-                            if created:
-                                git(repo, "update-ref", "-d", HOT_REF, check=False)
-                            raise
-                        return self._sync_mirrors(
-                            BackupResult(commit=parent, skipped=True)
-                        )
-
-                    # 15-16. 创建提交
-                    msg = f"hot: {datetime.now().isoformat(timespec='seconds')} [{trigger}]"
-                    commit = commit_tree(repo, tree, parent, msg)
-
-                    # 17. 更新 hot 引用，symbolic-ref 失败时回滚到 backup 前的状态
-                    git(repo, "update-ref", HOT_REF, commit)
+                # 14. 无变更跳过
+                if parent is not None and rev_parse(repo, f"{parent}^{{tree}}") == tree:
+                    created = not had_hot
+                    if created:
+                        git(repo, "update-ref", HOT_REF, parent)
                     try:
                         git(repo, "symbolic-ref", "HEAD", HOT_REF)
                     except GitError:
-                        # had_hot 为 True 时恢复旧 hot tip（parent），
-                        # 不删除 HOT_REF。删除会把 backup 前的整个 hot 链
-                        # 变成 dangling，下次 backup 可能 fallback 到 archive
-                        # 重新起链，导致 hot 分叉、用户看到历史"消失"。
-                        # had_hot 为 False 时本次刚创建 HOT_REF，删除即回滚。
-                        if had_hot and parent is not None:
-                            git(repo, "update-ref", HOT_REF, parent, check=False)
-                        else:
+                        if created:
                             git(repo, "update-ref", "-d", HOT_REF, check=False)
                         raise
+                    return self._sync_mirrors(BackupResult(commit=parent, skipped=True))
 
-                    log.info(f"{self.name}: backup {commit[:8]} (trigger={trigger})")
-                    return self._sync_mirrors(
-                        BackupResult(commit=commit, skipped=False)
-                    )
-                except Exception as primary:
-                    # 回滚 kno_store 到 HEAD，保持工作区干净。
-                    # 回滚本身失败不覆盖原始异常：backup 的回滚只是清理工作区，
-                    # 不涉及数据恢复（kno_store 最坏是新内容，下次 backup 会重试），
-                    # 所以 log.error 记录回滚失败即可，原始异常继续向上抛。
-                    try:
-                        _restore_kno_store_to_head(repo, kno_store, kno_rel)
-                    except Exception as rb_err:
-                        log.error(
-                            f"{self.name}: 回滚 kno_store 失败: {rb_err}"
-                            f"（原始错误: {primary}）"
-                        )
+                # 15-16. 创建提交
+                msg = f"hot: {datetime.now().isoformat(timespec='seconds')} [{trigger}]"
+                commit = commit_tree(repo, tree, parent, msg)
+
+                # 17. 更新 hot 引用，symbolic-ref 失败时回滚到 backup 前的状态
+                git(repo, "update-ref", HOT_REF, commit)
+                try:
+                    git(repo, "symbolic-ref", "HEAD", HOT_REF)
+                except GitError:
+                    # had_hot 为 True 时恢复旧 hot tip（parent），
+                    # 不删除 HOT_REF。删除会把 backup 前的整个 hot 链
+                    # 变成 dangling，下次 backup 可能 fallback 到 archive
+                    # 重新起链，导致 hot 分叉、用户看到历史"消失"。
+                    # had_hot 为 False 时本次刚创建 HOT_REF，删除即回滚。
+                    if had_hot and parent is not None:
+                        git(repo, "update-ref", HOT_REF, parent, check=False)
+                    else:
+                        git(repo, "update-ref", "-d", HOT_REF, check=False)
                     raise
+
+                log.info(f"{self.name}: backup {commit[:8]} (trigger={trigger})")
+                return self._sync_mirrors(BackupResult(commit=commit, skipped=False))
+            except Exception as primary:
+                # 回滚 kno_store 到 HEAD，保持工作区干净。
+                # 回滚本身失败不覆盖原始异常：backup 的回滚只是清理工作区，
+                # 不涉及数据恢复（kno_store 最坏是新内容，下次 backup 会重试），
+                # 所以 log.error 记录回滚失败即可，原始异常继续向上抛。
+                try:
+                    _restore_kno_store_to_head(repo, kno_store, kno_rel)
+                except Exception as rb_err:
+                    log.error(
+                        f"{self.name}: 回滚 kno_store 失败: {rb_err}"
+                        f"（原始错误: {primary}）"
+                    )
+                raise
 
     def compact(self) -> CompactResult:
         """压缩仓库历史：把 hot tip 的 tree 折叠为 archive 的一条 snapshot commit。
@@ -1094,179 +1083,171 @@ class CollectionRepo:
         由用户通过托盘菜单显式触发，Watcher 不调用。
         锁：GIT_LOCK + FileLock(smtk_lock_path, timeout=360)。
         """
-        with GIT_LOCK:
-            with FileLock(self._coll.smtk_lock_path(), timeout=360):
-                repo = self.repo_path
+        with GIT_LOCK, FileLock(self._coll.smtk_lock_path(), timeout=360):
+            repo = self.repo_path
 
-                if not self.is_initialized():
-                    return CompactResult(folded=False, message="no repo")
+            if not self.is_initialized():
+                return CompactResult(folded=False, message="no repo")
 
-                # 集合激活时拒绝压缩
-                kno_src = self.kno_path
-                if kno_src.is_file() and is_kno_locked(kno_src):
-                    raise RuntimeError(f"{self.name}: 集合正在激活，拒绝压缩")
+            # 集合激活时拒绝压缩
+            kno_src = self.kno_path
+            if kno_src.is_file() and is_kno_locked(kno_src):
+                raise RuntimeError(f"{self.name}: 集合正在激活，拒绝压缩")
 
-                if not ref_exists(repo, HOT_REF):
-                    return CompactResult(folded=False, message="nothing to fold")
+            if not ref_exists(repo, HOT_REF):
+                return CompactResult(folded=False, message="nothing to fold")
 
-                # 校验 archive tip 的 subject（不变式 I2）
-                if ref_exists(repo, ARCHIVE_REF):
-                    archive_tip = rev_parse_commit(repo, ARCHIVE_REF)
-                    msg = git_out(repo, "log", "-1", "--format=%s", archive_tip)
-                    if not msg.startswith("snapshot: "):
-                        raise GitError(
-                            f"{self.name}: archive tip 不是 snapshot 条目: {msg!r}"
-                        )
-                else:
-                    archive_tip = None
-
-                hot_tip = rev_parse_commit(repo, HOT_REF)
-
-                # 校验 hot tip 含 kno_rel（不变式 I11）
-                kno_rel = self.kno_rel()
-                if _commit_kno_bytes(repo, hot_tip, kno_rel) is None:
-                    raise RuntimeError(
-                        f"{self.name}: hot tip {hot_tip[:8]} 中无 {kno_rel}，拒绝折叠（集合数据不完整）"
+            # 校验 archive tip 的 subject（不变式 I2）
+            if ref_exists(repo, ARCHIVE_REF):
+                archive_tip = rev_parse_commit(repo, ARCHIVE_REF)
+                msg = git_out(repo, "log", "-1", "--format=%s", archive_tip)
+                if not msg.startswith("snapshot: "):
+                    raise GitError(
+                        f"{self.name}: archive tip 不是 snapshot 条目: {msg!r}"
                     )
+            else:
+                archive_tip = None
 
-                # hot 已指向 archive tip（上次 compact 后无新 backup），
-                # 此时既没有新内容可折叠，也没有旧 commit 会变 dangling，
-                # 直接返回 nothing to fold，不落入 empty tree 分支误报 folded=True。
-                if archive_tip is not None and hot_tip == archive_tip:
-                    log.info(f"{self.name}: hot == archive tip，无需折叠")
-                    return CompactResult(folded=False, message="nothing to fold")
+            hot_tip = rev_parse_commit(repo, HOT_REF)
 
-                tree = rev_parse(repo, f"{hot_tip}^{{tree}}")
-
-                # 空 tree：不创建空 snapshot，hot 重置到 archive tip
-                # （此时 hot_tip != archive_tip，即 hot 链上确实有
-                #  tree 与 archive 相同的冗余 commit，折叠是真实操作）
-                if (
-                    archive_tip is not None
-                    and rev_parse(repo, f"{archive_tip}^{{tree}}") == tree
-                ):
-                    # 先 symbolic-ref 再 update-ref：symbolic-ref 失败时
-                    # refs 未动，干净退出；update-ref 失败时 HEAD 已指向 hot
-                    # （hot 仍是旧值，良性），异常同样干净抛出。
-                    git(repo, "symbolic-ref", "HEAD", HOT_REF)
-                    git(repo, "update-ref", HOT_REF, archive_tip)
-                    log.info(
-                        f"{self.name}: compacted {hot_tip[:8]} -> {archive_tip[:8]} "
-                        f"(empty tree, 旧 hot tip 变 dangling)"
-                    )
-                    return CompactResult(
-                        folded=True, created_snapshot=False, message="empty tree"
-                    )
-
-                # 创建 snapshot commit
-                msg = f"snapshot: {datetime.now().isoformat(timespec='seconds')}"
-                new = commit_tree(repo, tree, archive_tip, msg)
-
-                # 先 symbolic-ref 再 update-ref：原顺序在 symbolic-ref 失败时
-                # archive/hot 已折叠但 HEAD 未指向 hot，调用方收到"失败"实际
-                # 已成功，日志里 dangling 提示也没打出来。交换后两行都满足
-                # "失败即 refs 未动或只动 benign 的 HEAD"。
-                git(repo, "symbolic-ref", "HEAD", HOT_REF)
-
-                # 原子更新 archive 和 hot（不变式 I12）
-                # 必须传 bytes：subprocess 在 Windows 文本模式下会把 \n 转成 \r\n，
-                # git update-ref --stdin 的行协议不容忍 CRLF，会报 "expected SP but got: ?"。
-                git(
-                    repo,
-                    "update-ref",
-                    "--stdin",
-                    text=False,
-                    input=(  # noqa: UP012
-                        f"update {ARCHIVE_REF} {new}\nupdate {HOT_REF} {new}\n"
-                    ).encode("utf-8"),
+            # 校验 hot tip 含 kno_rel（不变式 I11）
+            kno_rel = self.kno_rel()
+            if _commit_kno_bytes(repo, hot_tip, kno_rel) is None:
+                raise RuntimeError(
+                    f"{self.name}: hot tip {hot_tip[:8]} 中无 {kno_rel}，拒绝折叠（集合数据不完整）"
                 )
 
+            # hot 已指向 archive tip（上次 compact 后无新 backup），
+            # 此时既没有新内容可折叠，也没有旧 commit 会变 dangling，
+            # 直接返回 nothing to fold，不落入 empty tree 分支误报 folded=True。
+            if archive_tip is not None and hot_tip == archive_tip:
+                log.info(f"{self.name}: hot == archive tip，无需折叠")
+                return CompactResult(folded=False, message="nothing to fold")
+
+            tree = rev_parse(repo, f"{hot_tip}^{{tree}}")
+
+            # 空 tree：不创建空 snapshot，hot 重置到 archive tip
+            # （此时 hot_tip != archive_tip，即 hot 链上确实有
+            #  tree 与 archive 相同的冗余 commit，折叠是真实操作）
+            if (
+                archive_tip is not None
+                and rev_parse(repo, f"{archive_tip}^{{tree}}") == tree
+            ):
+                # 先 symbolic-ref 再 update-ref：symbolic-ref 失败时
+                # refs 未动，干净退出；update-ref 失败时 HEAD 已指向 hot
+                # （hot 仍是旧值，良性），异常同样干净抛出。
+                git(repo, "symbolic-ref", "HEAD", HOT_REF)
+                git(repo, "update-ref", HOT_REF, archive_tip)
                 log.info(
-                    f"{self.name}: compacted {hot_tip[:8]} -> {new[:8]} "
-                    f"(旧 hot tip 变 dangling，2 周内可 git fsck --lost-found 找回)"
+                    f"{self.name}: compacted {hot_tip[:8]} -> {archive_tip[:8]} "
+                    f"(empty tree, 旧 hot tip 变 dangling)"
                 )
                 return CompactResult(
-                    folded=True, created_snapshot=True, message="folded"
+                    folded=True, created_snapshot=False, message="empty tree"
                 )
+
+            # 创建 snapshot commit
+            msg = f"snapshot: {datetime.now().isoformat(timespec='seconds')}"
+            new = commit_tree(repo, tree, archive_tip, msg)
+
+            # 先 symbolic-ref 再 update-ref：原顺序在 symbolic-ref 失败时
+            # archive/hot 已折叠但 HEAD 未指向 hot，调用方收到"失败"实际
+            # 已成功，日志里 dangling 提示也没打出来。交换后两行都满足
+            # "失败即 refs 未动或只动 benign 的 HEAD"。
+            git(repo, "symbolic-ref", "HEAD", HOT_REF)
+
+            # 原子更新 archive 和 hot（不变式 I12）
+            # 必须传 bytes：subprocess 在 Windows 文本模式下会把 \n 转成 \r\n，
+            # git update-ref --stdin 的行协议不容忍 CRLF，会报 "expected SP but got: ?"。
+            git(
+                repo,
+                "update-ref",
+                "--stdin",
+                text=False,
+                input=(  # noqa: UP012
+                    f"update {ARCHIVE_REF} {new}\nupdate {HOT_REF} {new}\n"
+                ).encode("utf-8"),
+            )
+
+            log.info(
+                f"{self.name}: compacted {hot_tip[:8]} -> {new[:8]} "
+                f"(旧 hot tip 变 dangling，2 周内可 git fsck --lost-found 找回)"
+            )
+            return CompactResult(folded=True, created_snapshot=True, message="folded")
 
     def restore(self, target: str) -> RestoreResult:
         """冷恢复：集合必须已关闭。全有或全无语义。
 
         锁：GIT_LOCK + FileLock(smtk_lock_path, timeout=360)。
         """
-        with GIT_LOCK:
-            with FileLock(self._coll.smtk_lock_path(), timeout=360):
-                repo = self.repo_path
-                kno_src = self.kno_path
-                kno_rel = self.kno_rel()
+        with GIT_LOCK, FileLock(self._coll.smtk_lock_path(), timeout=360):
+            repo = self.repo_path
+            kno_src = self.kno_path
+            kno_rel = self.kno_rel()
 
-                if not self.is_initialized():
-                    raise RuntimeError(f"{self.name}: 仓库未初始化")
+            if not self.is_initialized():
+                raise RuntimeError(f"{self.name}: 仓库未初始化")
 
-                # .kno 路径类型检查（存在但不是普通文件 → 配置错误）
-                if kno_src.exists() and not kno_src.is_file():
-                    raise RuntimeError(
-                        f"{self.name}: {kno_src} 不是普通文件，拒绝恢复（配置错误）"
-                    )
-
-                # .kno 锁定检查（.kno 可不存在，restore 会从 commit 重建）
-                if kno_src.is_file() and is_kno_locked(kno_src):
-                    raise RuntimeError(f"{self.name}: 集合正在激活")
-
-                # 工作区干净检查
-                status = git_out(repo, "status", "--porcelain", "--untracked-files=no")
-                if status:
-                    raise RuntimeError(
-                        f"{self.name}: 工作区有未提交改动，请先 backup():\n{status}"
-                    )
-
-                commit = rev_parse_commit(repo, target)
-
-                # 目标 commit 含 kno_rel 检查
-                target_kno = _commit_kno_bytes(repo, commit, kno_rel)
-                if target_kno is None:
-                    raise RuntimeError(
-                        f"{self.name}: 目标 commit {commit[:8]} 中无 {kno_rel}，拒绝恢复（数据不完整）"
-                    )
-
-                # 旧 HEAD 存在性检查（空仓库无 HEAD）
-                head_r = git(
-                    repo, "rev-parse", "--verify", "--quiet", "HEAD", check=False
+            # .kno 路径类型检查（存在但不是普通文件 → 配置错误）
+            if kno_src.exists() and not kno_src.is_file():
+                raise RuntimeError(
+                    f"{self.name}: {kno_src} 不是普通文件，拒绝恢复（配置错误）"
                 )
-                if head_r.returncode != 0:
-                    raise RuntimeError(
-                        f"{self.name}: 仓库无 HEAD（从未 backup），拒绝恢复"
-                    )
-                old_head = head_r.stdout.strip()
 
-                # 旧 HEAD 含 kno_rel 检查
-                old_kno = _commit_kno_bytes(repo, old_head, kno_rel)
-                if old_kno is None:
-                    raise RuntimeError(
-                        f"{self.name}: 旧 HEAD {old_head[:8]} 中无 {kno_rel}，拒绝恢复（无法回滚）"
-                    )
+            # .kno 锁定检查（.kno 可不存在，restore 会从 commit 重建）
+            if kno_src.is_file() and is_kno_locked(kno_src):
+                raise RuntimeError(f"{self.name}: 集合正在激活")
 
-                log.info(f"{self.name}: restoring {old_head[:8]} -> {commit[:8]}")
+            # 工作区干净检查
+            status = git_out(repo, "status", "--porcelain", "--untracked-files=no")
+            if status:
+                raise RuntimeError(
+                    f"{self.name}: 工作区有未提交改动，请先 backup():\n{status}"
+                )
 
-                try:
-                    git(repo, "read-tree", "-u", "--reset", commit)
-                    git(repo, "update-ref", HOT_REF, commit)
-                    git(repo, "symbolic-ref", "HEAD", HOT_REF)
-                except (GitError, subprocess.TimeoutExpired) as e:
-                    _try_rollback(repo, old_head, old_kno, kno_src, self.name, e)
-                    raise RuntimeError(
-                        f"{self.name}: 恢复失败（git 操作），已回滚，请检查 {repo}"
-                    ) from e
+            commit = rev_parse_commit(repo, target)
 
-                try:
-                    _write_kno_atomic(kno_src, target_kno)
-                except Exception as e:
-                    _try_rollback(repo, old_head, old_kno, kno_src, self.name, e)
-                    raise RuntimeError(
-                        f"{self.name}: 恢复失败（.kno 写回），已回滚，请检查 {repo} 和 {kno_src}"
-                    ) from e
+            # 目标 commit 含 kno_rel 检查
+            target_kno = _commit_kno_bytes(repo, commit, kno_rel)
+            if target_kno is None:
+                raise RuntimeError(
+                    f"{self.name}: 目标 commit {commit[:8]} 中无 {kno_rel}，拒绝恢复（数据不完整）"
+                )
 
-                return RestoreResult(target=target, restored=True, old_head=old_head)
+            # 旧 HEAD 存在性检查（空仓库无 HEAD）
+            head_r = git(repo, "rev-parse", "--verify", "--quiet", "HEAD", check=False)
+            if head_r.returncode != 0:
+                raise RuntimeError(f"{self.name}: 仓库无 HEAD（从未 backup），拒绝恢复")
+            old_head = head_r.stdout.strip()
+
+            # 旧 HEAD 含 kno_rel 检查
+            old_kno = _commit_kno_bytes(repo, old_head, kno_rel)
+            if old_kno is None:
+                raise RuntimeError(
+                    f"{self.name}: 旧 HEAD {old_head[:8]} 中无 {kno_rel}，拒绝恢复（无法回滚）"
+                )
+
+            log.info(f"{self.name}: restoring {old_head[:8]} -> {commit[:8]}")
+
+            try:
+                git(repo, "read-tree", "-u", "--reset", commit)
+                git(repo, "update-ref", HOT_REF, commit)
+                git(repo, "symbolic-ref", "HEAD", HOT_REF)
+            except (GitError, subprocess.TimeoutExpired) as e:
+                _try_rollback(repo, old_head, old_kno, kno_src, self.name, e)
+                raise RuntimeError(
+                    f"{self.name}: 恢复失败（git 操作），已回滚，请检查 {repo}"
+                ) from e
+
+            try:
+                _write_kno_atomic(kno_src, target_kno)
+            except Exception as e:
+                _try_rollback(repo, old_head, old_kno, kno_src, self.name, e)
+                raise RuntimeError(
+                    f"{self.name}: 恢复失败（.kno 写回），已回滚，请检查 {repo} 和 {kno_src}"
+                ) from e
+
+            return RestoreResult(target=target, restored=True, old_head=old_head)
 
     def list_untracked(self) -> list[str]:
         """返回工作区中所有 untracked 路径（相对仓库根），不含 .gitignore 忽略的。
@@ -1337,347 +1318,336 @@ class CollectionRepo:
             ResetRollbackFailed: 阶段 C1-C4 失败且回滚不完整，
                 snapshot ref 保留供手动恢复
         """
-        with GIT_LOCK:
-            with FileLock(self._coll.smtk_lock_path(), timeout=360):
-                repo = self.repo_path
-                kno_src = self.kno_path
-                kno_rel = self.kno_rel()
+        with GIT_LOCK, FileLock(self._coll.smtk_lock_path(), timeout=360):
+            repo = self.repo_path
+            kno_src = self.kno_path
+            kno_rel = self.kno_rel()
 
-                # ============ 阶段 A：前置检查 ============
-                if not self.is_initialized():
-                    raise RuntimeError(f"{self.name}: 仓库未初始化")
-                if kno_src.exists() and not kno_src.is_file():
-                    raise RuntimeError(f"{self.name}: {kno_src} 不是普通文件，拒绝重置")
-                if kno_src.is_file() and is_kno_locked(kno_src):
-                    raise RuntimeError(f"{self.name}: 集合正在激活，拒绝重置")
+            # ============ 阶段 A：前置检查 ============
+            if not self.is_initialized():
+                raise RuntimeError(f"{self.name}: 仓库未初始化")
+            if kno_src.exists() and not kno_src.is_file():
+                raise RuntimeError(f"{self.name}: {kno_src} 不是普通文件，拒绝重置")
+            if kno_src.is_file() and is_kno_locked(kno_src):
+                raise RuntimeError(f"{self.name}: 集合正在激活，拒绝重置")
 
-                # 提前定义 kno_tmp，阶段 B 复用；残留 ref 清理和阶段 B 都用到
-                kno_tmp = kno_src.with_suffix(kno_src.suffix + ".smtk-tmp")
+            # 提前定义 kno_tmp，阶段 B 复用；残留 ref 清理和阶段 B 都用到
+            kno_tmp = kno_src.with_suffix(kno_src.suffix + ".smtk-tmp")
 
-                # 残留 snapshot ref 检测（进程被 kill 的迹象）
-                if ref_exists(repo, SNAPSHOT_REF):
-                    # 顺带清理上次 kill 残留的 tmp（阶段 B 尚未执行，此处只能
-                    # 是上次的残留）
-                    kno_tmp.unlink(missing_ok=True)
-                    old_snap = rev_parse(repo, SNAPSHOT_REF)
-                    raise RuntimeError(
-                        f"{self.name}: 发现上次 reset 残留的快照 "
-                        f"{SNAPSHOT_REF} -> {old_snap[:8]}，可能是进程被强杀。\n"
-                        f"\n"
-                        f"【第一步：确认当前状态】\n"
-                        f"请先运行以下命令，对比当前 HEAD 与快照 parent：\n"
-                        f"  git -C {repo} status\n"
-                        f"  git -C {repo} log --oneline -3 HEAD\n"
-                        f"  git -C {repo} log --oneline -3 {SNAPSHOT_REF}\n"
-                        f"\n"
-                        f"判断：\n"
-                        f"  - 若 HEAD 的 hash == {SNAPSHOT_REF}^（快照 parent），\n"
-                        f"    说明 refs 未被移动，只需恢复工作区和 index（方案 A）。\n"
-                        f"  - 若 HEAD 的 hash 不同，说明 refs 已被移动，需完整恢复（方案 B）。\n"
-                        f"  - 若工作区实际已经等于目标 commit（重置其实成功了），\n"
-                        f"    只需清理快照（方案 C）。\n"
-                        f"\n"
-                        f"【方案 A：完整恢复（工作区 + index + refs + 外部 kno）】\n"
-                        f"  git -C {repo} read-tree -u --reset {SNAPSHOT_REF}\n"
-                        f"  git -C {repo} read-tree --reset {SNAPSHOT_REF}^\n"
-                        f"  git -C {repo} update-ref {HOT_REF} {SNAPSHOT_REF}^\n"
-                        f"  git -C {repo} symbolic-ref HEAD {HOT_REF}\n"
-                        f"  git -C {repo} cat-file -p {SNAPSHOT_REF}:{kno_rel} > {kno_src}\n"
-                        f"  git -C {repo} update-ref -d {SNAPSHOT_REF}\n"
-                        f"\n"
-                        f"【方案 B：只清理快照】\n"
-                        f"  git -C {repo} update-ref -d {SNAPSHOT_REF}"
-                    )
-
-                # 未合并冲突会导致 add -A 失败。
-                # check=True：命令本身失败（仓库损坏）时抛异常，不降级为
-                # "无 unmerged"（那样会在 C0 阶段以误导性错误失败）。
-                unmerged = git(repo, "ls-files", "--unmerged").stdout.strip()
-                if unmerged:
-                    raise RuntimeError(
-                        f"{self.name}: 存在未合并的冲突文件，请先解决再重置"
-                    )
-
-                head_r = git(
-                    repo, "rev-parse", "--verify", "--quiet", "HEAD", check=False
-                )
-                if head_r.returncode != 0:
-                    raise RuntimeError(
-                        f"{self.name}: 仓库无 HEAD（从未 backup），拒绝重置"
-                    )
-                old_head = head_r.stdout.strip()
-
-                try:
-                    commit = rev_parse_commit(repo, target)
-                except (GitError, subprocess.TimeoutExpired) as e:
-                    raise NoTargetCommit(
-                        f"{self.name}: 无法解析目标 {target!r}（可能无父提交）"
-                    ) from e
-
-                target_kno = _commit_kno_bytes(repo, commit, kno_rel)
-                if target_kno is None:
-                    raise RuntimeError(
-                        f"{self.name}: 目标 commit {commit[:8]} 中无 {kno_rel}，"
-                        f"拒绝重置（数据不完整）"
-                    )
-
-                if _commit_kno_bytes(repo, old_head, kno_rel) is None:
-                    raise RuntimeError(
-                        f"{self.name}: 旧 HEAD {old_head[:8]} 中无 {kno_rel}，"
-                        f"拒绝重置（仓库状态异常）"
-                    )
-
-                try:
-                    old_kno_actual: bytes | None = (
-                        kno_src.read_bytes() if kno_src.is_file() else None
-                    )
-                except OSError as e:
-                    raise RuntimeError(
-                        f"{self.name}: 读取 {kno_src} 失败，未做任何改动: {e}"
-                    ) from e
-
-                # ============ 阶段 B：写 kno tmp ============
-                try:
-                    kno_tmp.write_bytes(target_kno)
-                    if _sha256_file(kno_tmp) != _sha256_bytes(target_kno):
-                        raise OSError("tmp 内容 SHA-256 校验失败")
-                except OSError as e:
-                    kno_tmp.unlink(missing_ok=True)
-                    raise RuntimeError(
-                        f"{self.name}: 写 .kno 临时文件失败，未做任何改动: {e}"
-                    ) from e
-
-                # ============ 阶段 C0'：二次激活检查 ============
-                if kno_src.is_file() and is_kno_locked(kno_src):
-                    kno_tmp.unlink(missing_ok=True)
-                    raise RuntimeError(
-                        f"{self.name}: 集合在重置执行前被激活，拒绝重置（数据未变）"
-                    )
-
-                # ============ 阶段 C0：创建 snapshot commit ============
-                # add -A --force：把工作区所有文件（含 .gitignore 忽略的）
-                # 加入 index。这样 read-tree -u --reset commit 时，所有不在
-                # 目标 commit 里的文件（无论之前是 tracked、untracked 还是
-                # ignored）都会被识别为"被移除的 index entry"并删除。
-                try:
-                    git(
-                        repo,
-                        "add",
-                        "-A",
-                        "--force",
-                        "--",
-                        ".",
-                        ":(exclude,glob)**/*.lock",
-                        ":(exclude,glob)*.lock",
-                    )
-                    snapshot_tree = git_out(repo, "write-tree")
-                except (GitError, subprocess.TimeoutExpired) as e:
-                    # 恢复 index 到 old_head（不改工作区）。
-                    # check=False 时不抛异常，必须显式检查 returncode，
-                    # 否则 index 恢复失败被静默吞掉，用户看到的是
-                    # "创建快照失败"但不知道 index 也坏了。
-                    reset_r = git(repo, "read-tree", "--reset", old_head, check=False)
-                    if reset_r.returncode != 0:
-                        reset_err = (
-                            reset_r.stderr
-                            if isinstance(reset_r.stderr, str)
-                            else reset_r.stderr.decode(errors="replace")
-                        )
-                        log.error(
-                            f"{self.name}: C0 失败后重置 index 也失败: {reset_err}。"
-                            f"index 可能停留在部分 staged 状态，可用 "
-                            f"git -C {repo} read-tree --reset {old_head} 手动清理。"
-                            f"（原始错误: {e}）"
-                        )
-                    kno_tmp.unlink(missing_ok=True)
-                    raise RuntimeError(
-                        f"{self.name}: 创建快照时暂存工作区失败"
-                        f"（工作区文件内容未变；index 已尝试重置到 HEAD 版本，"
-                        f"原 staged 状态可能丢失）: {e}"
-                    ) from e
-
-                # 始终创建 snapshot（包含工作区所有文件，含 ignored）。
-                # parent = old_head：让残留 ref 恢复时可以用 SNAPSHOT_REF^
-                # 找回操作前 HEAD。
-                try:
-                    snap_msg = (
-                        f"smtk-reset-snapshot "
-                        f"{datetime.now().isoformat(timespec='seconds')}"
-                    )
-                    snapshot_commit = commit_tree(
-                        repo, snapshot_tree, old_head, snap_msg
-                    )
-                    git(repo, "update-ref", SNAPSHOT_REF, snapshot_commit)
-                except (GitError, subprocess.TimeoutExpired) as e:
-                    # 创建 commit 或 ref 失败。index 已 modified，恢复它。
-                    reset_r = git(repo, "read-tree", "--reset", old_head, check=False)
-                    if reset_r.returncode != 0:
-                        reset_err = (
-                            reset_r.stderr
-                            if isinstance(reset_r.stderr, str)
-                            else reset_r.stderr.decode(errors="replace")
-                        )
-                        log.error(
-                            f"{self.name}: 快照 commit 创建失败后重置 index 也失败: "
-                            f"{reset_err}。index 可能停留在部分 staged 状态，可用 "
-                            f"git -C {repo} read-tree --reset {old_head} 手动清理。"
-                            f"（原始错误: {e}）"
-                        )
-                    kno_tmp.unlink(missing_ok=True)
-                    raise RuntimeError(
-                        f"{self.name}: 创建快照 commit 失败"
-                        f"（工作区文件内容未变；index 已尝试重置到 HEAD 版本，"
-                        f"原 staged 状态可能丢失）: {e}"
-                    ) from e
-
-                # log.info 移出 try：logging 极端失败时也不留未清理的 ref
-                log.info(f"{self.name}: created snapshot {snapshot_commit[:8]}")
-
-                log.info(
-                    f"{self.name}: resetting workspace {old_head} -> "
-                    f"{commit[:8]} ({target})"
+            # 残留 snapshot ref 检测（进程被 kill 的迹象）
+            if ref_exists(repo, SNAPSHOT_REF):
+                # 顺带清理上次 kill 残留的 tmp（阶段 B 尚未执行，此处只能
+                # 是上次的残留）
+                kno_tmp.unlink(missing_ok=True)
+                old_snap = rev_parse(repo, SNAPSHOT_REF)
+                raise RuntimeError(
+                    f"{self.name}: 发现上次 reset 残留的快照 "
+                    f"{SNAPSHOT_REF} -> {old_snap[:8]}，可能是进程被强杀。\n"
+                    f"\n"
+                    f"【第一步：确认当前状态】\n"
+                    f"请先运行以下命令，对比当前 HEAD 与快照 parent：\n"
+                    f"  git -C {repo} status\n"
+                    f"  git -C {repo} log --oneline -3 HEAD\n"
+                    f"  git -C {repo} log --oneline -3 {SNAPSHOT_REF}\n"
+                    f"\n"
+                    f"判断：\n"
+                    f"  - 若 HEAD 的 hash == {SNAPSHOT_REF}^（快照 parent），\n"
+                    f"    说明 refs 未被移动，只需恢复工作区和 index（方案 A）。\n"
+                    f"  - 若 HEAD 的 hash 不同，说明 refs 已被移动，需完整恢复（方案 B）。\n"
+                    f"  - 若工作区实际已经等于目标 commit（重置其实成功了），\n"
+                    f"    只需清理快照（方案 C）。\n"
+                    f"\n"
+                    f"【方案 A：完整恢复（工作区 + index + refs + 外部 kno）】\n"
+                    f"  git -C {repo} read-tree -u --reset {SNAPSHOT_REF}\n"
+                    f"  git -C {repo} read-tree --reset {SNAPSHOT_REF}^\n"
+                    f"  git -C {repo} update-ref {HOT_REF} {SNAPSHOT_REF}^\n"
+                    f"  git -C {repo} symbolic-ref HEAD {HOT_REF}\n"
+                    f"  git -C {repo} cat-file -p {SNAPSHOT_REF}:{kno_rel} > {kno_src}\n"
+                    f"  git -C {repo} update-ref -d {SNAPSHOT_REF}\n"
+                    f"\n"
+                    f"【方案 B：只清理快照】\n"
+                    f"  git -C {repo} update-ref -d {SNAPSHOT_REF}"
                 )
 
-                # ============ 阶段 C1-C4：执行写操作 ============
-                # C4 使用 _write_kno_atomic（与 restore 一致）：内部写 tmp +
-                # os.replace + SHA-256 校验，失败时清理 tmp 并 raise。
-                # 阶段 B 写的 kno_tmp 会被 _write_kno_atomic 内部同名 tmp 覆盖，
-                # 等价且更安全；若 git 命令失败（还没到 C4），阶段 B 的 kno_tmp
-                # 仍在，由下面 except 里的 unlink 清理。
-                try:
-                    git(repo, "read-tree", "-u", "--reset", commit)
-                    git(repo, "update-ref", HOT_REF, commit)
-                    git(repo, "symbolic-ref", "HEAD", HOT_REF)
-                    _write_kno_atomic(kno_src, target_kno)
-                except Exception as e:
-                    kno_tmp.unlink(missing_ok=True)
+            # 未合并冲突会导致 add -A 失败。
+            # check=True：命令本身失败（仓库损坏）时抛异常，不降级为
+            # "无 unmerged"（那样会在 C0 阶段以误导性错误失败）。
+            unmerged = git(repo, "ls-files", "--unmerged").stdout.strip()
+            if unmerged:
+                raise RuntimeError(f"{self.name}: 存在未合并的冲突文件，请先解决再重置")
 
-                    # ---- 回滚 ----
-                    # 需要恢复：
-                    #   1. 工作区到 snapshot（含 ignored 原内容）
-                    #   2. index 到 old_head（避免 ignored 污染下一次 backup）
-                    #   3. HOT_REF/HEAD 到 old_head
-                    #   4. 外部 .kno 到操作前字节
-                    rb_ok = True
+            head_r = git(repo, "rev-parse", "--verify", "--quiet", "HEAD", check=False)
+            if head_r.returncode != 0:
+                raise RuntimeError(f"{self.name}: 仓库无 HEAD（从未 backup），拒绝重置")
+            old_head = head_r.stdout.strip()
 
-                    # 1. 恢复工作区到 snapshot（-u 才会更新工作区）
-                    try:
-                        git(repo, "read-tree", "-u", "--reset", snapshot_commit)
-                    except (GitError, subprocess.TimeoutExpired) as re:
-                        rb_ok = False
-                        log.error(f"{self.name}: 回滚工作区失败: {re}")
+            try:
+                commit = rev_parse_commit(repo, target)
+            except (GitError, subprocess.TimeoutExpired) as e:
+                raise NoTargetCommit(
+                    f"{self.name}: 无法解析目标 {target!r}（可能无父提交）"
+                ) from e
 
-                    # 2. 重置 index 到 old_head（不带 -u，不动工作区）。
-                    # 这一步至关重要：snapshot 是用 add -A --force 创建的，
-                    # 包含所有 ignored 文件。若 index 停留在 snapshot，
-                    # 下次 backup() 的 add -A 不会移除它们，write-tree 会把
-                    # ignored 文件提交进 hot 链，用户以为永远被忽略的临时
-                    # 文件会永久进入 Git 历史。
-                    try:
-                        git(repo, "read-tree", "--reset", old_head)
-                    except (GitError, subprocess.TimeoutExpired) as re:
-                        rb_ok = False
-                        log.error(f"{self.name}: 回滚 index 失败: {re}")
+            target_kno = _commit_kno_bytes(repo, commit, kno_rel)
+            if target_kno is None:
+                raise RuntimeError(
+                    f"{self.name}: 目标 commit {commit[:8]} 中无 {kno_rel}，"
+                    f"拒绝重置（数据不完整）"
+                )
 
-                    # 3. 恢复 refs
-                    try:
-                        git(repo, "update-ref", HOT_REF, old_head)
-                        git(repo, "symbolic-ref", "HEAD", HOT_REF)
-                    except (GitError, subprocess.TimeoutExpired) as re:
-                        rb_ok = False
-                        log.error(f"{self.name}: 回滚 refs 失败: {re}")
+            if _commit_kno_bytes(repo, old_head, kno_rel) is None:
+                raise RuntimeError(
+                    f"{self.name}: 旧 HEAD {old_head[:8]} 中无 {kno_rel}，"
+                    f"拒绝重置（仓库状态异常）"
+                )
 
-                    # 4. 恢复外部 .kno
-                    try:
-                        if old_kno_actual is not None:
-                            _write_kno_atomic(kno_src, old_kno_actual)
-                        else:
-                            kno_src.unlink(missing_ok=True)
-                    except Exception as ke:
-                        rb_ok = False
-                        log.error(f"{self.name}: 回滚外部 .kno 失败: {ke}")
+            try:
+                old_kno_actual: bytes | None = (
+                    kno_src.read_bytes() if kno_src.is_file() else None
+                )
+            except OSError as e:
+                raise RuntimeError(
+                    f"{self.name}: 读取 {kno_src} 失败，未做任何改动: {e}"
+                ) from e
 
-                    if rb_ok:
-                        # 回滚完整成功 → 清理 snapshot ref。
-                        # check=False 时不抛异常，必须显式检查 returncode，
-                        # 否则清理失败被静默吞掉，下次 reset 会因残留 ref
-                        # 拒绝，用户困惑："上次明明说完全回滚了"。
-                        drop_r = git(
-                            repo, "update-ref", "-d", SNAPSHOT_REF, check=False
-                        )
-                        if drop_r.returncode != 0:
-                            drop_err = (
-                                drop_r.stderr
-                                if isinstance(drop_r.stderr, str)
-                                else drop_r.stderr.decode(errors="replace")
-                            )
-                            log.warning(
-                                f"{self.name}: 回滚成功后清理 snapshot ref 失败: "
-                                f"{drop_err}。可手动 "
-                                f"git -C {repo} update-ref -d {SNAPSHOT_REF}"
-                            )
-                        raise ResetFailed(
-                            f"{self.name}: 重置失败，文件内容已完全回滚"
-                            f"（refs、tracked、untracked、ignored、外部 .kno 均已恢复；"
-                            f"原 staged/unstaged 区分丢失，所有改动现为 unstaged）。"
-                            f"原始错误: {e}"
-                        ) from e
+            # ============ 阶段 B：写 kno tmp ============
+            try:
+                kno_tmp.write_bytes(target_kno)
+                if _sha256_file(kno_tmp) != _sha256_bytes(target_kno):
+                    raise OSError("tmp 内容 SHA-256 校验失败")
+            except OSError as e:
+                kno_tmp.unlink(missing_ok=True)
+                raise RuntimeError(
+                    f"{self.name}: 写 .kno 临时文件失败，未做任何改动: {e}"
+                ) from e
 
-                    # 回滚不完整 → **保留** snapshot ref，供用户手动恢复
+            # ============ 阶段 C0'：二次激活检查 ============
+            if kno_src.is_file() and is_kno_locked(kno_src):
+                kno_tmp.unlink(missing_ok=True)
+                raise RuntimeError(
+                    f"{self.name}: 集合在重置执行前被激活，拒绝重置（数据未变）"
+                )
+
+            # ============ 阶段 C0：创建 snapshot commit ============
+            # add -A --force：把工作区所有文件（含 .gitignore 忽略的）
+            # 加入 index。这样 read-tree -u --reset commit 时，所有不在
+            # 目标 commit 里的文件（无论之前是 tracked、untracked 还是
+            # ignored）都会被识别为"被移除的 index entry"并删除。
+            try:
+                git(
+                    repo,
+                    "add",
+                    "-A",
+                    "--force",
+                    "--",
+                    ".",
+                    ":(exclude,glob)**/*.lock",
+                    ":(exclude,glob)*.lock",
+                )
+                snapshot_tree = git_out(repo, "write-tree")
+            except (GitError, subprocess.TimeoutExpired) as e:
+                # 恢复 index 到 old_head（不改工作区）。
+                # check=False 时不抛异常，必须显式检查 returncode，
+                # 否则 index 恢复失败被静默吞掉，用户看到的是
+                # "创建快照失败"但不知道 index 也坏了。
+                reset_r = git(repo, "read-tree", "--reset", old_head, check=False)
+                if reset_r.returncode != 0:
+                    reset_err = (
+                        reset_r.stderr
+                        if isinstance(reset_r.stderr, str)
+                        else reset_r.stderr.decode(errors="replace")
+                    )
                     log.error(
-                        f"{self.name}: 回滚不完整，保留 snapshot "
-                        f"{SNAPSHOT_REF} -> {snapshot_commit[:8]}，可手动恢复"
+                        f"{self.name}: C0 失败后重置 index 也失败: {reset_err}。"
+                        f"index 可能停留在部分 staged 状态，可用 "
+                        f"git -C {repo} read-tree --reset {old_head} 手动清理。"
+                        f"（原始错误: {e}）"
                     )
-                    raise ResetRollbackFailed(
-                        f"{self.name}: 重置失败且回滚不完整，仓库/文件可能不一致。\n"
-                        f"快照 {SNAPSHOT_REF} -> {snapshot_commit[:8]} 保留"
-                        f"（含操作前完整工作区，parent 指向操作前 HEAD）。\n"
-                        f"\n"
-                        f"【第一步：确认当前状态】\n"
-                        f"  git -C {repo} status\n"
-                        f"  git -C {repo} log --oneline -3 HEAD\n"
-                        f"\n"
-                        f"【恢复操作前状态（依次执行）】\n"
-                        f"  1. 恢复工作区：\n"
-                        f"     git -C {repo} read-tree -u --reset {SNAPSHOT_REF}\n"
-                        f"  2. 重置 index 到操作前 HEAD（防 ignored 文件污染）：\n"
-                        f"     git -C {repo} read-tree --reset {SNAPSHOT_REF}^\n"
-                        f"  3. 恢复 hot 分支：\n"
-                        f"     git -C {repo} update-ref {HOT_REF} {SNAPSHOT_REF}^\n"
-                        f"  4. 恢复 HEAD：\n"
-                        f"     git -C {repo} symbolic-ref HEAD {HOT_REF}\n"
-                        f"  5. 恢复外部 .kno：\n"
-                        f"     git -C {repo} cat-file -p {SNAPSHOT_REF}:{kno_rel} > {kno_src}\n"
-                        f"  6. 清理快照：\n"
-                        f"     git -C {repo} update-ref -d {SNAPSHOT_REF}\n"
-                        f"\n"
-                        f"如已确认工作区状态正确（例如重置其实已成功），\n"
-                        f"只清理快照即可：\n"
-                        f"  git -C {repo} update-ref -d {SNAPSHOT_REF}\n"
-                        f"\n"
-                        f"原始错误: {e}。请手动检查 {repo} 和 {kno_src}。"
+                kno_tmp.unlink(missing_ok=True)
+                raise RuntimeError(
+                    f"{self.name}: 创建快照时暂存工作区失败"
+                    f"（工作区文件内容未变；index 已尝试重置到 HEAD 版本，"
+                    f"原 staged 状态可能丢失）: {e}"
+                ) from e
+
+            # 始终创建 snapshot（包含工作区所有文件，含 ignored）。
+            # parent = old_head：让残留 ref 恢复时可以用 SNAPSHOT_REF^
+            # 找回操作前 HEAD。
+            try:
+                snap_msg = (
+                    f"smtk-reset-snapshot "
+                    f"{datetime.now().isoformat(timespec='seconds')}"
+                )
+                snapshot_commit = commit_tree(repo, snapshot_tree, old_head, snap_msg)
+                git(repo, "update-ref", SNAPSHOT_REF, snapshot_commit)
+            except (GitError, subprocess.TimeoutExpired) as e:
+                # 创建 commit 或 ref 失败。index 已 modified，恢复它。
+                reset_r = git(repo, "read-tree", "--reset", old_head, check=False)
+                if reset_r.returncode != 0:
+                    reset_err = (
+                        reset_r.stderr
+                        if isinstance(reset_r.stderr, str)
+                        else reset_r.stderr.decode(errors="replace")
+                    )
+                    log.error(
+                        f"{self.name}: 快照 commit 创建失败后重置 index 也失败: "
+                        f"{reset_err}。index 可能停留在部分 staged 状态，可用 "
+                        f"git -C {repo} read-tree --reset {old_head} 手动清理。"
+                        f"（原始错误: {e}）"
+                    )
+                kno_tmp.unlink(missing_ok=True)
+                raise RuntimeError(
+                    f"{self.name}: 创建快照 commit 失败"
+                    f"（工作区文件内容未变；index 已尝试重置到 HEAD 版本，"
+                    f"原 staged 状态可能丢失）: {e}"
+                ) from e
+
+            # log.info 移出 try：logging 极端失败时也不留未清理的 ref
+            log.info(f"{self.name}: created snapshot {snapshot_commit[:8]}")
+
+            log.info(
+                f"{self.name}: resetting workspace {old_head} -> "
+                f"{commit[:8]} ({target})"
+            )
+
+            # ============ 阶段 C1-C4：执行写操作 ============
+            # C4 使用 _write_kno_atomic（与 restore 一致）：内部写 tmp +
+            # os.replace + SHA-256 校验，失败时清理 tmp 并 raise。
+            # 阶段 B 写的 kno_tmp 会被 _write_kno_atomic 内部同名 tmp 覆盖，
+            # 等价且更安全；若 git 命令失败（还没到 C4），阶段 B 的 kno_tmp
+            # 仍在，由下面 except 里的 unlink 清理。
+            try:
+                git(repo, "read-tree", "-u", "--reset", commit)
+                git(repo, "update-ref", HOT_REF, commit)
+                git(repo, "symbolic-ref", "HEAD", HOT_REF)
+                _write_kno_atomic(kno_src, target_kno)
+            except Exception as e:
+                kno_tmp.unlink(missing_ok=True)
+
+                # ---- 回滚 ----
+                # 需要恢复：
+                #   1. 工作区到 snapshot（含 ignored 原内容）
+                #   2. index 到 old_head（避免 ignored 污染下一次 backup）
+                #   3. HOT_REF/HEAD 到 old_head
+                #   4. 外部 .kno 到操作前字节
+                rb_ok = True
+
+                # 1. 恢复工作区到 snapshot（-u 才会更新工作区）
+                try:
+                    git(repo, "read-tree", "-u", "--reset", snapshot_commit)
+                except (GitError, subprocess.TimeoutExpired) as re:
+                    rb_ok = False
+                    log.error(f"{self.name}: 回滚工作区失败: {re}")
+
+                # 2. 重置 index 到 old_head（不带 -u，不动工作区）。
+                # 这一步至关重要：snapshot 是用 add -A --force 创建的，
+                # 包含所有 ignored 文件。若 index 停留在 snapshot，
+                # 下次 backup() 的 add -A 不会移除它们，write-tree 会把
+                # ignored 文件提交进 hot 链，用户以为永远被忽略的临时
+                # 文件会永久进入 Git 历史。
+                try:
+                    git(repo, "read-tree", "--reset", old_head)
+                except (GitError, subprocess.TimeoutExpired) as re:
+                    rb_ok = False
+                    log.error(f"{self.name}: 回滚 index 失败: {re}")
+
+                # 3. 恢复 refs
+                try:
+                    git(repo, "update-ref", HOT_REF, old_head)
+                    git(repo, "symbolic-ref", "HEAD", HOT_REF)
+                except (GitError, subprocess.TimeoutExpired) as re:
+                    rb_ok = False
+                    log.error(f"{self.name}: 回滚 refs 失败: {re}")
+
+                # 4. 恢复外部 .kno
+                try:
+                    if old_kno_actual is not None:
+                        _write_kno_atomic(kno_src, old_kno_actual)
+                    else:
+                        kno_src.unlink(missing_ok=True)
+                except Exception as ke:
+                    rb_ok = False
+                    log.error(f"{self.name}: 回滚外部 .kno 失败: {ke}")
+
+                if rb_ok:
+                    # 回滚完整成功 → 清理 snapshot ref。
+                    # check=False 时不抛异常，必须显式检查 returncode，
+                    # 否则清理失败被静默吞掉，下次 reset 会因残留 ref
+                    # 拒绝，用户困惑："上次明明说完全回滚了"。
+                    drop_r = git(repo, "update-ref", "-d", SNAPSHOT_REF, check=False)
+                    if drop_r.returncode != 0:
+                        drop_err = (
+                            drop_r.stderr
+                            if isinstance(drop_r.stderr, str)
+                            else drop_r.stderr.decode(errors="replace")
+                        )
+                        log.warning(
+                            f"{self.name}: 回滚成功后清理 snapshot ref 失败: "
+                            f"{drop_err}。可手动 "
+                            f"git -C {repo} update-ref -d {SNAPSHOT_REF}"
+                        )
+                    raise ResetFailed(
+                        f"{self.name}: 重置失败，文件内容已完全回滚"
+                        f"（refs、tracked、untracked、ignored、外部 .kno 均已恢复；"
+                        f"原 staged/unstaged 区分丢失，所有改动现为 unstaged）。"
+                        f"原始错误: {e}"
                     ) from e
 
-                # ============ 成功：删除 snapshot ref ============
-                drop_r = git(repo, "update-ref", "-d", SNAPSHOT_REF, check=False)
-                if drop_r.returncode != 0:
-                    drop_err = (
-                        drop_r.stderr
-                        if isinstance(drop_r.stderr, str)
-                        else drop_r.stderr.decode(errors="replace")
-                    )
-                    log.warning(
-                        f"{self.name}: 删除 snapshot ref 失败: {drop_err}。"
-                        f"可手动 git -C {repo} update-ref -d {SNAPSHOT_REF}"
-                    )
-                else:
-                    log.info(f"{self.name}: cleaned up snapshot {snapshot_commit[:8]}")
-
-                log.info(
-                    f"{self.name}: workspace reset to {commit[:8]} ({target}), "
-                    f"old_head={old_head}"
+                # 回滚不完整 → **保留** snapshot ref，供用户手动恢复
+                log.error(
+                    f"{self.name}: 回滚不完整，保留 snapshot "
+                    f"{SNAPSHOT_REF} -> {snapshot_commit[:8]}，可手动恢复"
                 )
-                return commit
+                raise ResetRollbackFailed(
+                    f"{self.name}: 重置失败且回滚不完整，仓库/文件可能不一致。\n"
+                    f"快照 {SNAPSHOT_REF} -> {snapshot_commit[:8]} 保留"
+                    f"（含操作前完整工作区，parent 指向操作前 HEAD）。\n"
+                    f"\n"
+                    f"【第一步：确认当前状态】\n"
+                    f"  git -C {repo} status\n"
+                    f"  git -C {repo} log --oneline -3 HEAD\n"
+                    f"\n"
+                    f"【恢复操作前状态（依次执行）】\n"
+                    f"  1. 恢复工作区：\n"
+                    f"     git -C {repo} read-tree -u --reset {SNAPSHOT_REF}\n"
+                    f"  2. 重置 index 到操作前 HEAD（防 ignored 文件污染）：\n"
+                    f"     git -C {repo} read-tree --reset {SNAPSHOT_REF}^\n"
+                    f"  3. 恢复 hot 分支：\n"
+                    f"     git -C {repo} update-ref {HOT_REF} {SNAPSHOT_REF}^\n"
+                    f"  4. 恢复 HEAD：\n"
+                    f"     git -C {repo} symbolic-ref HEAD {HOT_REF}\n"
+                    f"  5. 恢复外部 .kno：\n"
+                    f"     git -C {repo} cat-file -p {SNAPSHOT_REF}:{kno_rel} > {kno_src}\n"
+                    f"  6. 清理快照：\n"
+                    f"     git -C {repo} update-ref -d {SNAPSHOT_REF}\n"
+                    f"\n"
+                    f"如已确认工作区状态正确（例如重置其实已成功），\n"
+                    f"只清理快照即可：\n"
+                    f"  git -C {repo} update-ref -d {SNAPSHOT_REF}\n"
+                    f"\n"
+                    f"原始错误: {e}。请手动检查 {repo} 和 {kno_src}。"
+                ) from e
+
+            # ============ 成功：删除 snapshot ref ============
+            drop_r = git(repo, "update-ref", "-d", SNAPSHOT_REF, check=False)
+            if drop_r.returncode != 0:
+                drop_err = (
+                    drop_r.stderr
+                    if isinstance(drop_r.stderr, str)
+                    else drop_r.stderr.decode(errors="replace")
+                )
+                log.warning(
+                    f"{self.name}: 删除 snapshot ref 失败: {drop_err}。"
+                    f"可手动 git -C {repo} update-ref -d {SNAPSHOT_REF}"
+                )
+            else:
+                log.info(f"{self.name}: cleaned up snapshot {snapshot_commit[:8]}")
+
+            log.info(
+                f"{self.name}: workspace reset to {commit[:8]} ({target}), "
+                f"old_head={old_head}"
+            )
+            return commit
 
     def forget(self) -> bool:
         """让集合遗忘 Git 历史：删除 .git 目录。
@@ -1688,105 +1658,99 @@ class CollectionRepo:
             RuntimeError: .kno 不是文件、被锁定、工作区有未提交改动、
                 HEAD 不存在、HEAD 缺 kno_rel、.kno 与 HEAD 不一致、删除 .git 失败。
         """
-        with GIT_LOCK:
-            with FileLock(self._coll.smtk_lock_path(), timeout=360):
-                kno_src = self.kno_path
-                kno_rel = self.kno_rel()
-                kno_store = self.kno_store_path
-                repo = self.repo_path
-                name = self.name
+        with GIT_LOCK, FileLock(self._coll.smtk_lock_path(), timeout=360):
+            kno_src = self.kno_path
+            kno_rel = self.kno_rel()
+            kno_store = self.kno_store_path
+            repo = self.repo_path
+            name = self.name
 
-                # 1. .kno 是文件检查
-                if not kno_src.is_file():
-                    raise RuntimeError(
-                        f"{name}: {kno_src} 不是文件或不存在，拒绝卸载（集合数据不完整）"
-                    )
-
-                # 2. .kno 锁定检查
-                if is_kno_locked(kno_src):
-                    raise RuntimeError(f"{name}: 集合正在激活，请先关闭 SuperMemo")
-
-                # 3. 未初始化 → 无需卸载
-                if not self.is_initialized():
-                    log.debug(f"{name}: 无 .git 目录，跳过卸载")
-                    return False
-
-                # 4. 工作区干净检查（tracked 无改动）
-                status = git_out(repo, "status", "--porcelain", "--untracked-files=no")
-                if status:
-                    raise RuntimeError(
-                        f"{name}: tracked 文件有未提交改动，拒绝卸载。"
-                        f"请先 backup() 后再试。\n{status}"
-                    )
-
-                # 5. HEAD 存在性检查
-                head = git(
-                    repo, "rev-parse", "--verify", "--quiet", "HEAD", check=False
+            # 1. .kno 是文件检查
+            if not kno_src.is_file():
+                raise RuntimeError(
+                    f"{name}: {kno_src} 不是文件或不存在，拒绝卸载（集合数据不完整）"
                 )
-                if head.returncode != 0:
-                    raise RuntimeError(
-                        f"{name}: 仓库无 HEAD，拒绝卸载（无法校验 .kno 一致性）"
-                    )
-                head_commit = head.stdout.strip()
 
-                # 6. HEAD 含 kno_rel 检查
-                data = _commit_kno_bytes(repo, head_commit, kno_rel)
-                if data is None:
-                    raise RuntimeError(
-                        f"{name}: HEAD 中无 {kno_rel}，拒绝卸载（无法校验 .kno 一致性）"
-                    )
+            # 2. .kno 锁定检查
+            if is_kno_locked(kno_src):
+                raise RuntimeError(f"{name}: 集合正在激活，请先关闭 SuperMemo")
 
-                # 7. 外部 .kno 与 HEAD 字节一致检查
-                if _sha256_file(kno_src) != _sha256_bytes(data):
-                    raise RuntimeError(
-                        f"{name}: 外部 .kno 与 HEAD 不一致，"
-                        f"SuperMemo 关闭后可能还没备份。请先 backup() 后再试。"
-                    )
+            # 3. 未初始化 → 无需卸载
+            if not self.is_initialized():
+                log.debug(f"{name}: 无 .git 目录，跳过卸载")
+                return False
 
-                # 8. 原子写回外部 .kno（幂等，防御不完整写入）
-                _write_kno_atomic(kno_src, data)
-                log.info(f"{name}: .kno 已从 HEAD {head_commit[:8]} 写回外部")
+            # 4. 工作区干净检查（tracked 无改动）
+            status = git_out(repo, "status", "--porcelain", "--untracked-files=no")
+            if status:
+                raise RuntimeError(
+                    f"{name}: tracked 文件有未提交改动，拒绝卸载。"
+                    f"请先 backup() 后再试。\n{status}"
+                )
 
-                # 9. 删除 .git（核心操作，失败 raise，.git 还在可重试）
-                git_dir = repo / ".git"
+            # 5. HEAD 存在性检查
+            head = git(repo, "rev-parse", "--verify", "--quiet", "HEAD", check=False)
+            if head.returncode != 0:
+                raise RuntimeError(
+                    f"{name}: 仓库无 HEAD，拒绝卸载（无法校验 .kno 一致性）"
+                )
+            head_commit = head.stdout.strip()
 
-                def _on_error(func, path, exc_info):
-                    try:
-                        os.chmod(path, 0o700)
-                        func(path)
-                    except OSError:
-                        raise
+            # 6. HEAD 含 kno_rel 检查
+            data = _commit_kno_bytes(repo, head_commit, kno_rel)
+            if data is None:
+                raise RuntimeError(
+                    f"{name}: HEAD 中无 {kno_rel}，拒绝卸载（无法校验 .kno 一致性）"
+                )
 
+            # 7. 外部 .kno 与 HEAD 字节一致检查
+            if _sha256_file(kno_src) != _sha256_bytes(data):
+                raise RuntimeError(
+                    f"{name}: 外部 .kno 与 HEAD 不一致，"
+                    f"SuperMemo 关闭后可能还没备份。请先 backup() 后再试。"
+                )
+
+            # 8. 原子写回外部 .kno（幂等，防御不完整写入）
+            _write_kno_atomic(kno_src, data)
+            log.info(f"{name}: .kno 已从 HEAD {head_commit[:8]} 写回外部")
+
+            # 9. 删除 .git（核心操作，失败 raise，.git 还在可重试）
+            git_dir = repo / ".git"
+
+            def _on_error(func, path, exc_info):
                 try:
-                    if sys.version_info >= (3, 12):
-                        shutil.rmtree(git_dir, onexc=_on_error)
-                    else:
-                        shutil.rmtree(git_dir, onerror=_on_error)
-                except OSError as e:
-                    raise RuntimeError(f"{name}: 删除 .git 失败: {e}") from e
+                    os.chmod(path, 0o700)
+                    func(path)
+                except OSError:  # noqa: TRY203
+                    raise
 
-                # 10. 删除 .gitignore / .gitattributes（次要清理，失败 log.warning）
-                for fname in (".gitignore", ".gitattributes"):
-                    p = repo / fname
-                    if p.exists():
-                        try:
-                            p.unlink()
-                        except OSError as e:
-                            log.warning(f"{name}: 删除 {fname} 失败: {e}")
+            try:
+                shutil.rmtree(git_dir, onexc=_on_error)
+            except OSError as e:
+                raise RuntimeError(f"{name}: 删除 .git 失败: {e}") from e
 
-                # 11. 删除工作区 kno_store（恢复初始化前结构）
-                #     失败时 .git 已删，无法回滚；错误消息说明手动删除
-                if kno_store.exists():
+            # 10. 删除 .gitignore / .gitattributes（次要清理，失败 log.warning）
+            for fname in (".gitignore", ".gitattributes"):
+                p = repo / fname
+                if p.exists():
                     try:
-                        kno_store.unlink()
+                        p.unlink()
                     except OSError as e:
-                        raise RuntimeError(
-                            f"{name}: .git 已删除，但工作区 {kno_store} 删除失败: {e}。"
-                            f"请手动删除 {kno_store} 以完成 forget。"
-                        ) from e
+                        log.warning(f"{name}: 删除 {fname} 失败: {e}")
 
-                log.info(f"{name}: 已卸载 git 仓库 ({repo})，工作区已恢复初始化前结构")
-                return True
+            # 11. 删除工作区 kno_store（恢复初始化前结构）
+            #     失败时 .git 已删，无法回滚；错误消息说明手动删除
+            if kno_store.exists():
+                try:
+                    kno_store.unlink()
+                except OSError as e:
+                    raise RuntimeError(
+                        f"{name}: .git 已删除，但工作区 {kno_store} 删除失败: {e}。"
+                        f"请手动删除 {kno_store} 以完成 forget。"
+                    ) from e
+
+            log.info(f"{name}: 已卸载 git 仓库 ({repo})，工作区已恢复初始化前结构")
+            return True
 
     def snapshots(self) -> SnapshotData | None:
         """返回集合快照数据；仓库不存在返回 None。"""
@@ -2649,7 +2613,7 @@ class Watcher:
                     elif data == b"REFRESH":
                         log.info("收到菜单刷新信号，重建菜单")
                         self._rebuild_menu()
-                except socket.timeout:
+                except TimeoutError:
                     continue
                 except Exception:
                     break
