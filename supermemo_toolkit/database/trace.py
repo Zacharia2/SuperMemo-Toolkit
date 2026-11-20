@@ -267,7 +267,7 @@ class Trace:
             print(
                 f"[No. {text_reg.eId}] "
                 f"[Type: {text_reg.eType.name}] "
-                f"[Title: {text_reg.eTitle[:12].strip()}] "
+                f"[Title: {str(text_reg.eTitle)[:12].strip()}] "
                 f"[Position: {position}] "
                 f"[Path: {path_link}]"
             )
