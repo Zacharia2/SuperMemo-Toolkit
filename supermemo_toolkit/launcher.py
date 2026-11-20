@@ -1046,6 +1046,7 @@ class LauncherApp:
             except tk.TclError:
                 pass
 
+        menu.add_command(label="日志", command=self._open_log_window)
         menu.add_command(label=START_LBL, command=self._mini_start_trace)
         menu.add_command(label=STOP_LBL, command=self._mini_stop_trace)
         menu.add_separator()
