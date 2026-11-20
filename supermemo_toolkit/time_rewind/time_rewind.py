@@ -1862,6 +1862,15 @@ class Watcher:
     """封装 SuperMemo 集合监控的完整生命周期。
 
     使用 0.5 秒轮询 is_kno_locked 检测集合的打开/关闭。
+
+    托盘图标状态模型：
+    - 持久态（由事件写入，持续到下一个事件覆盖）：waiting（空闲）/
+      active（集合激活）/ paused（监听暂停）/ running（操作进行中，
+      同一操作必然写入 done 或 error 终态）/ error（红色，出错）。
+    - 瞬态：done（灰色操作回执），2 秒后自动回落到当时的真实状态
+      （paused > active > waiting），解决 done 覆盖 active 后蓝色
+      回不来的问题。
+
     只 backup，不 compact。折叠由用户通过托盘菜单手动触发。
 
     托盘菜单提供「暂停监听」开关：暂停期间轮询线程完全停止探测，
@@ -1871,6 +1880,10 @@ class Watcher:
 
     已知限制见模块文档字符串。
     """
+
+    # done 瞬态回执的显示时长（秒）。
+    # running / error 是持久态，不走瞬态回落。
+    TRANSIENT_HOLD = 2.0
 
     def __init__(self, config: BackupConfig) -> None:
         self._config = config
@@ -1886,7 +1899,8 @@ class Watcher:
         # set() 表示「监听已暂停」。默认不暂停。
         self._pause_event = threading.Event()
         # 保护 _holder["_last_icon_key"] 的「检查-写入」原子性。
-        # RLock 允许 _update_icon_done 在持锁时嵌套调用 _update_icon。
+        # RLock 允许 _show_transient 的回落线程在持锁时嵌套调用
+        # _update_icon。
         self._icon_lock = threading.RLock()
 
     @property
@@ -1922,10 +1936,10 @@ class Watcher:
             return
         if r.skipped:
             log.info(f"{c.name}: [watcher] backup 无变更，跳过")
-            self._update_icon_done(f"{c.name} 无变化")
+            self._show_transient(f"{c.name} 无变化")
         else:
             log.info(f"{c.name}: [watcher] backup 完成 {r.commit[:8]}")
-            self._update_icon_done(f"{c.name} 已备份")
+            self._show_transient(f"{c.name} 已备份")
 
     def _is_active_safe(self, c: Collection, err_state: dict[str, bool]) -> bool | None:
         """探测集合是否激活。
@@ -1973,14 +1987,16 @@ class Watcher:
         集合关闭后 auto-backup 完成时（可能隐式 init），在 _track 之外
         调 _rebuild_menu，让菜单包含新初始化的集合；多个集合同一轮
         关闭只 rebuild 一次。
+
+        图标语义：检测到关闭时图标保持原状（通常仍是蓝色），防抖
+        窗口（1 秒）内不闪黄色——关闭已确认、备份即将开始，闪黄只是
+        噪音；若复查发现是锁闪断（假关闭），图标无变化反而更正确。
+        防抖本身由 pending_close + 复查承担，与图标无关。
         """
         err_state: dict[str, bool] = {}
         was_active: dict[str, bool] = {}
-
         self._probe_states(err_state, was_active)
-
         pending_close: dict[str, float] = {}
-
         while not self._stop_event.is_set():
             # ---- 暂停监听：不做任何探测，等待恢复 ----
             if self._pause_event.is_set():
@@ -2012,8 +2028,11 @@ class Watcher:
                     self._update_icon("active", c.name)
                     log.info(f"{c.name}: 检测到集合被打开")
                 elif not active and prev:
+                    # 防抖窗口（1 秒）内图标保持原状（通常仍是蓝色）：
+                    # 不写 waiting——关闭已确认、备份即将开始，闪一下黄色
+                    # 只是噪音；若复查发现是锁闪断（假关闭），图标无变化
+                    # 反而更正确。防抖本身由 pending_close + 复查承担。
                     pending_close[c.name] = now + 1.0
-                    self._update_icon("waiting")
                     log.info(f"{c.name}: 检测到集合被关闭")
                 was_active[c.name] = active
 
@@ -2031,6 +2050,10 @@ class Watcher:
                     # 恢复探测后下一轮会重新检测到关闭转换并备份。
                     continue
                 if active:
+                    # 假关闭（锁闪断）：写回 active。正常路径 key 去重为
+                    # no-op；若防抖窗口内图标被其他事件（done 灰、其他
+                    # 集合的绿/红）覆盖过，这里是唯一恢复蓝色的路径，
+                    # 不能删。
                     self._update_icon("active", name)
                     continue
                 self._track(lambda c=c: self._backup_only(c))
@@ -2055,7 +2078,7 @@ class Watcher:
         """返回当前处于激活状态（.kno 存在且被锁定）的第一个集合名（按配置顺序）；
         无激活集合或全部探测失败时返回 None。
 
-        仅用于 _update_icon_done 的延迟恢复。探测失败静默跳过（错误日志由
+        仅用于 _true_state（done 瞬态回落）。探测失败静默跳过（错误日志由
         _poll_loop 的 _is_active_safe 负责，这里不重复）。多集合同时激活时
         返回第一个；_probe_states 循环刷新最终显示最后一个，两者 detail
         可能不同，但状态（active 蓝色）一致，不影响用户感知。
@@ -2069,62 +2092,85 @@ class Watcher:
                 continue
         return None
 
-    def _update_icon_done(self, detail: str = "") -> None:
-        """显示 done 状态；若存在持久状态（监听暂停 / 集合激活），
-        几秒后恢复对应图标。
+    def _true_state(self) -> tuple[str, str]:
+        """当前真实状态：paused > active > waiting。
+
+        含文件系统 IO（遍历集合探测 .kno 锁定），勿持 _icon_lock 调用。
+        仅供 _show_transient 的回落线程在锁外调用；事件路径
+        （_poll_loop / 暂停切换）由各自已知的转换直接写图标，不走本方法。
+        """
+        if self._pause_event.is_set():
+            return ("paused", "监听已暂停")
+        name = self._active_collection_name()
+        if name is not None:
+            return ("active", name)
+        return ("waiting", "")
+
+    def _show_transient(self, detail: str = "") -> None:
+        """显示 done 瞬态回执；TRANSIENT_HOLD 秒后回落到当时的真实状态。
 
         done 是操作的临时反馈（几秒钟就够了）。两类持久状态会被 done
-        在视觉上覆盖，都需要延迟恢复：
-          - paused：用户显式暂停监听。
-          - active：某个集合正在激活（.kno 被锁定）。典型场景：切换
-            集合时旧集合备份完成，done 覆盖了新集合的 active 图标，
-            而 _poll_loop 只在状态转换时刷新 active，导致蓝色再也
-            回不来。
-        paused 优先于 active：监听暂停期间不感知集合状态，恢复时也只
-        回到 paused 图标。
+        在视觉上覆盖，都需要延迟回落：
+        - paused：用户显式暂停监听。
+        - active：某个集合正在激活（.kno 被锁定）。典型场景：切换
+          集合时旧集合备份完成，done 覆盖了新集合的 active 图标，而
+          _poll_loop 只在状态转换时刷新 active，导致蓝色再也回不来。
 
-        延迟期间若图标已被其他状态覆盖（新操作、真正恢复监听、报错等），
-        不覆盖新状态：_check 持 _icon_lock 重新比对 _last_icon_key，
-        并重新检查 _pause_event / 集合激活状态。
+        回落规则：
+        - 回落读 fire 时刻的真实状态（_true_state 在线程醒来后才执行）：
+          paused 优先于 active（与 _poll_loop 暂停期间不探测的语义
+          一致）；触发后图标被新事件覆盖的情况由 key 校验让位兜住，
+          两者不冲突。
+        - 探测在锁外执行：is_kno_locked 触发文件系统 IO，不应在图标
+          锁内执行；
+        - 延迟期间若图标已被其他状态覆盖（新操作、真正恢复监听、报错
+          等），不覆盖新状态：回落线程持 _icon_lock 重新比对
+          _last_icon_key；
+        - current_key 在锁内读取：与写入 done 在同一临界区，避免读到
+          并发写入的其他状态（如 error），导致回落线程把持久的红色
+          错误图标覆盖掉；
+        - paused 复查：探测后、拿锁前用户可能刚暂停。paused 切换在此
+          毫秒窗口内没有事件写入兜底（active→waiting 方向由 key 校验
+          兜住），故锁内显式复查一次（读 Event，无 IO）；
+        - running / error 是持久态，不得经此方法（调用点直接用
+          _update_icon）；
+        - restart 安全：回落线程捕获 stop_event 引用。旧线程在 stop 时
+          stop_event 已 set，醒来立即退出，不会误刷新新 session 的
+          icon（原实现靠 _pause_event 在 start() 时 clear 兜底；本
+          实现必须显式检查 stop_event）；
+        - 未 start() 时（stop_event 为 None）仅显示 done，不起回落
+          线程，图标保持灰色直到下次写入。
 
-        注意：无暂停时也会启动 _check 线程（原实现无暂停时直接 return），
-        因为 active 状态同样需要延迟恢复。线程 2 秒后结束，数量可控。
-
-        restart 安全：_check 捕获 stop_event 引用。旧线程在 stop 时
-        stop_event 已 set，restart 后醒来立即退出，不会误刷新 icon
-        （原实现靠 _pause_event 在 start() 时 clear 兜底；本实现无暂停
-        时也启动线程，该兜底失效，必须显式检查 stop_event）。
+        注意：线程 TRANSIENT_HOLD 秒后结束，数量可控。已知无害冗余：
+        连续两个相同 detail 的 done 会各自起一个回落线程，先 fire 的
+        恢复真实态，后 fire 的因 key 不匹配让位，结果正确。
         """
         with self._icon_lock:
             self._update_icon("done", detail)  # RLock 可重入
             if self._stop_event is None or self._stop_event.is_set():
                 return
             stop_event = self._stop_event
+            # 锁内快照：与写入在同一临界区，保证回落线程比对的是
+            # 本次 done 的 key，而不是随后并发写入的其他状态的 key。
             current_key = self._holder.get("_last_icon_key")
 
-        def _check() -> None:
-            _time.sleep(2)
+        def _restore() -> None:
+            _time.sleep(self.TRANSIENT_HOLD)
             if stop_event.is_set():
                 return
-            # 探测在锁外：is_kno_locked 触发文件系统 IO，不应在图标锁内
-            # 执行。paused 优先，暂停时不探测 active（与 _poll_loop 暂停
-            # 期间不探测的语义一致）。
-            paused_now = self._pause_event.is_set()
-            active_now = None if paused_now else self._active_collection_name()
-            if stop_event.is_set():
-                return
+            truth = self._true_state()  # 探测在锁外：IO 不进图标锁
             with self._icon_lock:
                 if stop_event.is_set():
                     return
                 if self._holder.get("_last_icon_key") != current_key:
-                    return
+                    return  # 延迟期间图标已被其他状态覆盖，让位
                 if self._pause_event.is_set():
                     # 探测后到拿锁之间用户可能刚暂停，重新检查，paused 优先。
                     self._update_icon("paused", "监听已暂停")
-                elif active_now is not None:
-                    self._update_icon("active", active_now)
+                    return
+                self._update_icon(*truth)
 
-        threading.Thread(target=_check, daemon=True, name="done-icon-restore").start()
+        threading.Thread(target=_restore, daemon=True, name="done-icon-restore").start()
 
     def _on_compact(self, icon, item, name: str | None = None) -> None:
         """托盘菜单：压缩历史（后台执行，不阻塞托盘）。
@@ -2137,8 +2183,9 @@ class Watcher:
         单集合模式命中未初始化集合时给出明确提示，而非静默成功。
 
         前置检查（集合查找、is_initialized）的失败均通过系统通知与
-        托盘图标反馈给用户，不依赖最外层兜底 except——那里只写日志，
-        托盘图标不变，用户看不到任何反馈。
+        托盘图标反馈给用户，不依赖最外层兜底 except——那里负责写日志
+        并切 error 图标（running 是持久态，最外层兜底必须写终态，
+        否则绿色永久卡住）。
         """
         label = "全部" if name is None else name
 
@@ -2156,7 +2203,7 @@ class Watcher:
                     if not targets:
                         log.info("compact: 无已初始化集合，跳过")
                         _notify("无已初始化集合，无需压缩")
-                        self._update_icon_done("无已初始化集合")
+                        self._show_transient("无已初始化集合")
                         return
                 else:
                     c = next(
@@ -2177,7 +2224,7 @@ class Watcher:
                     if not initialized:
                         log.info(f"{name}: 未初始化，跳过压缩")
                         _notify(f"{name} 未初始化")
-                        self._update_icon_done(f"{name} 未初始化")
+                        self._show_transient(f"{name} 未初始化")
                         return
                     targets = [c]
 
@@ -2202,9 +2249,11 @@ class Watcher:
                     self._update_icon("error", f"压缩失败: {', '.join(failed)}")
                 else:
                     _notify("压缩完成" if name is None else f"{name} 压缩完成")
-                    self._update_icon_done("压缩完成")
+                    self._show_transient("压缩完成")
             except Exception as e:
+                # 兜底必须写终态：running 是持久态，漏写会让绿色永久卡住。
                 log.error(f"compact background thread failed: {e}")
+                self._update_icon("error", f"压缩异常 ({label})")
 
         threading.Thread(target=lambda: self._track(_do), daemon=True).start()
 
@@ -2418,7 +2467,8 @@ class Watcher:
 
         前置检查（集合查找、is_initialized、is_active）的失败均通过
         系统通知与托盘图标反馈给用户，不依赖最外层兜底 except——
-        那里只写日志，用户看不到任何反馈。
+        那里负责写日志并切 error 图标（running 是持久态，最外层兜底
+        必须写终态，否则绿色永久卡住）。
 
         reset_workspace 抛出的三类异常分别通知：
             NoTargetCommit:      目标 rev 不可解析（如 HEAD^ 但只有 1 个 commit）
@@ -2455,7 +2505,7 @@ class Watcher:
                 if not initialized:
                     log.info(f"{name}: 未初始化，跳过 reset")
                     _notify(f"{name} 未初始化，跳过")
-                    self._update_icon_done(f"{name} 未初始化")
+                    self._show_transient(f"{name} 未初始化")
                     return
 
                 try:
@@ -2476,7 +2526,7 @@ class Watcher:
                 except NoTargetCommit as e:
                     log.info(f"{name}: reset to {target} skipped: {e}")
                     _notify(f"{name} 无目标提交（{label}）")
-                    self._update_icon_done(f"{name} 无目标提交")
+                    self._show_transient(f"{name} 无目标提交")
                     return
                 except ResetFailed as e:
                     log.warning(f"{name}: reset failed but rolled back: {e}")
@@ -2533,9 +2583,11 @@ class Watcher:
                     self._update_icon("error", f"{name} 已重置（快照残留）")
                 else:
                     _notify(f"{name} 已重置到 {label}（未备份改动已丢弃）")
-                    self._update_icon_done(f"{name} 已重置 ({label})")
+                    self._show_transient(f"{name} 已重置 ({label})")
             except Exception as e:
+                # 兜底必须写终态：running 是持久态，漏写会让绿色永久卡住。
                 log.error(f"reset background thread failed: {e}")
+                self._update_icon("error", f"{name} 重置异常")
 
         threading.Thread(target=lambda: self._track(_do), daemon=True).start()
 
