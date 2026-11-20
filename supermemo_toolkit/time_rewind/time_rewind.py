@@ -1907,14 +1907,14 @@ class Watcher:
         try:
             r = CollectionRepo(c).backup("shutdown")
         except Exception as e:
-            log.error(f"{c.name}: backup failed: {e}")
+            log.error(f"{c.name}: [watcher] backup failed: {e}")
             self._update_icon("error", f"{c.name} 备份失败")
             return
         if r.skipped:
-            log.info(f"{c.name}: backup skipped (no change)")
+            log.info(f"{c.name}: [watcher] backup skipped (no change)")
             self._update_icon_done(f"{c.name} 无变化")
         else:
-            log.info(f"{c.name}: backup {r.commit[:8]}")
+            log.info(f"{c.name}: [watcher] backup {r.commit[:8]}")
             self._update_icon_done(f"{c.name} 已备份")
 
     def _is_active_safe(self, c: Collection, err_state: dict[str, bool]) -> bool | None:
@@ -2177,10 +2177,12 @@ class Watcher:
                 for c in targets:
                     try:
                         r = CollectionRepo(c).compact()
-                        log.info(f"{c.name}: compact -> {r.message}")
+                        # compact() 内部已详细记录（compacted X -> Y ...），
+                        # 这里只确认托盘触发成功，信息量低，降为 debug。
+                        log.debug(f"{c.name}: [watcher] compact -> {r.message}")
                     except Exception as e:
                         failed.append(c.name)
-                        log.error(f"{c.name}: compact failed: {e}")
+                        log.error(f"{c.name}: [watcher] compact failed: {e}")
 
                 if failed:
                     if name is None:
@@ -2498,7 +2500,9 @@ class Watcher:
                     self._update_icon("error", f"{name} 重置失败")
                     return
 
-                log.info(f"{name}: reset to {commit[:8]} ({label})")
+                # reset_workspace 内部已记录 workspace reset to ... (含 old_head)，
+                # 这里只标注托盘触发来源。
+                log.info(f"{name}: [watcher] reset to {commit[:8]} ({label})")
 
                 # reset_workspace 成功路径里 update-ref -d SNAPSHOT_REF 失败
                 # 只 log.warning 不 raise；上层再查一次 ref，若残留则通知用户
