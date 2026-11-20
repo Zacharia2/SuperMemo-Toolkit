@@ -1302,6 +1302,7 @@ if __name__ == "__main__":
     # main.commands["imgfit"](["--trace", "--ignore"], standalone_mode=False)
     # main.commands["math"](["card", "--trace"], standalone_mode=False)
     # main.commands["pathpix"](["Reading-And-Review", "--clean"], standalone_mode=False)
+    # main.commands["trace"](["--mem-watch"], standalone_mode=False)
 
     try:
         main()

@@ -128,7 +128,7 @@ class Trace:
                         last_id = elem_id
                         text_reg.refresh(element_id=elem_id)
                         if text_reg.eId is None:
-                            time.sleep(0.5)
+                            time.sleep(0.1)
                             # 同样的判定顺序，避免刚 sleep 完 SM 已重启/退出被误判
                             if self.__stoped:
                                 return False
@@ -168,7 +168,7 @@ class Trace:
 
                 active_kno_path = self._get_active_kno_path()
                 if active_kno_path is None or active_kno_path == last_kno_path:
-                    time.sleep(0.5)
+                    time.sleep(0.1)
                     continue
                 last_kno_path = active_kno_path
                 kno_file = Path(active_kno_path + ".kno")
@@ -207,7 +207,7 @@ class Trace:
             # print(f"[TempHandler] [No. {elem_id}]")
             text_reg.refresh(element_id=elem_id)
             if text_reg.eId is None:
-                time.sleep(0.5)
+                time.sleep(0.1)
                 if supermemo.snapshot is None:
                     return
             callback(text_reg)

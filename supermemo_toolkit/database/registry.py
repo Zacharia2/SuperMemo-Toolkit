@@ -86,48 +86,56 @@ class TextRegistry:
         self.__mem_file: str = os.path.join(system_dir, "registry", "Text.mem")
         self.__rtx_file: str = os.path.join(system_dir, "registry", "Text.rtx")
 
-    def __parse_elinfo(self) -> list:
-        """解析 ElementInfo.dat，返回记录列表（包含 element_type, title_text_id, compon_pos）"""
-        # ElementInfo.dat，行号下标就是元素id，删除和添加元素不会行号下标都不会变。
-        results = [None]  # 1-based 列表，index 0 占位
+    def __parse_elinfo(self, element_id: int) -> dict | None:
+        """按 element_id 精确读取一条记录。
 
+        ElementInfo.dat，行号下标就是元素id，删除和添加元素行号下标都不会变。
+        记录定长 118 字节，1-based（列表占位头由调用方构造，文件本身无头部），
+        所以文件偏移 = (element_id - 1) * 118。
+
+        原「全文件读 + 解包全部记录」版本是 refresh() 每次调用的
+        最大固定开销（百万级元素时上百 MB），精确 seek 后单次
+        只读 118 字节。
+        """
         RECORD_SIZE = 118
         RECORD_STRUC = struct.Struct("< B B I I 108x")
-
+        # 上下文围栏：element_id 必须 ≥ 1，且偏移不得越过文件末尾。
+        # 上界用文件实际大小动态计算（集合元素数会增长，写死会过期）。
+        if element_id < 1:
+            return None
+        try:
+            file_size = os.path.getsize(self.__elinfo_path)
+        except OSError:
+            return None
+        if (element_id - 1) * RECORD_SIZE + RECORD_SIZE > file_size:
+            return None  # 越界：element_id 超出文件包含的记录数
         with open(self.__elinfo_path, "rb") as f:
-            while True:
-                data = f.read(RECORD_SIZE)
-                if len(data) < RECORD_SIZE:
-                    break
-                unpacked = RECORD_STRUC.unpack(data[: RECORD_STRUC.size])
-                element_type = ElementType(unpacked[0])  # 0: Topic, 1: Item, 4: Concept
-                title_text_id = unpacked[2]
-                compon_pos = unpacked[3]
-                # 转换为有符号整数（compon_pos 可为 -1）
-                if compon_pos >= 2**31:
-                    compon_pos -= 2**32
-                results.append(
-                    {
-                        "element_type": element_type,
-                        "title_text_id": title_text_id,
-                        "compon_pos": compon_pos,
-                    }
-                )
-        return results
+            f.seek((element_id - 1) * RECORD_SIZE)
+            data = f.read(RECORD_SIZE)
+        if len(data) < RECORD_SIZE:
+            # 围栏通过后、读取前文件被外部截断（罕见，SM 正常运行只追加
+            # 不缩短）。没有这行，struct.unpack 会抛 struct.error 并
+            # 穿透 refresh 炸掉追踪线程；返回 None 则降级为静默重试。
+            return None
+        unpacked = RECORD_STRUC.unpack(data[: RECORD_STRUC.size])
+        element_type = ElementType(unpacked[0])  # 0: Topic, 1: Item, 4: Concept
+        title_text_id = unpacked[2]
+        compon_pos = unpacked[3]
+        # 转换为有符号整数（compon_pos 可为 -1）
+        if compon_pos >= 2**31:
+            compon_pos -= 2**32
+        return {
+            "element_type": element_type,
+            "title_text_id": title_text_id,
+            "compon_pos": compon_pos,
+        }
 
     def __get_member_by_position(self, member_position: int):
-
-        # 检查文件是否存在
-        if not os.path.exists(self.__mem_file):
-            return None
-        with open(self.__mem_file, "rb") as f:
-            mem_data = f.read()
-
-        # 验证数据长度
-        if len(mem_data) % 30 != 0:
-            return None
-
-        # 构建 members 列表（1-based 元组）
+        # Text.mem 每条记录为定长 30 字节（struct "<IHIIIIII"），1-based 编号。
+        # 按 Position 精确 seek 读取一条，替代原来的全文件读取。
+        # 一次 refresh 会被调用 N+1 次（标题 1 次 + 每个组件各 1 次），
+        # 原来每次全文件读 Text.mem 也是显示延迟的重要来源。
+        #
         # 字节序：小端，格式字符串对应字段顺序
         # https://github.com/supermemo/SuperMemoAssistant/blob/develop/src/Core/SuperMemoAssistant.Core/SuperMemo/SuperMemo17/Files/RegMemElem17.cs
         # lst（和一个mem成员关联的元素列表（一（member）对多（元素）列表））
@@ -136,28 +144,41 @@ class TextRegistry:
         # members 行号6461 (Position)，内容是 member(UseCount=1, LinkType=2, RtxId=0, RtxOffset=6832362, RtxLength=10625, XX=2613, SlotId=1846, Empty=0, Reserved=0)
         # 01000000 0300 00000000 01000000 19000000 01000000 00000000 00000000
         # 01000000 03 00 00000000 01000000 19000000 01000000 00000000 00000000
-        member_fmt = struct.Struct("<IHIIIIII")
-        members = (
-            None,
-            *[
-                Member(
-                    fields[0],
-                    MemberLinkType(fields[1]),
-                    fields[2],
-                    fields[3],
-                    fields[4],
-                    fields[5],
-                    fields[6] if fields[6] != 0 else None,
-                    fields[7],
-                )
-                for fields in member_fmt.iter_unpack(mem_data)
-            ],
-        )
-
-        # 检查内存索引是否有效
-        if not (1 <= member_position < len(members)):
+        if not os.path.exists(self.__mem_file):
             return None
-        return members[member_position]
+        member_fmt = struct.Struct("<IHIIIIII")
+        RECORD_SIZE = member_fmt.size  # 30 字节/条
+        # 上下文围栏，与 __parse_elinfo 同款：
+        # 下界拒 position<1（防负数 seek 从文件尾倒数）；
+        # 上界用文件实际大小动态计算（成员数会增长，写死会过期）。
+        if member_position < 1:
+            return None
+        try:
+            file_size = os.path.getsize(self.__mem_file)
+        except OSError:
+            return None
+        if (member_position - 1) * RECORD_SIZE + RECORD_SIZE > file_size:
+            return None  # 越界：member_position 超出文件包含的记录数
+        # 1-based 编号 → 0-based 文件偏移
+        with open(self.__mem_file, "rb") as f:
+            f.seek((member_position - 1) * RECORD_SIZE)
+            data = f.read(RECORD_SIZE)
+        if len(data) < RECORD_SIZE:
+            # 围栏通过后、读取前文件被外部截断（罕见）。没有这行，
+            # struct.unpack 会抛 struct.error 穿透 refresh 炸掉追踪线程；
+            # 返回 None 则降级为静默重试。
+            return None
+        fields = member_fmt.unpack(data)
+        return Member(
+            fields[0],
+            MemberLinkType(fields[1]),
+            fields[2],
+            fields[3],
+            fields[4],
+            fields[5],
+            fields[6] if fields[6] != 0 else None,
+            fields[7],
+        )
 
     def __compute_element_path(self, slot: int, extension: str = "HTM") -> str:
         base = [10, 300, 9000, 270000, 8100000]
@@ -269,14 +290,15 @@ class TextRegistry:
         # 示例: 知识树标题文本 + 00（\0） + 03 00 00 00 + 01
         if not (os.path.exists(self.__rtx_file)):
             return ""
-        with open(self.__rtx_file, "rb") as f:
-            rtx_data = f.read()
-
-        # 解析文本标题
         # SuperMemo (Delphi) 采取 1-based offset (所以需要减 1 转换回 0-based)
         actual_offset = offset - 1 if offset > 0 else 0
-        raw_text_data = rtx_data[actual_offset : actual_offset + length]
-
+        with open(self.__rtx_file, "rb") as f:
+            f.seek(actual_offset)
+            # 只读 length 字节：RtxLength 已覆盖「null 终止符前的全部文本」，
+            # 无需读全文件再切片。一次 refresh 会被调用 N+1 次
+            # （标题 1 次 + 每个组件各 1 次），原来每次全文件读取是
+            # trace_with_mem 显示延迟 2~3 秒的主因。
+            raw_text_data = f.read(length)
         # 以 null terminator 截断出核心文本
         null_idx = raw_text_data.find(b"\x00")
         if null_idx != -1:
@@ -312,8 +334,7 @@ class TextRegistry:
         self.eType = None
         self.eTitle = None
         self.eComponents = None
-        records = self.__parse_elinfo()
-        record = records[element_id] if 0 < element_id < len(records) else None
+        record = self.__parse_elinfo(element_id)
         if record is None:
             return
 
