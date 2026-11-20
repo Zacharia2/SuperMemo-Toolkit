@@ -532,10 +532,20 @@ def sync_mirrors(coll: Collection, repo: CollectionRepo | None = None) -> list[s
         return []
     errors: list[str] = []
     src = coll.repo_path()
+    src_resolved = Path(src).resolve()
     for p in paths:
         root = Path(p)
         target = root / f"{coll.name}.git"
         try:
+            # 安全护栏：mirror 目标落在集合目录内时，下次 backup 的
+            # git add -A 会把 mirror 裸仓库（含全部历史副本）提交回
+            # 集合仓库，形成自我吞噬循环，禁止这种配置。
+            if target.resolve().is_relative_to(src_resolved):
+                errors.append(
+                    f"{p}: mirror 目录位于集合目录 {src} 内部，会被下次 "
+                    f"backup 提交回集合仓库，拒绝同步"
+                )
+                continue
             root.mkdir(parents=True, exist_ok=True)
             if (target / "HEAD").exists():
                 git(src, "push", "--mirror", str(target), timeout=3600)
@@ -1911,10 +1921,10 @@ class Watcher:
             self._update_icon("error", f"{c.name} 备份失败")
             return
         if r.skipped:
-            log.info(f"{c.name}: [watcher] backup skipped (no change)")
+            log.info(f"{c.name}: [watcher] backup 无变更，跳过")
             self._update_icon_done(f"{c.name} 无变化")
         else:
-            log.info(f"{c.name}: [watcher] backup {r.commit[:8]}")
+            log.info(f"{c.name}: [watcher] backup 完成 {r.commit[:8]}")
             self._update_icon_done(f"{c.name} 已备份")
 
     def _is_active_safe(self, c: Collection, err_state: dict[str, bool]) -> bool | None:
@@ -2755,7 +2765,7 @@ class SuperMemoBackup:
             try:
                 results.append(self.collection(c.name).backup(trigger))
             except Exception as e:
-                log.error(f"{c.name}: backup failed: {e}")
+                log.error(f"{c.name}: [backup_all] backup failed: {e}")
                 results.append(BackupResult(commit=None, skipped=False))
         return results
 
