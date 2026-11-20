@@ -461,7 +461,7 @@ class LauncherApp:
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         # 保存 after 返回值，便于退出时取消
-        self._drain_logs_id = self.root.after(100, self._drain_logs)
+        self._drain_logs_id = self.root.after(50, self._drain_logs)
         self._poll_trace_id = self.root.after(200, self._poll_trace)
         self._poll_status_id = self.root.after(500, self._poll_status)
         self.root.after(200, self._check_smtk_on_startup)
@@ -1381,11 +1381,14 @@ class LauncherApp:
         if self._drain_logs_id is not None:
             try:
                 self.root.after_cancel(self._drain_logs_id)
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
             self._drain_logs_id = None
 
         try:
+            # 本周期内收集最后一次 trace 数据，循环结束后统一渲染，
+            # 避免快速连续切换时对 A、B 各渲染一次全量仪表盘。
+            last_trace_text = None
             while True:
                 name, text = LOG.get_nowait()
                 buf = self.log_buffer.setdefault(name, [])
@@ -1400,23 +1403,34 @@ class LauncherApp:
 
                 if name == "trace_mem":
                     self._last_trace = text
+                    last_trace_text = text
         except queue.Empty:
             pass
         except Exception as e:
             if sys.stderr is not None:
                 print(f"[日志刷新异常] {e}", file=sys.stderr)
-
-        self._drain_logs_id = self.root.after(100, self._drain_logs)
+        finally:
+            # 放 finally：即使中途异常，本周期已收集的最后一行仍被渲染。
+            # 本方法运行在 Tk 主线程的 after 回调里，直接渲染安全；
+            # _poll_trace 稍后渲染同一文本时会被 _render_dashboard
+            # 的去重守卫拦住，无重复开销。
+            if last_trace_text is not None:
+                self._render_dashboard(last_trace_text)
+        # 节拍 100ms → 50ms：砍半日志到渲染的最坏排队延迟。
+        self._drain_logs_id = self.root.after(50, self._drain_logs)
 
     def _poll_trace(self) -> None:
         if self._poll_trace_id is not None:
             try:
                 self.root.after_cancel(self._poll_trace_id)
-            except Exception:
+            except Exception:  # noqa: BLE001, S110
                 pass
             self._poll_trace_id = None
 
         try:
+            # trace 数据的即时渲染已由 _drain_logs 承担（同在主线程，
+            # 省 200ms 排队）；这里渲染 _last_trace 仅作为 drain 异常
+            # 周期的兜底，正常路径会被 _render_dashboard 去重守卫拦住。
             if self._last_trace is not None:
                 self._render_dashboard(self._last_trace)
                 self._last_trace = None
