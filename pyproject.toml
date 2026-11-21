@@ -43,6 +43,8 @@ dependencies = [
 # setx PYTHONUTF8 1
 # uvx uv-upsync --index-url https://mirrors.ustc.edu.cn/pypi/simple/ 
 # uvx uv-bump
+# uv build --no-sources
+# uvx uv-publish --repository pypi
 
 [dependency-groups]
 dev = ["pyinstaller>=6.22.3"]
