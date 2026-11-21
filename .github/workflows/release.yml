@@ -3,9 +3,6 @@ name: Build Windows Installer
 on:
     release:
         types: [published]
-    push:
-        tags:
-            - "v*" # push tag 也触发；如果只想要 release 触发，删掉这段
     workflow_dispatch: # 允许手动重跑
 
 jobs:
